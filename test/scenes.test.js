@@ -367,9 +367,9 @@
       expect(keys.length).toBe(5);
     });
 
-    it('既定では音を出したい状態になっている', function () {
+    it('音を出す操作をすると、出したい状態になる', function () {
       // 実際に鳴り始めるのは最初の操作のとき（自動再生の制限があるため）。
-      // ここで見ているのは「出したいと思っているか」の既定値。
+      // ここで見ているのは「出したいと思っているか」のほう。
       S2.turnOn();
       expect(S2.isOn()).toBeTrue();
     });
@@ -500,29 +500,34 @@
       expect(app.CONFIG.softGlareSqueeze >= 2).toBeTrue();
     });
 
-    it('疑似グレアの固定は、既定では切', function () {
-      // 速い環境まで簡素な絵にしてしまわないこと。
-      // 見比べたい人だけが入れる。
-      expect(app.isSoftGlare()).toBeFalse();
-    });
-
+    /*
+     * 以下の2つは「今どうなっているか」ではなく「切り替えられるか」を見る。
+     *
+     * 既定が切であることは、保存された値が '1' のときだけ入れる、という
+     * 読み方で保証している。ここで既定値そのものを確かめようとすると、
+     * その端末の設定に左右されて落ちる（実際に落ちた）。
+     * テストが遊び手の設定を書き換えないよう、元の値へ戻しておく。
+     */
     it('疑似グレアの固定を切り替えられる', function () {
+      var before = app.isSoftGlare();
+
       app.setSoftGlare(true);
       expect(app.isSoftGlare()).toBeTrue();
       app.setSoftGlare(false);
       expect(app.isSoftGlare()).toBeFalse();
-    });
 
-    it('FPS 表示は、既定では切', function () {
-      // 調整のための数字であって、作品の一部ではない。
-      expect(app.isFps()).toBeFalse();
+      app.setSoftGlare(before);
     });
 
     it('FPS 表示を切り替えられる', function () {
+      var before = app.isFps();
+
       app.setFps(true);
       expect(app.isFps()).toBeTrue();
       app.setFps(false);
       expect(app.isFps()).toBeFalse();
+
+      app.setFps(before);
     });
 
     it('ずらし加算のずれ幅は 0 より大きい', function () {
