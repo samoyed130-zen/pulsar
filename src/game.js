@@ -160,6 +160,46 @@
   } catch (e) { /* 既定のまま */ }
 
   /**
+   * @brief カーソルのガイド輪を常に出すか。
+   *
+   * 慣れた人には邪魔になるので消せるようにする。消していても、
+   * 走り始めの数秒だけは出して自然に消える（最初の一度は伝える必要がある）。
+   * @private
+   */
+  var guideOn = true;
+
+  /** @brief 実際に描くときの濃さ [0..1]。設定の切り替えに滑らかに追従する。 @private */
+  var guideAlpha = 1;
+
+  /**
+   * @brief ガイド輪を常に出すかを設定し、端末に覚えさせる。
+   * @param {boolean} on 出すなら true
+   * @returns {void}
+   */
+  function setGuide(on) {
+    guideOn = !!on;
+    try {
+      global.localStorage.setItem('pulsar.guide', guideOn ? '1' : '0');
+    } catch (e) { /* 保存できなくても遊べる */ }
+  }
+
+  /**
+   * @brief ガイド輪を常に出す設定か。
+   * @returns {boolean} 出すなら true
+   */
+  function isGuide() {
+    return guideOn;
+  }
+
+  // 前回の選択を復元する。
+  try {
+    if (global.localStorage.getItem('pulsar.guide') === '0') {
+      guideOn = false;
+      guideAlpha = 0;
+    }
+  } catch (e) { /* 既定のまま */ }
+
+  /**
    * @brief ステージごとの難しさ。
    *
    * 段階を追って次のように変える:
@@ -769,21 +809,30 @@
    * @returns {void}
    */
   function drawGuide(f, cx, cy, focal) {
+    // 常時表示のときは濃く、切っているときは走り始めの案内だけ。
+    // 目標へ滑らかに近づけることで、消えかけている最中に切り替えても
+    // そこから自然に濃くなる（跳ねない）。
+    var target = guideOn ? 1 : (f.guideIntro || 0);
+    guideAlpha = M.approach(guideAlpha, target, 4, f.dt || 0);
+
+    if (guideAlpha <= 0.01) return;
+
     var c = f.ctx;
     var radius = cursorRadius(focal);
+    var a = guideAlpha;
 
     c.save();
     c.globalCompositeOperation = 'lighter';
 
     // 下地の太い輪と、その上に破線。太さがあると「この線の上を動く」と
     // 分かりやすく、リングと重なる瞬間も掴みやすい。
-    c.strokeStyle = 'rgba(150,200,255,0.10)';
+    c.strokeStyle = 'rgba(150,200,255,' + (a * 0.10).toFixed(3) + ')';
     c.lineWidth = 9;
     c.beginPath();
     c.arc(cx, cy, radius, 0, TAU);
     c.stroke();
 
-    c.strokeStyle = 'rgba(170,215,255,0.34)';
+    c.strokeStyle = 'rgba(170,215,255,' + (a * 0.34).toFixed(3) + ')';
     c.lineWidth = 3.5;
     c.setLineDash([10, 12]);
     c.beginPath();
@@ -875,6 +924,8 @@
     SENSITIVITY_STEPS: SENSITIVITY_STEPS,
     setSensitivity: setSensitivity,
     getSensitivity: getSensitivity,
+    setGuide: setGuide,
+    isGuide: isGuide,
     advanceStage: advanceStage,
     completeGame: completeGame,
     goalReached: goalReached,

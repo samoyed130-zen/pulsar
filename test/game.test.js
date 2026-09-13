@@ -587,6 +587,23 @@
     });
   });
 
+  describe('ガイド輪の表示', function () {
+    it('切り替えられる', function () {
+      var before = G.isGuide();
+      G.setGuide(false);
+      expect(G.isGuide()).toBeFalse();
+      G.setGuide(true);
+      expect(G.isGuide()).toBeTrue();
+      G.setGuide(before);
+    });
+
+    it('保存できない環境でも切り替えが例外を投げない', function () {
+      G.setGuide(false);
+      G.setGuide(true);
+      expect(typeof G.isGuide()).toBe('boolean');
+    });
+  });
+
   describe('操作の速さ', function () {
     it('5段階が用意されている', function () {
       expect(G.SENSITIVITY_STEPS.length).toBe(5);

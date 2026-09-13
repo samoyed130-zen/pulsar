@@ -235,11 +235,20 @@
       expect(L.bass < L.hat).toBeTrue();
       expect(L.hat < L.lead).toBeTrue();
       expect(L.lead < L.arp).toBeTrue();
-      expect(L.bass >= 0 && L.arp <= 1).toBeTrue();
+      expect(L.arp < L.pad).toBeTrue();
+      expect(L.bass >= 0 && L.pad <= 1).toBeTrue();
     });
 
     it('ゲージ満タンで全ての層が鳴る条件を満たす', function () {
-      expect(1 >= S2.LAYER.arp).toBeTrue();
+      expect(1 >= S2.LAYER.pad).toBeTrue();
+    });
+
+    it('層は5段階ある（打楽器から伸びる音まで）', function () {
+      var keys = [];
+      for (var k in S2.LAYER) {
+        if (Object.prototype.hasOwnProperty.call(S2.LAYER, k)) keys.push(k);
+      }
+      expect(keys.length).toBe(5);
     });
 
     it('既定では音を出したい状態になっている', function () {

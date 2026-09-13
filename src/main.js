@@ -926,6 +926,8 @@
       pointer: pointer,
       steer: steer,
       inputMode: inputMode,
+      // ガイド輪を切っている人にも、走り始めだけは見せて自然に消す
+      guideIntro: fadeOutHint(),
       impact: impact
     };
 

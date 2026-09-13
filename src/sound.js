@@ -197,9 +197,12 @@
    */
   var LAYER = {
     bass: 0.02,   // 触れて走り出せばすぐ土台が入る
-    hat: 0.30,
-    lead: 0.55,
-    arp: 0.85
+    hat: 0.26,
+    lead: 0.48,
+    arp: 0.70,
+    // 最後は刻む音ではなく、伸びる音を重ねる。音数を増やし続けると
+    // ただ忙しくなるだけなので、締めは厚みで聴かせる。
+    pad: 0.88
   };
 
   /**
@@ -284,6 +287,46 @@
   }
 
   /**
+   * @brief 長く伸びる音を鳴らす（パッド）。
+   *
+   * 立ち上がりと減衰をゆっくりにして、刻む音の下に敷く。
+   * 2つの発振器をわずかにずらして重ね、厚みを出す。
+   *
+   * @private
+   * @param {number} freq 周波数 [Hz]
+   * @param {number} at 発音時刻 [s]
+   * @param {number} dur 長さ [s]
+   * @param {number} level 音量 [0..1]
+   * @returns {void}
+   */
+  function pad(freq, at, dur, level) {
+    var gain = ac.createGain();
+    var lp = ac.createBiquadFilter();
+
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(600, at);
+    lp.frequency.linearRampToValueAtTime(1800, at + dur * 0.5);
+    lp.frequency.linearRampToValueAtTime(700, at + dur);
+
+    // ゆっくり立ち上げ、ゆっくり落とす。打点を作らないのが狙い。
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(level, at + dur * 0.35);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+
+    gain.connect(lp).connect(master);
+
+    // わずかに音程をずらした2本で、うねりのある厚みにする
+    [0, 1].forEach(function (i) {
+      var osc = ac.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.value = freq * (i === 0 ? 1 : 1.005);
+      osc.connect(gain);
+      osc.start(at);
+      osc.stop(at + dur + 0.05);
+    });
+  }
+
+  /**
    * @brief 16分音符1つ分の音を予約する。
    * @private
    * @param {number} n 通し番号
@@ -317,6 +360,17 @@
     // 満タン近くでだけ現れる高音。ここまで来た手応えを音で返す。
     if (v >= LAYER.arp && p.lead[i] !== null) {
       tone(p.lead[i] * 2, at, 0.10, 'triangle', 0.05, 5200);
+    }
+
+    // 最後の層。小節の頭で、2小節ぶん伸びる和音を敷く。
+    // 刻む音をさらに重ねても忙しくなるだけなので、締めは厚みで聴かせる。
+    if (v >= LAYER.pad && i === 0 && bar % 2 === 0) {
+      var beat = 60 / (CONFIG.bpm * tempoScale);
+      var dur = beat * 8;               // 2小節
+      var root = p.bass[0] || 55;
+
+      pad(root * 2, at, dur, 0.06);     // 根音（ベースの1オクターブ上）
+      pad(root * 3, at, dur, 0.045);    // 5度
     }
   }
 

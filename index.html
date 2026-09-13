@@ -54,6 +54,7 @@
   <button id="titleBtn" type="button">タイトルへ</button>
   <button id="pauseBtn" type="button">❙❙ 一時停止</button>
   <button id="sensBtn" type="button">感度 ×1</button>
+  <button id="guideBtn" type="button">ガイド</button>
   <button id="helpBtn" type="button">あそびかた</button>
   <button id="bgBtn" type="button">背景 3D</button>
   <button id="soundBtn" type="button">♪ 音を出す</button>
@@ -81,9 +82,10 @@
   <div class="gauge">
     <span class="gaugeFill" id="gaugeFill"></span>
     <!-- 音の層が加わる位置。どこまで溜めれば何が増えるかを目で示す -->
-    <i class="gaugeTick" style="left:30%"></i>
-    <i class="gaugeTick" style="left:55%"></i>
-    <i class="gaugeTick" style="left:85%"></i>
+    <i class="gaugeTick" style="left:26%"></i>
+    <i class="gaugeTick" style="left:48%"></i>
+    <i class="gaugeTick" style="left:70%"></i>
+    <i class="gaugeTick" style="left:88%"></i>
   </div>
 
   <div class="layers" id="comboLayers">
@@ -92,6 +94,7 @@
     <span class="layer" data-layer="hat">HAT</span>
     <span class="layer" data-layer="lead">LEAD</span>
     <span class="layer" data-layer="arp">ARP</span>
+    <span class="layer" data-layer="pad">PAD</span>
   </div>
 
   <!-- ステージの進み具合。どこまで来たかが分かる -->
@@ -219,6 +222,10 @@
       <li>
         <strong>感度</strong> ボタンで、指の動きに対する自機の機敏さを
         5段階（×1/4 〜 ×4）から選べます。細かく狙うなら遅く、素早く振るなら速く。
+      </li>
+      <li>
+        <strong>ガイド</strong> ボタンで、自機が動く円の表示を切り替えられます。
+        消していても、走り始めの数秒だけは出て静かに消えます。
       </li>
       <li>
         <strong>背景 3D</strong> ボタンで、トンネルの立体背景を切り替えられます。
@@ -443,6 +450,24 @@
     });
 
     syncSensButton();
+
+    // --- カーソルのガイド輪 ---
+
+    var guideBtn = document.getElementById('guideBtn');
+
+    /** ガイドボタンの表示を今の設定に合わせる。 */
+    function syncGuideButton() {
+      var on = PULSAR.game.isGuide();
+      guideBtn.textContent = on ? 'ガイド' : 'ガイド なし';
+      guideBtn.classList.toggle('on', on);
+    }
+
+    guideBtn.addEventListener('click', function () {
+      PULSAR.game.setGuide(!PULSAR.game.isGuide());
+      syncGuideButton();
+    });
+
+    syncGuideButton();
 
     var bgBtn = document.getElementById('bgBtn');
 
