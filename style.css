@@ -1,4 +1,4 @@
-/*
+﻿/*
  * PULSAR — スタイル
  *
  * 画面はほぼ Canvas が占める。CSS の役割は次の3つに限る:
@@ -167,11 +167,16 @@ body.on-title #panel { display: none; }
  * どちらも「ここを押す」場所であり、走行中に出ている唯一の入口でもある。
  * 触れる前から押す場所だと分かるよう、常に塗っておく。
  *
+ * セレクタを `#hud button#menuBtn` と長くしているのは、詳細度を上げるため。
+ * `#menuBtn` だけでは `#hud button` に負ける（id は同数で、あちらは要素名を
+ * 1つ多く含むため）。実際これを見落としていて、`.on` が付いたときだけ
+ * 指定が通り、「開いた後だけ大きくなる」状態になっていた。
+ *
  * 上の `#hud button.on` より後ろに置くこと。前に置くと、開いている間だけ
  * 文字色が上書きされ、塗りと同じ色になって読めなくなる。
  */
-#menuBtn,
-#menuBtn.on {
+#hud button#menuBtn,
+#hud button#menuBtn.on {
   font-family: "Consolas", "Hiragino Sans", system-ui, sans-serif;
   font-size: 15px;
   font-weight: 700;
@@ -187,15 +192,15 @@ body.on-title #panel { display: none; }
   box-shadow: 0 0 18px rgba(122, 214, 255, 0.28);
 }
 
-#menuBtn:hover,
-#menuBtn.on:hover {
+#hud button#menuBtn:hover,
+#hud button#menuBtn.on:hover {
   color: #04121c;
   background: #9ce2ff;
   border-color: #9ce2ff;
 }
 
 /* 合図の最中は押せない。塗ったままだと押せそうに見えるので戻す */
-#menuBtn:disabled {
+#hud button#menuBtn:disabled {
   color: var(--dim);
   background: rgba(255, 255, 255, 0.04);
   border-color: var(--line);
@@ -1115,7 +1120,7 @@ body.on-title #titleBtn { display: none; }
   #hud { gap: 6px; }
   #hud button { padding: 6px 9px; font-size: 10px; }
   /* 狭い画面でも、唯一の入口は縮めない。横の余白だけ詰める */
-  #menuBtn { padding: 13px 20px; font-size: 15px; min-width: 150px; }
+  #hud button#menuBtn { padding: 13px 20px; font-size: 15px; min-width: 150px; }
 
   #panel {
     padding: 8px 10px 9px;
@@ -1168,7 +1173,7 @@ body.on-title #titleBtn { display: none; }
   }
   #hud { justify-content: flex-end; }
   #hud button { padding: 6px 8px; font-size: 9px; letter-spacing: 0.04em; }
-  #menuBtn {
+  #hud button#menuBtn {
     padding: 13px 16px;
     font-size: 15px;
     letter-spacing: 0.08em;
