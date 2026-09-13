@@ -458,7 +458,17 @@
 
   /** @brief 直前に描いた値。同じなら DOM を触らない。 @private */
   var shownDist = -1, shownTime = '', shownCombo = -1;
-  var shownCollected = -1, shownStage = -1;
+  var shownCollected = -1;
+
+  /**
+   * @brief 画面に出ているステージ番号。
+   *
+   * これは「DOM に書いた値」であって、進行の状態ではない。
+   * ゲーム側の値を先読みして入れてしまうと、DOM は古いままなのに
+   * 一致していると判断され、表示が更新されなくなる。
+   * @private
+   */
+  var shownStage = -1;
 
   /** @brief リザルトを表示済みか。 @private */
   var resultShown = false;
@@ -580,9 +590,7 @@
     document.getElementById('rsPassed').textContent = String(st.passed);
     document.getElementById('rsHits').textContent = String(st.hits);
 
-    var note = '';
-    if (st.hits === 0 && st.passed > 0) note = 'ノーミス走破。';
-    else if (st.maxCombo >= global.PULSAR.game.CONFIG.comboForMax) note = 'ゲージ満タン到達。';
+    var note = (st.hits === 0 && st.passed > 0) ? 'ノーミス走破。' : '';
     document.getElementById('rsNote').textContent = note;
 
     resultEl.hidden = false;
@@ -745,11 +753,6 @@
   function startGame(stage) {
     global.PULSAR.game.reset(stage);
     lastStage = global.PULSAR.game.state.stage;
-
-    // 表示側のステージ番号を先に合わせておく。
-    // ここで合わせないと、選んだステージが表示中の番号と違う場合に
-    // 「ステージが切り替わった」と誤検出され、合図が二重に走る。
-    shownStage = lastStage;
     pointer.everTouched = true;
     lastInput = clock;
     startedAt = clock;
@@ -789,7 +792,6 @@
     resultShown = false;
 
     global.PULSAR.game.reset(1);
-    shownStage = global.PULSAR.game.state.stage;
     pointer.everTouched = false;
     lastInput = -999;
     startedAt = -999;
@@ -940,7 +942,6 @@
       } else {
         showBanner('STAGE CLEAR!', 2000, function () {
           game.advanceStage();
-          shownStage = game.state.stage;
           lastStage = game.state.stage;
           needsRender = true;   // 合図の裏に次のステージの景色を描く
           bannerBusy = false;
