@@ -936,7 +936,11 @@
     // スコアや案内を描く前にかける。
     // 場面ごとの倍率で調整する。画面全体が明るい場面に同じ強さで掛けると、
     // 光が全面に回って白く飛び、何が映っているのか分からなくなる。
-    var glareScale = (scene.glare === undefined) ? 1 : scene.glare;
+    // 背景を切っているときはグレアも止める。動作が重い端末向けの逃げ道として
+    // 用意したボタンなので、重い処理がもう一つ残っていては意味がない。
+    var glareScale = global.PULSAR.scenes.isRaymarch()
+      ? ((scene.glare === undefined) ? 1 : scene.glare)
+      : 0;
     drawGlare(CONFIG.glare * glareScale * (0.75 + kick * 0.45));
 
     var playable = scene.name === CONFIG.playableScene;
