@@ -426,7 +426,7 @@
     var cy = f.H / 2;
     // 自機が実際に動く円と同じ半径にする。案内と動きがずれると混乱するため。
     var g = global.PULSAR.game.CONFIG;
-    var radius = Math.min(f.W, f.H) * g.focal / g.shipZ * g.shipRadiusRatio;
+    var radius = global.PULSAR.game.cursorRadius(Math.min(f.W, f.H) * g.focal);
     var a = clock * 1.5;
 
     c.save();
@@ -1000,7 +1000,7 @@
     if (playable && game.state.collectFlash > 0.01) {
       var cf = game.state.collectFlash;
       var g = game.CONFIG;
-      var shipR = Math.min(W, H) * g.focal / g.shipZ * g.shipRadiusRatio;
+      var shipR = game.cursorRadius(Math.min(W, H) * g.focal);
       var sxp = W / 2 + Math.cos(game.state.angle) * shipR;
       var syp = H / 2 + Math.sin(game.state.angle) * shipR;
 

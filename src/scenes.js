@@ -632,36 +632,38 @@
     var cx = f.W / 2;
     var cy = f.H / 2;
     var focal = Math.min(f.W, f.H) * game.CONFIG.focal;
-    var orbit = game.CONFIG.itemOrbit;
-
-    var items = game.state.items;
     var pos = [0, 0, 0];
 
-    // 奥から手前へ描く。近い立体が上に重なる。
-    var order = items.slice().sort(function (a, b) { return b.z - a.z; });
+    // 立方体はリングに連れられている。切れ目の中心に浮かせることで、
+    // 「あの切れ目を中心で抜ければ拾える」と見ただけで分かる。
+    var rings = game.state.rings;
+    var order = rings.slice().sort(function (a, b) { return b.z - a.z; });
 
     c.save();
     c.lineJoin = 'round';
 
     for (var i = 0; i < order.length; i++) {
-      var it = order[i];
-      if (it.taken || it.z <= 0.35) continue;
+      var r = order[i];
+      if (!r.item || r.itemTaken || r.z <= 0.35) continue;
 
-      pos[0] = Math.cos(it.angle) * orbit;
-      pos[1] = Math.sin(it.angle) * orbit;
-      pos[2] = it.z;
+      // リングの内側に収まる位置へ置く。切れ目の中心の、少し内より。
+      var orbit = game.cursorRadius(focal) / focal * game.CONFIG.shipZ * 0.62;
+
+      pos[0] = Math.cos(r.itemAngle) * orbit;
+      pos[1] = Math.sin(r.itemAngle) * orbit;
+      pos[2] = r.z;
 
       // 奥ほど薄く。手前の立体だけが主張するようにする。
-      var alpha = M.clamp(1.3 - it.z / game.CONFIG.farZ, 0.15, 1);
+      var alpha = M.clamp(1.3 - r.z / game.CONFIG.farZ, 0.15, 1);
 
       // 色相を時間と奥行きで回す。列全体が虹の帯として流れて見える。
-      var hue = (f.t * SOLIDS.hueSpeed + it.z * SOLIDS.hueByDepth) % 360;
+      var hue = (f.t * SOLIDS.hueSpeed + r.z * SOLIDS.hueByDepth) % 360;
 
       mesh3d.drawMesh(c, mesh3d.CUBE, {
         pos: pos,
         scale: SOLIDS.scale * (1 + f.kick * 0.18),
-        rx: f.t * 1.1 + it.z,
-        ry: f.t * 0.7 + it.z * 0.6,
+        rx: f.t * 1.1 + r.z,
+        ry: f.t * 0.7 + r.z * 0.6,
         focal: focal,
         cx: cx,
         cy: cy,

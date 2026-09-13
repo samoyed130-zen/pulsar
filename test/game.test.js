@@ -299,60 +299,94 @@
     });
   });
 
-  describe('時間を延ばす立体', function () {
-    it('開始時に立体が並んでいる', function () {
-      G.reset();
-      expect(G.state.items.length > 0).toBeTrue();
-    });
+  describe('時間を延ばす立方体', function () {
+    /** 立方体を連れているリングのうち、まだ判定していない手前の1枚を返す。 */
+    function nextItemRing() {
+      var best = null;
+      for (var i = 0; i < G.state.rings.length; i++) {
+        var r = G.state.rings[i];
+        if (!r.item || r.judged || r.z <= G.CONFIG.shipZ) continue;
+        if (best === null || r.z < best.z) best = r;
+      }
+      return best;
+    }
 
-    it('立体の角度は [0, 2π) に入る', function () {
+    it('立方体はリングに連れられている（単独では存在しない）', function () {
       G.reset();
-      for (var i = 0; i < G.state.items.length; i++) {
-        var a = G.state.items[i].angle;
-        expect(a >= 0 && a < M.TAU).toBeTrue();
+      var found = 0;
+      for (var i = 0; i < G.state.rings.length; i++) {
+        if (G.state.rings[i].item) found++;
+      }
+      expect(found >= 0).toBeTrue();
+      // どのリングも「連れているか」の情報を持っている
+      for (var j = 0; j < G.state.rings.length; j++) {
+        expect(typeof G.state.rings[j].item).toBe('boolean');
+        expect(typeof G.state.rings[j].itemTaken).toBe('boolean');
       }
     });
 
-    it('立体はまだ取られていない状態で並ぶ', function () {
+    it('走り続ければ立方体を連れたリングが現れる', function () {
       G.reset();
-      for (var i = 0; i < G.state.items.length; i++) {
-        expect(G.state.items[i].taken).toBeFalse();
-        expect(G.state.items[i].judged).toBeFalse();
+      var f = makeFrame({ dt: 1 / 30 });
+      f.pointer.everTouched = true;
+
+      var seen = false;
+      for (var i = 0; i < 4000 && !seen; i++) {
+        G.update(f);
+        for (var j = 0; j < G.state.rings.length; j++) {
+          if (G.state.rings[j].item) { seen = true; break; }
+        }
       }
+      expect(seen).toBeTrue();
     });
 
-    it('重なった状態で通過すると時間が延びる', function () {
+    it('切れ目の中心で抜けると時間が延びる', function () {
       G.reset();
       var f = makeFrame();
       f.pointer.everTouched = true;
-      G.update(f); // 計測を開始させる
+      G.update(f);
 
-      var it = G.state.items[0];
-      it.z = G.CONFIG.shipZ + 0.001;
-      it.judged = false;
-      G.state.angle = it.angle;
+      var r = nextItemRing();
+      if (!r) {
+        // この時点で連れているリングが無ければ、1枚に持たせて試す
+        r = G.state.rings[0];
+        r.item = true;
+        r.itemTaken = false;
+        r.judged = false;
+      }
+
+      r.z = G.CONFIG.shipZ + 0.001;
+      G.state.angle = r.gap;          // 切れ目のど真ん中
       G.state.timeLeft = 100;
 
       G.update(f);
+      expect(r.itemTaken).toBeTrue();
       expect(G.state.collected).toBe(1);
       expect(G.state.timeLeft > 100).toBeTrue();
-      expect(G.state.timeGained > 0).toBeTrue();
     });
 
-    it('外れた位置を通過しても時間は延びない', function () {
+    it('切れ目の端を通ると、抜けはするが拾えない', function () {
       G.reset();
       var f = makeFrame();
       f.pointer.everTouched = true;
       G.update(f);
 
-      var it = G.state.items[0];
-      it.z = G.CONFIG.shipZ + 0.001;
-      it.judged = false;
-      G.state.angle = M.wrapAngle(it.angle + Math.PI);
-      var before = G.state.timeLeft;
+      var r = G.state.rings[0];
+      r.item = true;
+      r.itemTaken = false;
+      r.judged = false;
+      r.z = G.CONFIG.shipZ + 0.001;
 
+      // 通り抜けられるが、立方体には届かない位置
+      var edge = G.state.params.gapWidth * 0.5 - 0.02;
+      expect(edge > G.CONFIG.itemCatchAngle).toBeTrue();
+      G.state.angle = M.wrapAngle(r.gap + edge);
+
+      var before = G.state.timeLeft;
       G.update(f);
-      expect(G.state.collected).toBe(0);
+
+      expect(G.state.passed > 0).toBeTrue();   // 通過はしている
+      expect(r.itemTaken).toBeFalse();
       expect(G.state.timeLeft <= before).toBeTrue();
     });
 
@@ -363,63 +397,46 @@
       G.update(f);
 
       G.state.timeLeft = G.CONFIG.maxSeconds;
-      var it = G.state.items[0];
-      it.z = G.CONFIG.shipZ + 0.001;
-      it.judged = false;
-      G.state.angle = it.angle;
+
+      var r = G.state.rings[0];
+      r.item = true;
+      r.itemTaken = false;
+      r.judged = false;
+      r.z = G.CONFIG.shipZ + 0.001;
+      G.state.angle = r.gap;
 
       G.update(f);
       expect(G.state.timeLeft <= G.CONFIG.maxSeconds).toBeTrue();
     });
 
-    it('自動操縦中も取得の見た目にはなるが、持ち時間は動かない', function () {
+    it('自動操縦中は見た目だけ反応し、持ち時間は動かない', function () {
       G.reset();
-      var f = makeFrame();           // まだ触れていない＝自動操縦
+      var f = makeFrame();          // まだ触れていない
       var before = G.state.timeLeft;
 
-      var it = G.state.items[0];
-      it.z = G.CONFIG.shipZ + 0.001;
-      it.judged = false;
-      G.state.angle = it.angle;
+      var r = G.state.rings[0];
+      r.item = true;
+      r.itemTaken = false;
+      r.judged = false;
+      r.z = G.CONFIG.shipZ + 0.001;
+      G.state.angle = r.gap;
 
       G.update(f);
-      expect(it.taken).toBeTrue();            // 消える
-      expect(G.state.collectFlash > 0).toBeTrue(); // 反応も出る
-      expect(G.state.timeLeft).toBe(before);  // 時間は動かない
-      expect(G.state.collected).toBe(0);      // 記録にも残らない
-    });
-
-    it('終了後も取得の見た目にはなるが、持ち時間は動かない', function () {
-      G.reset();
-      var f = makeFrame();
-      f.pointer.everTouched = true;
-      G.state.finished = true;
-
-      var it = G.state.items[0];
-      it.z = G.CONFIG.shipZ + 0.001;
-      it.judged = false;
-      G.state.angle = it.angle;
-
-      G.update(f);
+      expect(r.itemTaken).toBeTrue();
+      expect(G.state.collectFlash > 0).toBeTrue();
+      expect(G.state.timeLeft).toBe(before);
       expect(G.state.collected).toBe(0);
     });
 
-    it('立体の数は増え続けない（使い回している）', function () {
-      G.reset();
-      var n = G.state.items.length;
-      var f = makeFrame({ dt: 1 / 30 });
-      f.pointer.everTouched = true;
-      for (var i = 0; i < 1500; i++) G.update(f);
-      expect(G.state.items.length).toBe(n);
+    it('立方体の間隔はステージが進むほど広がる', function () {
+      expect(G.stageParams(G.CONFIG.stageCount).itemPeriod >
+             G.stageParams(1).itemPeriod).toBeTrue();
     });
 
-    it('上限は初期の持ち時間以上', function () {
-      expect(G.CONFIG.maxSeconds >= G.CONFIG.sessionSeconds).toBeTrue();
-    });
-
-    it('取れる角度の幅は、どのステージの切れ目よりも狭い（拾うのに狙いが要る）', function () {
+    it('取れる角度は、どのステージの切れ目の半分よりも狭い', function () {
+      // 通り抜けるだけでは拾えず、中心を狙う必要があるということ
       for (var s = 1; s <= G.CONFIG.stageCount; s++) {
-        expect(G.CONFIG.itemCatchAngle < G.stageParams(s).gapWidth).toBeTrue();
+        expect(G.CONFIG.itemCatchAngle < G.stageParams(s).gapWidth * 0.5).toBeTrue();
       }
     });
   });

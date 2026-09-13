@@ -47,16 +47,20 @@
 
     /** @brief 衝突直後、判定を止める時間 [s]。連続で轢かれるのを防ぐ。 */
     graceSeconds: 0.7,
-    /** @brief 自機が置かれる奥行き（この位置を通過するリングと判定する）。 */
-    shipZ: 1.1,
+    /**
+     * @brief 判定を行う奥行き。
+     *
+     * この位置にあるリングの見かけの大きさが、そのままカーソルの輪の
+     * 大きさになる。両者が画面上でぴったり重なった瞬間に通過を判定するので、
+     * 「輪に入っているのに当たった」という食い違いが起きない。
+     */
+    shipZ: 4.15,
     /** @brief キー操作時の角速度 [rad/s]。 */
     keyTurnRate: 3.4,
     /** @brief 自動操縦が切れ目へ向かう追従の速さ。 */
     autoRate: 4.5,
     /** @brief 手動操作の追従の速さ。自動より機敏にする。 */
     manualRate: 14.0,
-    /** @brief 自機を置く円の半径（リング半径に対する比率）。 */
-    shipRadiusRatio: 0.5,
     /** @brief リングの線の太さの倍率。避ける対象として目立たせる。 */
     ringThickness: 3,
     /**
@@ -87,12 +91,20 @@
      */
     stageDistance: 800,
 
-    /** @brief 立体を置く円の半径（トンネル半径を 1 とする）。 */
-    itemOrbit: 0.52,
-    /** @brief 立体に触れたとみなす角度の幅 [rad]。 */
-    itemCatchAngle: 0.62,
-    /** @brief 取ったときに延びる時間 [s]。 */
-    itemBonusSeconds: 5,
+    /**
+     * @brief 立方体に触れたとみなす角度の幅 [rad]。
+     *
+     * どのステージでも切れ目の半分より狭くしておく。そうでないと
+     * 通り抜けさえすれば必ず拾えてしまい、狙う意味がなくなる。
+     */
+    itemCatchAngle: 0.42,
+    /**
+     * @brief 取ったときに延びる時間 [s]。
+     *
+     * 立方体は切れ目の端に浮いているので、取りにいくほど当たりやすくなる。
+     * 「安全に抜けるか、時間を取りにいくか」が釣り合う程度に留める。
+     */
+    itemBonusSeconds: 4,
     /**
      * @brief 持ち時間の上限 [s]。
      *
@@ -208,8 +220,8 @@
     finished: false,
     /** @brief 残り時間 [s]。 */
     timeLeft: CONFIG.sessionSeconds,
-    /** @brief 時間を延ばす立体の一覧。 */
-    items: [],
+    /** @brief 次に立方体を連れさせるまでに置いたリングの枚数。 */
+    ringsSincePlaced: 0,
     /** @brief 取った立体の数。 */
     collected: 0,
     /** @brief 立体で延ばした合計時間 [s]。 */
@@ -280,34 +292,71 @@
   function makeRing(z, prevGap) {
     // 直前の切れ目から離れすぎないようにして、避けられない配置を防ぐ。
     var delta = (Math.random() - 0.5) * 2 * state.params.gapDrift;
-    return { z: z, gap: M.wrapAngle(prevGap + delta), judged: false };
+    return {
+      z: z,
+      gap: M.wrapAngle(prevGap + delta),
+      judged: false,
+      item: false,      // 時間を延ばす立方体を連れているか
+      itemAngle: 0,
+      itemTaken: false
+    };
   }
 
   /**
-   * @brief 時間を延ばす立体を1つ作る。
+   * @brief リングに立方体を持たせ、置く角度を決める。
    *
-   * 置く角度は、その位置にあるリングの切れ目の近くを狙う。
-   * 切れ目を通る動きと、立体を取る動きが噛み合い、
-   * 「避けながら拾う」1つの流れになる。
+   * 切れ目の中では端寄りに置く。中心に置くと、安全な線を通るだけで
+   * 勝手に拾えてしまい、狙う意味がなくなる。端に寄せることで
+   * 「安全に抜けるか、時間を取りにいくか」の選択が生まれる。
    *
    * @private
-   * @param {number} z 生成位置の奥行き
-   * @returns {{z: number, angle: number, judged: boolean, taken: boolean}}
+   * @param {Object} r 対象のリング
+   * @returns {void}
    */
-  function makeItem(z) {
-    var near = null;
-    for (var i = 0; i < state.rings.length; i++) {
-      var r = state.rings[i];
-      if (near === null || Math.abs(r.z - z) < Math.abs(near.z - z)) near = r;
-    }
+  function placeItem(r) {
+    var half = state.params.gapWidth * 0.5;
 
-    var base = near ? near.gap : Math.random() * TAU;
-    return {
-      z: z,
-      angle: M.wrapAngle(base + (Math.random() - 0.5) * 1.2),
-      judged: false,
-      taken: false
-    };
+    // 切れ目の幅に比例して端へ寄せる。中心から取得範囲より遠い位置に
+    // 置かないと、真ん中を通るだけで勝手に拾えてしまう。
+    var offset = half * 0.8;
+    var side = Math.random() < 0.5 ? -1 : 1;
+
+    r.item = true;
+    r.itemTaken = false;
+    r.itemAngle = M.wrapAngle(r.gap + side * offset);
+  }
+
+  /**
+   * @brief 何枚おきに立方体を連れたリングを置くか。
+   * @private
+   * @returns {number} 枚数（1 以上）
+   */
+  function ringsPerItem() {
+    return Math.max(1, Math.round(state.params.itemPeriod / CONFIG.spacing));
+  }
+
+  /**
+   * @brief 立方体を取ったときの処理。
+   *
+   * 記録と持ち時間が動くのは挑戦中だけ。自動操縦で流れている間は
+   * 見た目だけ反応させ、数値は変えない。
+   *
+   * @private
+   * @param {Object} r 立方体を連れているリング
+   * @returns {void}
+   */
+  function takeItem(r) {
+    r.itemTaken = true;
+    state.collectFlash = 1;
+
+    if (!state.started || state.finished) return;
+
+    state.collected++;
+
+    // 上限を超えない範囲で時間を足す。実際に増えた分だけを記録する。
+    var before = state.timeLeft;
+    state.timeLeft = Math.min(CONFIG.maxSeconds, state.timeLeft + CONFIG.itemBonusSeconds);
+    state.timeGained += state.timeLeft - before;
   }
 
   /**
@@ -324,19 +373,27 @@
    */
   function buildCourse() {
     state.rings = [];
-    state.items = [];
+    state.ringsSincePlaced = 0;
 
     // 最初のリングは自機の正面に切れ目を置く。切り替わった直後に
     // いきなり轢かれると、腕前ではなく運の問題になってしまう。
     var gap = state.angle;
+    var n = 0;
+
     for (var z = CONFIG.shipZ + 4; z < CONFIG.farZ; z += CONFIG.spacing) {
-      state.rings.push({ z: z, gap: gap, judged: false });
+      var r = makeRing(z, gap);
+      r.gap = gap;
+
+      // 立方体はリングに連れさせる。別々に流すと速さも位置もばらばらで、
+      // 「あの切れ目を通れば拾える」という読みが立たない。
+      n++;
+      if (n % ringsPerItem() === 0) placeItem(r);
+
+      state.rings.push(r);
       gap = M.wrapAngle(gap + (Math.random() - 0.5) * 2 * state.params.gapDrift);
     }
 
-    for (var iz = CONFIG.shipZ + 6; iz < CONFIG.farZ; iz += state.params.itemPeriod) {
-      state.items.push(makeItem(iz));
-    }
+    state.ringsSincePlaced = n % ringsPerItem();
   }
 
   /**
@@ -434,7 +491,6 @@
     state.finished = false;
     state.timeLeft = CONFIG.sessionSeconds;
 
-    state.items = [];
     state.collected = 0;
     state.timeGained = 0;
     state.collectFlash = 0;
@@ -478,9 +534,15 @@
    */
   function decideTarget(f) {
     if (f.steer !== 0) {
+      // キーは「毎秒この角度だけ回す」という速度として扱う。
+      //
+      // 目標角を一定量だけ先へ置く方式にすると、感度を上げたときに
+      // 1フレームの差が π を超え、最短で回る計算が逆向きを選んで
+      // 半周してしまう。経過時間を掛けて回せば、その事故が起きない。
       return {
-        target: M.wrapAngle(state.angle + f.steer * CONFIG.keyTurnRate * 0.25 * sensitivity),
-        rate: CONFIG.manualRate * sensitivity
+        target: M.wrapAngle(state.angle +
+                            f.steer * CONFIG.keyTurnRate * sensitivity * f.dt),
+        rate: 999   // 目標そのものが毎フレーム進むので、遅れずに追う
       };
     }
 
@@ -551,6 +613,13 @@
           state.combo++;
           state.passed++;
           if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+
+          // 立方体は切れ目の端寄りに浮いている。抜けるだけでは届かず、
+          // そちらへ寄せて抜けたときだけ拾える。
+          if (r.item && !r.itemTaken &&
+              M.angleDist(state.angle, r.itemAngle) <= CONFIG.itemCatchAngle) {
+            takeItem(r);
+          }
         } else if (state.sinceHit >= CONFIG.graceSeconds) {
           // 衝突直後は判定を止める。立て直す間もなく次に轢かれると理不尽に感じるため。
           f.impact(1);
@@ -574,68 +643,46 @@
         state.rings[k].z = fresh.z;
         state.rings[k].gap = fresh.gap;
         state.rings[k].judged = false;
+        state.rings[k].item = false;
+        state.rings[k].itemTaken = false;
+
+        // 一定の枚数ごとに立方体を連れさせる。
+        state.ringsSincePlaced++;
+        if (state.ringsSincePlaced % ringsPerItem() === 0) placeItem(state.rings[k]);
       }
     }
 
-    updateItems(f, dt);
-
+    state.collectFlash = M.approach(state.collectFlash, 0, 5, dt);
     state.score = M.scoreFromDistance(state.dist);
   }
 
+
   /**
-   * @brief 時間を延ばす立体を動かし、取得を判定する。
+   * @brief ある奥行きにあるリングの、画面上での半径を返す。
    *
-   * @private
-   * @param {Object} f フレーム文脈
-   * @param {number} dt 経過時間 [s]
-   * @returns {void}
+   * 透視投影に加えて、手前ほど余分に広げている。描画と判定で同じ式を
+   * 使うために、ここに一本化する。
+   *
+   * @param {number} z 奥行き
+   * @param {number} focal 焦点距離 [px]
+   * @returns {number} 画面上の半径 [px]
    */
-  function updateItems(f, dt) {
-    state.collectFlash = M.approach(state.collectFlash, 0, 5, dt);
+  function ringRadius(z, focal) {
+    var near = M.clamp(1 - z / CONFIG.farZ, 0, 1);
+    return focal / z * (1 + CONFIG.ringNearBoost * near * near);
+  }
 
-    var farthest = -Infinity;
-    var i;
-    for (i = 0; i < state.items.length; i++) {
-      if (state.items[i].z > farthest) farthest = state.items[i].z;
-    }
-
-    for (i = 0; i < state.items.length; i++) {
-      var it = state.items[i];
-      it.z -= state.speed * dt;
-
-      // 自機の位置を通過する瞬間に一度だけ判定する。
-      if (!it.judged && it.z <= CONFIG.shipZ) {
-        it.judged = true;
-
-        if (M.angleDist(state.angle, it.angle) <= CONFIG.itemCatchAngle) {
-          // 重なれば、いつでも取得として扱う。自動操縦で流れている最中に
-          // すり抜けてしまうと、拾える物だと伝わらないため。
-          it.taken = true;
-          state.collectFlash = 1;
-
-          // 記録と持ち時間が動くのは、挑戦が始まっている間だけ。
-          if (state.started && !state.finished) {
-            state.collected++;
-
-            // 上限を超えない範囲で時間を足す。実際に増えた分だけを記録する。
-            var before = state.timeLeft;
-            state.timeLeft = Math.min(CONFIG.maxSeconds,
-                                      state.timeLeft + CONFIG.itemBonusSeconds);
-            state.timeGained += state.timeLeft - before;
-          }
-        }
-      }
-
-      // 通り過ぎたら奥へ戻して使い回す。
-      if (it.z < -1.5) {
-        farthest += state.params.itemPeriod;
-        var fresh = makeItem(farthest);
-        it.z = fresh.z;
-        it.angle = fresh.angle;
-        it.judged = false;
-        it.taken = false;
-      }
-    }
+  /**
+   * @brief カーソル（自機）が動く円の半径。
+   *
+   * 判定する奥行きにあるリングと同じ大きさにする。画面の上で
+   * ぴったり重なるので、通れるかどうかが見たままになる。
+   *
+   * @param {number} focal 焦点距離 [px]
+   * @returns {number} 画面上の半径 [px]
+   */
+  function cursorRadius(focal) {
+    return ringRadius(CONFIG.shipZ, focal);
   }
 
   /**
@@ -671,10 +718,7 @@
       if (r.z <= 0.05) continue;
 
       var near = M.clamp(1 - r.z / CONFIG.farZ, 0, 1);
-
-      // 透視投影だけでも手前ほど大きくなるが、それに加えて近いリングを
-      // 広げる。くぐる瞬間に視界の外まで開くことで、通り抜けた感じが出る。
-      var radius = focal / r.z * (1 + CONFIG.ringNearBoost * near * near);
+      var radius = ringRadius(r.z, focal);
       if (radius > Math.max(f.W, f.H) * 2.4) continue;
 
       // 奥行きに応じてトンネル全体をねじる。直線的に見せないための細工。
@@ -707,7 +751,38 @@
       c.stroke();
     }
 
+    drawGuide(f, cx, cy, focal);
     drawShip(f, cx, cy, focal);
+  }
+
+  /**
+   * @brief カーソルが動く円を常に描く。
+   *
+   * 自分がどの円の上を動いているのか、そしてどのリングと重なった瞬間に
+   * 判定されるのかを、いつでも目で確かめられるようにする。
+   *
+   * @private
+   * @param {Object} f フレーム文脈
+   * @param {number} cx 画面中心 x
+   * @param {number} cy 画面中心 y
+   * @param {number} focal 焦点距離
+   * @returns {void}
+   */
+  function drawGuide(f, cx, cy, focal) {
+    var c = f.ctx;
+    var radius = cursorRadius(focal);
+
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    c.strokeStyle = 'rgba(150,200,255,0.16)';
+    c.lineWidth = 1.2;
+    c.setLineDash([5, 9]);
+    c.beginPath();
+    c.arc(cx, cy, radius, 0, TAU);
+    c.stroke();
+    c.setLineDash([]);
+    c.restore();
+    c.globalCompositeOperation = 'source-over';
   }
 
   /**
@@ -721,7 +796,7 @@
    */
   function drawShip(f, cx, cy, focal) {
     var c = f.ctx;
-    var radius = focal / CONFIG.shipZ * CONFIG.shipRadiusRatio;
+    var radius = cursorRadius(focal);
     var x = cx + Math.cos(state.angle) * radius;
     var y = cy + Math.sin(state.angle) * radius;
 
@@ -782,6 +857,8 @@
     update: update,
     draw: draw,
     gauge: gauge,
+    ringRadius: ringRadius,
+    cursorRadius: cursorRadius,
     stageParams: stageParams,
     stageProgress: stageProgress,
     unlockedStage: unlockedStage,
