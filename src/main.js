@@ -100,6 +100,13 @@
      * 明るい面から順に上限へ張り付き、面の境目が段差として見えてしまう。
      */
     softGlareLift: 0.1,
+    /**
+     * @brief 描き直す間隔の下限 [ms]。
+     *
+     * 60 回/秒（16.67ms）より少しだけ短くしてある。ちょうどで比べると、
+     * わずかな誤差で1枚おきに落ちて 30 回/秒に見えてしまう。
+     */
+    minFrameMs: 15.5,
     /** @brief この時間を超え続けたら描画を軽くする [ms]。 */
     slowMs: 22,
     /**
@@ -139,6 +146,25 @@
 
   /** @brief 前フレームの時刻 [ms]。 @private */
   var prevMs = 0;
+
+  /**
+   * @brief 前回「描いた」時刻 [ms]。
+   *
+   * `prevMs` と別に持つ。あちらは止まるたびに 0 へ戻すが、
+   * こちらは回数を抑えるための物差しなので、止まっていても連続させる。
+   * @private
+   */
+  var prevDrawMs = 0;
+
+  /**
+   * @brief 描き直す間隔の移動平均 [ms]。
+   *
+   * `frameMs` が「1枚を描くのにかかった時間」なのに対し、こちらは
+   * 「次の1枚までの間隔」。毎秒の枚数はこちらから求める。混ぜると、
+   * 4ms で描けている端末が 250 枚/秒と出るような誤りになる。
+   * @private
+   */
+  var intervalMs = 16.7;
 
   /**
    * @brief デモ開始からの経過時刻 [s]。常に単調増加する。
@@ -1265,6 +1291,26 @@
    * @returns {void}
    */
   function frame(ms) {
+    /*
+     * 表示が 120Hz や 240Hz でも、更新は 60 回/秒までに抑える。
+     *
+     * requestAnimationFrame は画面の書き換えに合わせて呼ばれるため、
+     * 高い表示の端末では 1 秒に 240 回まわる。動きの計算は経過時間で
+     * 行っているので速さは変わらないが、描画の負担だけが4倍になる。
+     * ぼかしや1画素ずつの塗りを4倍の回数かけても、目に見える差はない。
+     *
+     * 60 の枠ちょうどで比べると、わずかな誤差で1枚おきに落ちて
+     * 30 回/秒に見えてしまう。少しだけ手前で比べる。
+     */
+    if (prevDrawMs && (ms - prevDrawMs) < CONFIG.minFrameMs) {
+      global.requestAnimationFrame(frame);
+      return;
+    }
+
+    // 実際の間隔。1枚あたりの処理時間とは別物で、こちらが毎秒の枚数になる。
+    if (prevDrawMs) intervalMs += ((ms - prevDrawMs) - intervalMs) * 0.1;
+    prevDrawMs = ms;
+
     var paused = isPaused();
 
     // 止まっている間は何も進めず、何も描かない。
@@ -1521,25 +1567,35 @@
    * @returns {void}
    */
   function drawFps() {
-    var fps = frameMs > 0 ? (1000 / frameMs) : 0;
-    // 60 を少し超える値が出ても意味はないので、そこで止める
+    var fps = intervalMs > 0 ? (1000 / intervalMs) : 0;
     if (fps > 999) fps = 999;
 
-    var text = fps.toFixed(0) + ' fps  ' + frameMs.toFixed(1) + ' ms' +
+    // 「毎秒の枚数」と「1枚にかかった時間」は別物。後者が短くても、
+    // 間隔が空いていれば枚数は出ない。両方を並べて出す。
+    var text = fps.toFixed(0) + ' fps  描画 ' + frameMs.toFixed(1) + ' ms' +
                (quality === 0 ? '  [軽量]' : '');
+
+    // 画面の大きさに合わせる。小さい端末ほど画素は細かいので、
+    // 固定の大きさだと読めないほど小さくなる。
+    var size = Math.max(16, Math.round(Math.min(W, H) * 0.045));
+    var pad = Math.round(size * 0.5);
 
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.font = '11px Consolas, "SF Mono", monospace';
+    ctx.font = '700 ' + size + 'px Consolas, "SF Mono", monospace';
     ctx.textBaseline = 'bottom';
 
     // 明るい場面でも読めるよう、暗い下敷きを敷く
     var w = ctx.measureText(text).width;
-    ctx.fillStyle = 'rgba(4, 5, 10, 0.55)';
-    ctx.fillRect(10, H - 30, w + 16, 20);
+    var h = size + pad;
+    var x = pad;
+    var y = H - pad;
 
-    ctx.fillStyle = 'rgba(223, 229, 247, 0.75)';
-    ctx.fillText(text, 18, H - 14);
+    ctx.fillStyle = 'rgba(4, 5, 10, 0.6)';
+    ctx.fillRect(x, y - h, w + pad * 2, h);
+
+    ctx.fillStyle = 'rgba(223, 229, 247, 0.85)';
+    ctx.fillText(text, x + pad, y - pad * 0.4);
     ctx.restore();
   }
 
@@ -1650,7 +1706,9 @@
    */
   function stats() {
     return {
+      fps: intervalMs > 0 ? (1000 / intervalMs) : 0,
       frameMs: frameMs,
+      intervalMs: intervalMs,
       quality: quality,
       rasterWidth: rasterBuf ? rasterBuf.w : 0,
       smooth: global.PULSAR.scenes.isSmooth()

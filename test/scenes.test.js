@@ -445,6 +445,18 @@
   describe('描画の重さの調整', function () {
     var app = window.PULSAR.app;
 
+    it('更新は 60 回/秒までに抑えられている', function () {
+      // 表示が 120Hz や 240Hz の端末でも、描画の負担を増やさない。
+      // 16.67ms ちょうどだと、わずかな誤差で1枚おきに落ちてしまう。
+      expect(app.CONFIG.minFrameMs < 1000 / 60).toBeTrue();
+      expect(app.CONFIG.minFrameMs > 1000 / 70).toBeTrue();
+    });
+
+    it('落とす基準は、更新の間隔より長い', function () {
+      // 60 回/秒で回っているだけで「遅い」と判定してはいけない。
+      expect(app.CONFIG.slowMs > app.CONFIG.minFrameMs).toBeTrue();
+    });
+
     it('落とす基準は 60fps の枠より大きい', function () {
       // 16.6ms を少し超えた程度で落とすと、一瞬の重さで画質が変わってしまう
       expect(app.CONFIG.slowMs > 16.6).toBeTrue();
