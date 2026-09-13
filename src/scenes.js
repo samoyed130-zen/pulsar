@@ -122,41 +122,7 @@
       c.stroke();
     }
 
-    c.globalCompositeOperation = 'source-over';
-    drawTitle(f);
-  }
-
-  /**
-   * @brief 作品名を中央に重ねる（スターフィールドの前半のみ）。
-   * @private
-   * @param {Object} f フレーム文脈
-   * @returns {void}
-   */
-  function drawTitle(f) {
-    var appear = M.clamp((f.local - 0.6) / 1.2, 0, 1);
-    var leave = M.clamp(1 - (f.local - 6.0) / 1.2, 0, 1);
-    var a = M.easeInOut(appear) * M.easeInOut(leave);
-    if (a <= 0.01) return;
-
-    var c = f.ctx;
-    var size = Math.min(f.W * 0.19, f.H * 0.3);
-
-    c.save();
-    c.textAlign = 'center';
-    c.textBaseline = 'middle';
-    c.font = '800 ' + size.toFixed(0) + 'px "Consolas", "Impact", system-ui, sans-serif';
-    c.globalCompositeOperation = 'lighter';
-
-    // 色をずらして三重に重ね、簡易的な色収差を作る。
-    var shift = 2 + f.kick * 5;
-    c.fillStyle = M.hsl(f.hue, 100, 60, a * 0.55);
-    c.fillText('PULSAR', f.W / 2 - shift, f.H / 2);
-    c.fillStyle = M.hsl(f.hue + 160, 100, 60, a * 0.55);
-    c.fillText('PULSAR', f.W / 2 + shift, f.H / 2);
-    c.fillStyle = 'rgba(255,255,255,' + (a * 0.8).toFixed(3) + ')';
-    c.fillText('PULSAR', f.W / 2, f.H / 2);
-
-    c.restore();
+    // 作品名は DOM のタイトル画面が担当する（二重に出さない）。
     c.globalCompositeOperation = 'source-over';
   }
 
@@ -382,11 +348,28 @@
 
     // 一定間隔で並ぶ輪。繰り返しで表現するので、何個置いても計算量は変わらない。
     var period = 2.8;
-    var zz = z - Math.floor(z / period) * period - period * 0.5;
+    var cell = Math.floor(z / period);
+    var zz = z - cell * period - period * 0.5;
     var qx = rad - 2.9;
     var ring = Math.sqrt(qx * qx + zz * zz) - 0.13;
 
-    return wall < ring ? wall : ring;
+    var d = wall < ring ? wall : ring;
+
+    // 各区画の中心に、回転する八面体を1つ置く。
+    // カメラは中心軸を進むので、立体の中を次々に潜り抜けることになる。
+    // 区画ごとに回転角をずらし、同じ形の繰り返しに見えないようにする。
+    var a = t * 0.9 + cell * 1.7;
+    var ca = Math.cos(a), sa = Math.sin(a);
+    var ox = dx * ca - zz * sa;
+    var oz = dx * sa + zz * ca;
+
+    // 八面体の距離関数。|x|+|y|+|z| が一定の面で、正八面体になる。
+    var ax = ox < 0 ? -ox : ox;
+    var ay = dy < 0 ? -dy : dy;
+    var az = oz < 0 ? -oz : oz;
+    var octa = (ax + ay + az - 0.62) * 0.5773;
+
+    return d < octa ? d : octa;
   }
 
   /**

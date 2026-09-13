@@ -85,6 +85,9 @@
   /** @brief 現在のテンポ倍率。 @private */
   var tempoScale = 1;
 
+  /** @brief 遊び始めた時刻 [s]（`clock` 基準）。操作案内の表示に使う。 @private */
+  var startedAt = -999;
+
   /** @brief 衝突などで一時的に加わる画面の揺れの強さ [0..1]。 @private */
   var shake = 0;
 
@@ -276,71 +279,63 @@
    * @returns {void}
    */
   function drawPrompt(f, playable) {
-    if (pointer.everTouched) return;
-    // 開幕のタイトルと重ならないよう、少し待ってから出す。
-    var appear = M.clamp((clock - 2.2) / 0.8, 0, 1);
-    if (appear <= 0.01) return;
+    // デモとして流れている間はタイトル画面が案内を担うため、ここでは描かない。
+    // 遊び始めた直後の数秒だけ、操作の仕方を図で示す。
+    if (!playable) return;
 
     var c = f.ctx;
     var pulse = 0.6 + 0.4 * Math.sin(clock * 2.6);
-    var alpha = appear * (0.55 + pulse * 0.45);
+    var alpha = (0.5 + pulse * 0.5) * fadeOutHint();
+
+    if (alpha <= 0.01) return;
+
+    var cx = f.W / 2;
+    var cy = f.H / 2;
+    // 自機が実際に動く円と同じ半径にする。案内と動きがずれると混乱するため。
+    var g = global.PULSAR.game.CONFIG;
+    var radius = Math.min(f.W, f.H) * g.focal / g.shipZ * g.shipRadiusRatio;
+    var a = clock * 1.5;
 
     c.save();
     c.textAlign = 'center';
     c.textBaseline = 'middle';
+    c.globalCompositeOperation = 'lighter';
 
-    if (playable) {
-      // 操作区間では、指が円を描く動きそのものを見せる。
-      var cx = f.W / 2;
-      var cy = f.H / 2;
-      // 自機が実際に動く円と同じ半径にする。案内と動きがずれると混乱するため。
-      var g = global.PULSAR.game.CONFIG;
-      var radius = Math.min(f.W, f.H) * g.focal / g.shipZ * g.shipRadiusRatio;
-      var a = clock * 1.5;
+    c.strokeStyle = 'rgba(160,220,255,' + (alpha * 0.3).toFixed(3) + ')';
+    c.lineWidth = 1.5;
+    c.setLineDash([6, 10]);
+    c.beginPath();
+    c.arc(cx, cy, radius, 0, TAU_LOCAL);
+    c.stroke();
+    c.setLineDash([]);
 
-      c.globalCompositeOperation = 'lighter';
-      c.strokeStyle = 'rgba(160,220,255,' + (alpha * 0.3).toFixed(3) + ')';
-      c.lineWidth = 1.5;
-      c.setLineDash([6, 10]);
-      c.beginPath();
-      c.arc(cx, cy, radius, 0, TAU_LOCAL);
-      c.stroke();
-      c.setLineDash([]);
+    // 円周をなぞる指先
+    var fx = cx + Math.cos(a) * radius;
+    var fy = cy + Math.sin(a) * radius;
+    var grad = c.createRadialGradient(fx, fy, 0, fx, fy, 26);
+    grad.addColorStop(0, 'rgba(190,235,255,' + (alpha * 0.75).toFixed(3) + ')');
+    grad.addColorStop(1, 'rgba(190,235,255,0)');
+    c.fillStyle = grad;
+    c.beginPath();
+    c.arc(fx, fy, 26, 0, TAU_LOCAL);
+    c.fill();
 
-      // 円周をなぞる指先
-      var fx = cx + Math.cos(a) * radius;
-      var fy = cy + Math.sin(a) * radius;
-      var grad = c.createRadialGradient(fx, fy, 0, fx, fy, 26);
-      grad.addColorStop(0, 'rgba(190,235,255,' + (alpha * 0.75).toFixed(3) + ')');
-      grad.addColorStop(1, 'rgba(190,235,255,0)');
-      c.fillStyle = grad;
-      c.beginPath();
-      c.arc(fx, fy, 26, 0, TAU_LOCAL);
-      c.fill();
-
-      c.globalCompositeOperation = 'source-over';
-      c.font = '700 ' + Math.min(f.W * 0.045, 22).toFixed(0) + 'px system-ui, sans-serif';
-      c.fillStyle = 'rgba(236,243,255,' + alpha.toFixed(3) + ')';
-      c.fillText('なぞって操縦', cx, cy + radius + 42);
-    } else {
-      // 通常のシーンでは、触れれば操作区間へ飛べることだけを伝える。
-      var size = Math.min(f.W * 0.036, 16);
-      c.font = '600 ' + size.toFixed(0) + 'px system-ui, sans-serif';
-      var label = '画面に触れると、デモがゲームになる';
-      var w = c.measureText(label).width;
-      var y = f.H - 52;
-
-      c.fillStyle = 'rgba(4,5,10,0.55)';
-      c.fillRect(f.W / 2 - w / 2 - 16, y - 17, w + 32, 34);
-      c.strokeStyle = 'rgba(122,215,255,' + (alpha * 0.55).toFixed(3) + ')';
-      c.lineWidth = 1;
-      c.strokeRect(f.W / 2 - w / 2 - 16, y - 17, w + 32, 34);
-
-      c.fillStyle = 'rgba(236,243,255,' + alpha.toFixed(3) + ')';
-      c.fillText(label, f.W / 2, y);
-    }
+    c.globalCompositeOperation = 'source-over';
+    c.font = '700 ' + Math.min(f.W * 0.045, 22).toFixed(0) + 'px system-ui, sans-serif';
+    c.fillStyle = 'rgba(236,243,255,' + alpha.toFixed(3) + ')';
+    c.fillText('なぞって操縦', cx, cy + radius + 42);
 
     c.restore();
+  }
+
+  /**
+   * @brief 遊び始めた直後の案内を、時間とともに消す係数。
+   * @private
+   * @returns {number} 不透明度の倍率 [0..1]
+   */
+  function fadeOutHint() {
+    var since = clock - startedAt;
+    return M.clamp(1 - (since - 3.5) / 1.5, 0, 1);
   }
 
   /** @brief 円周。`mathx` の TAU をローカルに束縛して参照を短くする。 @private */
@@ -451,27 +446,41 @@
   }
 
   /**
+   * @brief 遊び始める。タイトル画面から呼ばれる。
+   * @returns {void}
+   */
+  function startGame() {
+    global.PULSAR.game.reset();
+    pointer.everTouched = true;
+    lastInput = clock;
+    startedAt = clock;
+    jumpToPlayable();
+  }
+
+  /**
    * @brief もう一度挑戦する。
    * @returns {void}
    */
   function retry() {
     resultEl.hidden = true;
     resultShown = false;
-    global.PULSAR.game.reset();
-    pointer.everTouched = true; // 説明は出し直さない
-    lastInput = clock;
-    jumpToPlayable();
+    startGame();
   }
 
   /**
-   * @brief リザルトを閉じ、デモの流れへ戻る。
+   * @brief リザルトを閉じ、タイトル画面（デモ）へ戻す。
    * @returns {void}
    */
   function watchDemo() {
     resultEl.hidden = true;
     resultShown = false;
     global.PULSAR.game.reset();
-    lastInput = -999; // 引き留めを解除し、次のシーンへ進ませる
+
+    // 引き留めを解除し、デモを次のシーンへ進ませる
+    lastInput = -999;
+    pointer.everTouched = false;
+
+    if (typeof api.onShowTitle === 'function') api.onShowTitle();
   }
 
   /**
@@ -613,11 +622,21 @@
     global.requestAnimationFrame(frame);
   }
 
-  global.PULSAR.app = {
+  /**
+   * @brief 外部へ公開する窓口。
+   *
+   * `onShowTitle` はタイトル画面を出し直すための差し込み口で、
+   * `index.html` 側が実装を入れる（DOM の扱いをこの層に持ち込まないため）。
+   */
+  var api = {
     CONFIG: CONFIG,
     boot: boot,
     impact: impact,
+    startGame: startGame,
     retry: retry,
-    watchDemo: watchDemo
+    watchDemo: watchDemo,
+    onShowTitle: null
   };
+
+  global.PULSAR.app = api;
 })(typeof window !== 'undefined' ? window : this);

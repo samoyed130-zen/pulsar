@@ -16,6 +16,19 @@
 <div class="crt" aria-hidden="true"></div>
 <div class="vignette" aria-hidden="true"></div>
 
+<!--
+  タイトル画面。背後ではデモが流れ続ける（アトラクトモード）。
+  どこを押しても始まるよう、画面全体を受け口にしている。
+-->
+<div id="title">
+  <div class="titleInner">
+    <h1 class="titleLogo">PULSAR</h1>
+    <p class="titleSub">触れると、デモがゲームになる</p>
+    <button id="startBtn" type="button" class="startBtn">START</button>
+    <p class="titleHint">画面のどこを押しても始まります</p>
+  </div>
+</div>
+
 <div id="hud">
   <span class="brand">PULSAR</span>
   <button id="helpBtn" type="button">あそびかた</button>
@@ -176,6 +189,25 @@
 
     // 画面に触れた時点でも音は起動する。その状態をボタンにも反映させる。
     window.setInterval(syncSoundButton, 700);
+
+    var title = document.getElementById('title');
+
+    /** タイトル画面を閉じて遊び始める。 */
+    function startPlaying() {
+      title.hidden = true;
+      PULSAR.sound.turnOn();   // 操作を起点にしないと音は鳴らせない
+      PULSAR.app.startGame();
+    }
+
+    // どこを押しても始まる。ボタンは「押す場所」を示すための目印。
+    title.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      startPlaying();
+    });
+    document.getElementById('startBtn').addEventListener('click', startPlaying);
+
+    // タイトルへ戻す操作は app 側から呼ばれる（リザルトの「デモを見る」など）
+    PULSAR.app.onShowTitle = function () { title.hidden = false; };
 
     var bgBtn = document.getElementById('bgBtn');
 

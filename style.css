@@ -124,6 +124,91 @@ body {
   border-color: var(--accent);
 }
 
+/* --- タイトル画面 --------------------------------------------------- */
+
+/*
+ * 背後でデモを流したまま重ねる。塗りつぶさず、中央だけを軽く落として
+ * 文字を読ませる。デモが見えていることが、この作品の第一印象になる。
+ */
+#title[hidden] { display: none; }
+
+#title {
+  position: fixed;
+  inset: 0;
+  z-index: 11;
+  display: grid;
+  place-items: center;
+  padding: var(--pad);
+  background: radial-gradient(
+    ellipse 70% 60% at 50% 50%,
+    rgba(4, 5, 10, 0.78) 0%,
+    rgba(4, 5, 10, 0.35) 70%,
+    rgba(4, 5, 10, 0.1) 100%
+  );
+  cursor: pointer;
+  animation: titleIn 0.8s ease both;
+}
+
+@keyframes titleIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.titleInner {
+  text-align: center;
+  pointer-events: none;
+}
+
+.titleLogo {
+  margin: 0;
+  font-family: "Consolas", "Impact", system-ui, monospace;
+  font-size: clamp(52px, 15vw, 128px);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  color: var(--fg);
+  text-shadow:
+    -3px 0 0 rgba(122, 215, 255, 0.75),
+     3px 0 0 rgba(255, 110, 200, 0.75),
+     0 0 42px rgba(122, 215, 255, 0.35);
+}
+
+.titleSub {
+  margin: 16px 0 34px;
+  font-size: clamp(13px, 3.4vw, 17px);
+  letter-spacing: 0.16em;
+  color: rgba(223, 229, 247, 0.75);
+}
+
+.startBtn {
+  pointer-events: auto;
+  font-family: "Consolas", monospace;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  padding: 16px 46px 16px 52px;
+  color: #04121c;
+  background: var(--accent);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  animation: startPulse 1.9s ease-in-out infinite;
+}
+
+@keyframes startPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(122, 215, 255, 0.5); }
+  50% { box-shadow: 0 0 0 18px rgba(122, 215, 255, 0); }
+}
+
+.startBtn:hover { background: #9ce2ff; }
+
+.titleHint {
+  margin: 18px 0 0;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: rgba(223, 229, 247, 0.4);
+}
+
 /* --- 走行パネル ----------------------------------------------------- */
 
 /*
