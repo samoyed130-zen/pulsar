@@ -414,10 +414,12 @@
   /** @brief 走行パネルとリザルトの DOM 参照。 @private */
   var panelEl = null, distEl = null, bestEl = null, timeEl = null, pausedEl = null;
   var comboValueEl = null, gaugeFillEl = null, layerEls = null;
+  var stageValueEl = null, stageFillEl = null;
   var resultEl = null;
 
   /** @brief 直前に描いた値。同じなら DOM を触らない。 @private */
-  var shownDist = -1, shownBest = -1, shownTime = '', shownCombo = -1, shownCollected = -1;
+  var shownDist = -1, shownBest = -1, shownTime = '', shownCombo = -1;
+  var shownCollected = -1, shownStage = -1;
 
   /** @brief リザルトを表示済みか。 @private */
   var resultShown = false;
@@ -487,6 +489,12 @@
       shownCombo = st.combo;
     }
 
+    if (st.stage !== shownStage) {
+      stageValueEl.textContent = String(st.stage);
+      shownStage = st.stage;
+    }
+    stageFillEl.style.width = (game.stageProgress() * 100).toFixed(1) + '%';
+
     var g = game.gauge();
     gaugeFillEl.style.width = (g * 100).toFixed(1) + '%';
 
@@ -508,6 +516,24 @@
     var st = global.PULSAR.game.state;
     resultShown = true;
 
+    // 全ステージを抜けたときと、時間切れのときで見出しを変える。
+    var titleEl = document.getElementById('resultTitle');
+    var leadEl = document.querySelector('.resultLead');
+
+    if (st.cleared) {
+      titleEl.textContent = 'ALL CLEAR';
+      titleEl.classList.add('clear');
+      leadEl.textContent = 'クリアおめでとう！';
+      leadEl.classList.add('clear');
+    } else {
+      titleEl.textContent = 'TIME UP';
+      titleEl.classList.remove('clear');
+      leadEl.textContent = 'ステージ ' + st.stage + ' で時間切れです。';
+      leadEl.classList.remove('clear');
+    }
+
+    document.getElementById('rsStage').textContent =
+      st.stage + ' / ' + global.PULSAR.game.CONFIG.stageCount;
     document.getElementById('rsDist').textContent = String(st.score);
     document.getElementById('rsBest').textContent = String(st.best);
     document.getElementById('rsCombo').textContent = String(st.maxCombo);
@@ -634,7 +660,7 @@
 
     // 走行速度をテンポに写す。速く走るほど曲も前のめりになる。
     var speedRatio = (game.state.speed - game.CONFIG.baseSpeed) /
-                     Math.max(0.001, game.CONFIG.maxSpeed - game.CONFIG.baseSpeed);
+                     Math.max(0.001, game.state.params.maxSpeed - game.CONFIG.baseSpeed);
     var wantedTempo = playing
       ? M.lerp(CONFIG.tempoMin, CONFIG.tempoMax, M.clamp(speedRatio, 0, 1))
       : 1;
@@ -705,6 +731,9 @@
       playing ? game.gauge() : 0.35 + 0.35 * Math.sin(clock * 0.12)
     );
 
+    // ステージに応じて曲そのものを差し替える。
+    global.PULSAR.sound.setStage(game.state.stage);
+
     // 端末側の都合で音が中断されていたら、気づかれないうちに戻す。
     global.PULSAR.sound.keepAlive();
 
@@ -770,6 +799,9 @@
     distEl = document.getElementById('scoreDist');
     bestEl = document.getElementById('scoreBest');
     timeEl = document.getElementById('scoreTime');
+
+    stageValueEl = document.getElementById('stageValue');
+    stageFillEl = document.getElementById('stageFill');
 
     comboValueEl = document.getElementById('comboValue');
     gaugeFillEl = document.getElementById('gaugeFill');

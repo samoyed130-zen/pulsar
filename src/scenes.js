@@ -323,6 +323,37 @@
   };
 
   /**
+   * @brief ステージごとの建造物の見た目。
+   *
+   * 同じ通路を6回走らされると、進んでいる実感が出ない。
+   * 色味と寸法を変えて、別の場所へ来たと分かるようにする。
+   *
+   * `hue` は色相のずらし量 [deg]、`light` は照明帯の色相、
+   * `width`/`height` は通路の大きさの倍率、`period` は柱の間隔の倍率。
+   */
+  var STAGE_LOOK = [
+    { hue:   0, light: 188, width: 1.00, height: 1.00, period: 1.00 },
+    { hue:  38, light: 150, width: 1.12, height: 0.92, period: 1.15 },
+    { hue:  86, light: 100, width: 0.92, height: 1.14, period: 0.86 },
+    { hue: 138, light:  52, width: 1.18, height: 1.06, period: 1.30 },
+    { hue: 196, light:  16, width: 0.88, height: 0.90, period: 0.78 },
+    { hue: 262, light: 322, width: 1.06, height: 1.20, period: 1.05 }
+  ];
+
+  /**
+   * @brief 今のステージの見た目を返す。
+   * @private
+   * @returns {Object} `STAGE_LOOK` の要素
+   */
+  function currentLook() {
+    var n = global.PULSAR.game.state.stage;
+    var i = Math.floor(n) - 1;
+    if (!(i >= 0)) i = 0;
+    if (i >= STAGE_LOOK.length) i = STAGE_LOOK.length - 1;
+    return STAGE_LOOK[i];
+  }
+
+  /**
    * @brief 描画待ちの部材。奥から手前へ並べ替えてから描く。
    * @private
    */
@@ -400,25 +431,28 @@
     var cy = f.H / 2;
     var focal = Math.min(f.W, f.H) * global.PULSAR.game.CONFIG.focal;
 
-    var offset = travel % HALL.period;
+    // ステージごとに通路の大きさと色を変える。
+    var look = currentLook();
+    var period = HALL.period * look.period;
+    var offset = travel % period;
     var cells = f.light ? HALL.cells - 3 : HALL.cells;
 
     parts.length = 0;
     partCount = 0;
 
-    var hw = HALL.halfWidth;
-    var hh = HALL.halfHeight;
+    var hw = HALL.halfWidth * look.width;
+    var hh = HALL.halfHeight * look.height;
 
     for (var i = 0; i < cells; i++) {
-      var z = HALL.nearZ + i * HALL.period - offset + HALL.period;
+      var z = HALL.nearZ + i * period - offset + period;
       if (z < HALL.nearZ * 0.5) continue;
 
       var bend = hallBend(z, f.t);
-      var half = HALL.period * 0.5;
+      var half = period * 0.5;
 
       // 壁・床・天井は奥行きに長いので、短く割って並べる。
       // カメラに掛かった区画だけが消えるようになり、黒い抜けが出にくい。
-      var segLen = HALL.period / HALL.segments;
+      var segLen = period / HALL.segments;
       var segHalf = segLen * 0.5;
 
       for (var s = 0; s < HALL.segments; s++) {
@@ -435,8 +469,9 @@
       }
 
       // 柱。床から天井まで通す。金属らしさを最も強くする。
-      addPart(bend - HALL.columnX, 0, z, 0.14, hh, 0.14, HALL_HUE.column, 0.95, false);
-      addPart(bend + HALL.columnX, 0, z, 0.14, hh, 0.14, HALL_HUE.column, 0.95, false);
+      var colX = HALL.columnX * look.width;
+      addPart(bend - colX, 0, z, 0.14, hh, 0.14, HALL_HUE.column, 0.95, false);
+      addPart(bend + colX, 0, z, 0.14, hh, 0.14, HALL_HUE.column, 0.95, false);
 
       // 天井を渡る梁
       addPart(bend, -hh * 0.86, z, hw * 0.98, 0.1, 0.13, HALL_HUE.beam, 0.85, false);
@@ -446,8 +481,8 @@
       addPart(bend + hw * 0.88, -hh * 0.3, z, 0.16, 0.07, half * 0.95, HALL_HUE.beam, 0.7, false);
 
       // 照明帯。等間隔に流れることで、通路の長さと自分の速さが分かる。
-      addPart(bend - hw * 0.9, hh * 0.1, z, 0.05, 0.05, half * 0.62, HALL_HUE.light, 0, true);
-      addPart(bend + hw * 0.9, hh * 0.1, z, 0.05, 0.05, half * 0.62, HALL_HUE.light, 0, true);
+      addPart(bend - hw * 0.9, hh * 0.1, z, 0.05, 0.05, half * 0.62, look.light, 0, true);
+      addPart(bend + hw * 0.9, hh * 0.1, z, 0.05, 0.05, half * 0.62, look.light, 0, true);
     }
 
     // 奥の部材から描く。これで前後関係が正しくなる。
@@ -460,7 +495,7 @@
       var p = parts[k];
 
       // 奥ほど霞ませる。距離が伝わり、遠くの面のちらつきも抑えられる。
-      var fade = M.clamp(1.35 - p.depth / (HALL.period * cells), 0.06, 1);
+      var fade = M.clamp(1.35 - p.depth / (period * cells), 0.06, 1);
 
       mesh3d.drawMesh(c, mesh3d.CUBE, {
         pos: p.pos,
@@ -470,7 +505,7 @@
         focal: focal,
         cx: cx,
         cy: cy,
-        hue: (f.hue * 0.25 + p.hue) % 360,
+        hue: (f.hue * 0.25 + p.hue + (p.emissive ? 0 : look.hue)) % 360,
         sat: p.emissive ? 90 : 34,
         metal: p.metal,
         emissive: p.emissive,
@@ -478,7 +513,9 @@
         phase: f.t * 0.8 + travel * 0.25,
         dim: fade,
         alpha: 1,
-        edges: !p.emissive ? false : true
+        // 照明帯は光の面として見せたいので、輪郭線を描かない。
+        // 線が入ると板を貼ったように見え、光っている感じが消える。
+        edges: false
       });
     }
 

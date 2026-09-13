@@ -70,7 +70,7 @@
     it('速度は上限を超えない', function () {
       G.reset();
       for (var i = 0; i < 2000; i++) G.update(makeFrame({ dt: 1 / 30 }));
-      expect(G.state.speed <= G.CONFIG.maxSpeed + 1e-9).toBeTrue();
+      expect(G.state.speed <= G.state.params.maxSpeed + 1e-9).toBeTrue();
     });
 
     it('コンボが 0 のままなら速度は初速付近に留まる', function () {
@@ -83,14 +83,16 @@
       expect(G.state.speed <= G.CONFIG.baseSpeed + 0.2).toBeTrue();
     });
 
-    it('ゲージ満タンを保つと最高速へ近づく', function () {
+    it('ゲージ満タンを保つと、そのステージの最高速へ近づく', function () {
       G.reset();
       var f = makeFrame({ dt: 1 / 30 });
       for (var i = 0; i < 400; i++) {
         G.state.combo = G.CONFIG.comboForMax;
+        G.state.dist = 0;            // ステージ送りを起こさずに速度だけを見る
+        G.state.stageStartDist = 0;
         G.update(f);
       }
-      expect(G.state.speed >= G.CONFIG.maxSpeed - 0.2).toBeTrue();
+      expect(G.state.speed >= G.state.params.maxSpeed - 0.2).toBeTrue();
     });
 
     it('自機の角度は常に [0, 2π) に入る', function () {
@@ -139,7 +141,7 @@
       G.reset();
       var f = makeFrame({ dt: 1 / 60 });
       G.state.combo = G.CONFIG.comboForMax;
-      G.state.speed = G.CONFIG.maxSpeed;
+      G.state.speed = G.state.params.maxSpeed;
 
       // 直近のリングの反対側へ置いて、通過判定を衝突させる
       var near = null;
@@ -173,14 +175,18 @@
   });
 
   describe('game の設定値', function () {
-    it('切れ目の幅は 1 周より狭い', function () {
-      expect(G.CONFIG.gapWidth < M.TAU).toBeTrue();
+    it('どのステージでも切れ目の幅は 1 周より狭い', function () {
+      for (var s = 1; s <= G.CONFIG.stageCount; s++) {
+        expect(G.stageParams(s).gapWidth < M.TAU).toBeTrue();
+      }
     });
     it('自機の位置は最遠リングより手前にある', function () {
       expect(G.CONFIG.shipZ < G.CONFIG.farZ).toBeTrue();
     });
-    it('初速は上限以下', function () {
-      expect(G.CONFIG.baseSpeed <= G.CONFIG.maxSpeed).toBeTrue();
+    it('初速はどのステージの最高速よりも遅い', function () {
+      for (var s = 1; s <= G.CONFIG.stageCount; s++) {
+        expect(G.CONFIG.baseSpeed < G.stageParams(s).maxSpeed).toBeTrue();
+      }
     });
   });
 
@@ -410,26 +416,146 @@
       expect(G.CONFIG.maxSeconds >= G.CONFIG.sessionSeconds).toBeTrue();
     });
 
-    it('取れる角度の幅はリングの切れ目より狭い（拾うのに狙いが要る）', function () {
-      expect(G.CONFIG.itemCatchAngle < G.CONFIG.gapWidth).toBeTrue();
+    it('取れる角度の幅は、どのステージの切れ目よりも狭い（拾うのに狙いが要る）', function () {
+      for (var s = 1; s <= G.CONFIG.stageCount; s++) {
+        expect(G.CONFIG.itemCatchAngle < G.stageParams(s).gapWidth).toBeTrue();
+      }
+    });
+  });
+
+  describe('ステージ', function () {
+    it('開始時はステージ1', function () {
+      G.reset();
+      expect(G.state.stage).toBe(1);
+      expect(G.state.cleared).toBeFalse();
+    });
+
+    it('ステージが進むほど切れ目が狭くなる', function () {
+      var a = G.stageParams(1).gapWidth;
+      var b = G.stageParams(G.CONFIG.stageCount).gapWidth;
+      expect(b < a).toBeTrue();
+    });
+
+    it('ステージが進むほど切れ目のずれが大きくなる', function () {
+      expect(G.stageParams(G.CONFIG.stageCount).gapDrift >
+             G.stageParams(1).gapDrift).toBeTrue();
+    });
+
+    it('ステージが進むほど立体の間隔が広がる（拾える機会が減る）', function () {
+      expect(G.stageParams(G.CONFIG.stageCount).itemPeriod >
+             G.stageParams(1).itemPeriod).toBeTrue();
+    });
+
+    it('ステージが進むほど最高速が上がる', function () {
+      expect(G.stageParams(G.CONFIG.stageCount).maxSpeed >
+             G.stageParams(1).maxSpeed).toBeTrue();
+    });
+
+    it('範囲外のステージ番号でも妥当な値を返す', function () {
+      var lo = G.stageParams(-5);
+      var hi = G.stageParams(999);
+      expect(lo.gapWidth).toBe(G.stageParams(1).gapWidth);
+      expect(hi.gapWidth).toBe(G.stageParams(G.CONFIG.stageCount).gapWidth);
+    });
+
+    it('どのステージでも切れ目は円周の 1/6 より広い', function () {
+      for (var s = 1; s <= G.CONFIG.stageCount; s++) {
+        expect(G.stageParams(s).gapWidth > M.TAU / 6).toBeTrue();
+      }
+    });
+
+    it('規定の距離を走ると次のステージへ進む', function () {
+      G.reset();
+      var f = makeFrame();
+      f.pointer.everTouched = true;
+      G.update(f);
+
+      G.state.dist = G.CONFIG.stageDistance + 1;
+      G.update(f);
+
+      expect(G.state.stage).toBe(2);
+      expect(G.state.stageStartDist > 0).toBeTrue();
+    });
+
+    it('ステージが変わると持ち時間が戻る', function () {
+      G.reset();
+      var f = makeFrame();
+      f.pointer.everTouched = true;
+      G.update(f);
+
+      G.state.timeLeft = 10;
+      G.state.dist = G.CONFIG.stageDistance + 1;
+      G.update(f);
+
+      expect(G.state.timeLeft).toBe(G.CONFIG.sessionSeconds);
+    });
+
+    it('ステージが変わると難しさも切り替わる', function () {
+      G.reset();
+      var f = makeFrame();
+      f.pointer.everTouched = true;
+      G.update(f);
+
+      var before = G.state.params.gapWidth;
+      G.state.dist = G.CONFIG.stageDistance + 1;
+      G.update(f);
+
+      expect(G.state.params.gapWidth < before).toBeTrue();
+    });
+
+    it('最終ステージを抜けると踏破になり、終了する', function () {
+      G.reset();
+      var f = makeFrame();
+      f.pointer.everTouched = true;
+      G.update(f);
+
+      G.state.stage = G.CONFIG.stageCount;
+      G.state.dist = G.CONFIG.stageDistance * 99;
+      G.update(f);
+
+      expect(G.state.cleared).toBeTrue();
+      expect(G.state.finished).toBeTrue();
+    });
+
+    it('ステージの進み具合は 0〜1 に収まる', function () {
+      G.reset();
+      expect(G.stageProgress()).toBe(0);
+      G.state.dist = G.state.stageStartDist + G.CONFIG.stageDistance * 0.5;
+      expect(G.stageProgress()).toBeCloseTo(0.5, 1e-9);
+      G.state.dist = G.state.stageStartDist + G.CONFIG.stageDistance * 9;
+      expect(G.stageProgress()).toBe(1);
+    });
+
+    it('reset でステージ1に戻る', function () {
+      G.state.stage = 4;
+      G.state.cleared = true;
+      G.reset();
+      expect(G.state.stage).toBe(1);
+      expect(G.state.cleared).toBeFalse();
+      expect(G.state.params.gapWidth).toBe(G.stageParams(1).gapWidth);
     });
   });
 
   describe('遊びやすさの条件', function () {
-    it('最高速でもリングの間隔が 0.4 秒以上ある（反応する時間を残す）', function () {
-      var interval = G.CONFIG.spacing / G.CONFIG.maxSpeed;
-      expect(interval >= 0.4).toBeTrue();
+    it('どのステージでも、リングの間隔が 0.3 秒以上ある（反応する時間を残す）', function () {
+      for (var s = 1; s <= G.CONFIG.stageCount; s++) {
+        var interval = G.CONFIG.spacing / G.stageParams(s).maxSpeed;
+        expect(interval >= 0.3).toBeTrue();
+      }
     });
 
-    it('切れ目のずれは、その間に回りきれる範囲に収まっている', function () {
-      // 1枚あたりの猶予時間に、手動操作で回せる角度
-      var interval = G.CONFIG.spacing / G.CONFIG.maxSpeed;
-      var reachable = G.CONFIG.manualRate * interval * 0.5;
-      expect(G.CONFIG.gapDrift <= reachable).toBeTrue();
+    it('どのステージでも、切れ目のずれは回りきれる範囲に収まっている', function () {
+      for (var s = 1; s <= G.CONFIG.stageCount; s++) {
+        var p = G.stageParams(s);
+        // 1枚あたりの猶予時間に、手動操作で回せる角度
+        var interval = G.CONFIG.spacing / p.maxSpeed;
+        var reachable = G.CONFIG.manualRate * interval * 0.5;
+        expect(p.gapDrift <= reachable).toBeTrue();
+      }
     });
 
-    it('切れ目は円周の 1/4 より広い（狙って通せる幅がある）', function () {
-      expect(G.CONFIG.gapWidth > M.TAU / 4).toBeTrue();
+    it('最初のステージの切れ目は円周の 1/4 より広い（入口は易しく）', function () {
+      expect(G.stageParams(1).gapWidth > M.TAU / 4).toBeTrue();
     });
 
     it('衝突後に無敵時間がある', function () {
@@ -443,7 +569,7 @@
         var r = G.state.rings[i];
         if (near === null || r.z < near.z) near = r;
       }
-      expect(M.canPass(G.state.angle, near.gap, G.CONFIG.gapWidth)).toBeTrue();
+      expect(M.canPass(G.state.angle, near.gap, G.state.params.gapWidth)).toBeTrue();
     });
   });
 })();

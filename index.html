@@ -74,6 +74,14 @@
     <span class="layer" data-layer="arp">ARP</span>
   </div>
 
+  <!-- ステージの進み具合。どこまで来たかが分かる -->
+  <div class="stageRow">
+    <span class="stageLabel">STAGE</span>
+    <span class="stageValue" id="stageValue">1</span>
+    <span class="stageOf">/ 6</span>
+    <span class="stageBar"><i class="stageFill" id="stageFill"></i></span>
+  </div>
+
   <div class="stats">
     <div class="stat">
       <span class="statLabel">DISTANCE</span>
@@ -94,9 +102,10 @@
 <div id="result" hidden>
   <div class="resultPanel" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
     <h2 id="resultTitle">TIME UP</h2>
-    <p class="resultLead">3分間の走行が終わりました。</p>
+    <p class="resultLead">走行が終わりました。</p>
 
     <dl class="resultStats">
+      <div><dt>STAGE</dt><dd id="rsStage">1 / 6</dd></div>
       <div><dt>DISTANCE</dt><dd id="rsDist">0</dd></div>
       <div><dt>BEST</dt><dd id="rsBest">0</dd></div>
       <div><dt>MAX COMBO</dt><dd id="rsCombo">0</dd></div>
@@ -158,6 +167,11 @@
       <li>進むほど加速し、リングの間隔が詰まって見えます。</li>
       <li>ぶつかっても<strong>終わりません</strong>。画面が赤く弾けて減速し、そのまま走り続けます。</li>
       <li>スコアは走った距離です。ベスト記録はこの端末に保存されます。</li>
+      <li>
+        <strong>ステージは全6つ。</strong>持ち時間2分のあいだに 1000 進むと次へ。
+        先へ行くほど切れ目が狭く、拾える立体も減り、通路の景色と曲が変わります。
+      </li>
+      <li>時間切れで終了です。6つすべて抜けられたら踏破。</li>
     </ul>
 
     <h3>デモについて</h3>

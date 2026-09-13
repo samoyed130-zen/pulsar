@@ -353,6 +353,49 @@ body {
   background: rgba(122, 215, 255, 0.12);
 }
 
+.stageRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+}
+
+.stageLabel {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: rgba(223, 229, 247, 0.45);
+}
+
+.stageValue {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.stageOf {
+  font-size: 10px;
+  color: rgba(223, 229, 247, 0.35);
+}
+
+.stageBar {
+  flex: 1 1 auto;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.stageFill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 2px;
+  background: rgba(223, 229, 247, 0.55);
+  transition: width 0.2s ease;
+}
+
 .stats {
   display: flex;
   width: 100%;
@@ -472,6 +515,18 @@ body {
   margin: 8px 0 22px;
   font-size: 12px;
   color: var(--dim);
+}
+
+/* 全ステージ踏破のときだけ、見出しと一言を祝いの色にする */
+.resultPanel h2.clear {
+  color: #ffd76e;
+  text-shadow: 0 0 26px rgba(255, 215, 110, 0.55);
+}
+
+.resultLead.clear {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffd76e;
 }
 
 .resultStats {

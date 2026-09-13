@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file sound.js
  * @brief Web Audio API だけで曲を合成する簡易シーケンサ。
  *
@@ -27,24 +27,91 @@
   };
 
   /**
-   * @brief ベースの音程（16分音符16個 = 1小節分）。null は休符。
+   * @brief ステージごとの曲。
    *
-   * A マイナー系。単純な繰り返しだが、フィルタを揺らすことで動きを出す。
+   * 音程は A マイナー系。`bass` と `lead` は16分音符16個分（1小節）で、
+   * null は休符。
+   *
+   * 同じ曲が延々と続くと、進んでいる実感が薄れる。ステージが変わったら
+   * 場面が変わったと分かるよう、拍の打ち方・ベース・リードを差し替える。
+   *
+   * `kick` と `hat` は16分音符16個分の鳴らす位置。true の位置で鳴る。
    * @private
    */
-  var BASS = [
-    55.00, null, 55.00, null, 82.41, null, 55.00, null,
-    73.42, null, 73.42, null, 61.74, null, 61.74, null
+  var STAGES = [
+    {
+      // 1: 素直な四つ打ち。最初はテンポが分かりやすいことを優先する
+      kick: [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+      hat:  [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+      bass: [55.00, null, 55.00, null, 82.41, null, 55.00, null,
+             73.42, null, 73.42, null, 61.74, null, 61.74, null],
+      lead: [440.00, null, 659.25, null, null, 587.33, null, null,
+             493.88, null, 739.99, null, null, 493.88, null, null]
+    },
+    {
+      // 2: 裏拍のハイハットを増やして前へ進む感じを出す
+      kick: [1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0],
+      hat:  [0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1],
+      bass: [55.00, null, 65.41, null, 82.41, null, 65.41, null,
+             73.42, null, 87.31, null, 61.74, null, 73.42, null],
+      lead: [523.25, 659.25, null, 587.33, null, 783.99, 659.25, null,
+             587.33, 739.99, null, 659.25, null, 523.25, null, null]
+    },
+    {
+      // 3: キックを食わせて跳ねを作る
+      kick: [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0],
+      hat:  [0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1],
+      bass: [65.41, null, 65.41, 65.41, 98.00, null, 65.41, null,
+             87.31, null, 87.31, 87.31, 73.42, null, 73.42, null],
+      lead: [659.25, null, 783.99, null, 880.00, null, 783.99, null,
+             659.25, null, 587.33, null, 523.25, null, 587.33, null]
+    },
+    {
+      // 4: 低い方へ寄せ、重さを出す
+      kick: [1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0],
+      hat:  [0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1],
+      bass: [49.00, 49.00, null, 49.00, 73.42, null, 49.00, null,
+             65.41, 65.41, null, 65.41, 58.27, null, 58.27, null],
+      lead: [493.88, null, null, 587.33, null, 493.88, null, 440.00,
+             392.00, null, null, 493.88, null, 440.00, null, null]
+    },
+    {
+      // 5: 16分のハイハットで密度を上げる
+      kick: [1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0],
+      hat:  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      bass: [55.00, 55.00, 82.41, null, 55.00, null, 82.41, 55.00,
+             73.42, 73.42, 110.00, null, 61.74, null, 92.50, 61.74],
+      lead: [880.00, 783.99, 659.25, 783.99, null, 880.00, 987.77, null,
+             880.00, 739.99, 659.25, 587.33, null, 659.25, null, null]
+    },
+    {
+      // 6: 詰め込んだ最終ステージ。ここまで来た手応えを音数で返す
+      kick: [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0],
+      hat:  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      bass: [55.00, 55.00, 65.41, 73.42, 82.41, 73.42, 65.41, 55.00,
+             49.00, 49.00, 58.27, 65.41, 73.42, 65.41, 58.27, 49.00],
+      lead: [1046.50, 987.77, 880.00, 783.99, 880.00, 987.77, 1046.50, null,
+             880.00, 783.99, 659.25, 587.33, 659.25, 783.99, 880.00, null]
+    }
   ];
 
+  /** @brief 現在のステージ番号（1 から始まる）。 @private */
+  var stage = 1;
+
   /**
-   * @brief リードの音程（16分音符16個）。
+   * @brief ステージ番号を用意した曲の範囲へ収める。
+   *
+   * ステージ数と曲数が食い違っても、音が止まったり例外が出たりしないようにする。
+   *
    * @private
+   * @param {number} n ステージ番号
+   * @returns {number} 1 以上 曲数以下の整数
    */
-  var LEAD = [
-    440.00, 523.25, 659.25, 523.25, null, 659.25, 587.33, null,
-    493.88, 587.33, 739.99, 587.33, null, 493.88, 440.00, null
-  ];
+  function clampStage(n) {
+    var v = Math.floor(n);
+    if (!(v >= 1)) return 1;                 // NaN もここで拾う
+    return v > STAGES.length ? STAGES.length : v;
+  }
 
   /** @brief 音声文脈。未起動なら null。 @private */
   var ac = null;
@@ -87,10 +154,6 @@
   var intensity = 0;
 
   /**
-   * @brief 層が加わる順番と、それぞれが出てくる厚みのしきい値。
-   * @private
-   */
-  /**
    * @brief テンポ倍率。1.0 で `CONFIG.bpm` どおり。
    *
    * 走行速度に合わせて曲が速くなる。映像側の拍もこの倍率を共有しているため、
@@ -99,6 +162,10 @@
    */
   var tempoScale = 1;
 
+  /**
+   * @brief 層が加わる順番と、それぞれが出てくる厚みのしきい値。
+   * @private
+   */
   var LAYER = {
     bass: 0.02,   // 触れて走り出せばすぐ土台が入る
     hat: 0.30,
@@ -198,29 +265,55 @@
     var i = n % 16;
     var bar = Math.floor(n / 16);
     var v = intensity;
+    var p = STAGES[clampStage(stage) - 1];
 
     // キックは常に鳴る。曲の背骨であり、映像の脈拍と一致させているため。
-    if (i % 4 === 0) kick(at);
+    if (p.kick[i]) kick(at);
 
-    if (v >= LAYER.bass && BASS[i] !== null) {
+    if (v >= LAYER.bass && p.bass[i] !== null) {
       // 厚みが増すほどフィルタを開き、同じ音型でも前に出てくるようにする。
       var cutoff = 320 + v * 900 + Math.sin(bar * 0.7) * 220;
-      tone(BASS[i], at, 0.22, 'sawtooth', 0.20 + v * 0.16, cutoff);
+      tone(p.bass[i], at, 0.22, 'sawtooth', 0.20 + v * 0.16, cutoff);
     }
 
-    if (v >= LAYER.hat && i % 2 === 1) {
+    if (v >= LAYER.hat && p.hat[i]) {
       hat(at, (i % 4 === 3 ? 1 : 0.55) * (0.5 + v * 0.5));
     }
 
     // リードは2小節に1回休ませて、繰り返しの単調さを減らす。
-    if (v >= LAYER.lead && LEAD[i] !== null && bar % 4 !== 3) {
-      tone(LEAD[i], at, 0.16, 'square', 0.05 + v * 0.05, 2600);
+    if (v >= LAYER.lead && p.lead[i] !== null && bar % 4 !== 3) {
+      tone(p.lead[i], at, 0.16, 'square', 0.05 + v * 0.05, 2600);
     }
 
     // 満タン近くでだけ現れる高音。ここまで来た手応えを音で返す。
-    if (v >= LAYER.arp && LEAD[i] !== null) {
-      tone(LEAD[i] * 2, at, 0.10, 'triangle', 0.05, 5200);
+    if (v >= LAYER.arp && p.lead[i] !== null) {
+      tone(p.lead[i] * 2, at, 0.10, 'triangle', 0.05, 5200);
     }
+  }
+
+  /**
+   * @brief 鳴らす曲をステージ番号で選ぶ。
+   * @param {number} n ステージ番号（1 から始まる）
+   * @returns {void}
+   */
+  function setStage(n) {
+    stage = clampStage(n);
+  }
+
+  /**
+   * @brief 現在のステージ番号。
+   * @returns {number} ステージ番号
+   */
+  function getStage() {
+    return stage;
+  }
+
+  /**
+   * @brief 用意した曲の数。
+   * @returns {number} ステージ数
+   */
+  function stageCount() {
+    return STAGES.length;
   }
 
   /**
@@ -409,6 +502,9 @@
     setIntensity: setIntensity,
     getIntensity: getIntensity,
     setTempoScale: setTempoScale,
-    getTempoScale: getTempoScale
+    getTempoScale: getTempoScale,
+    setStage: setStage,
+    getStage: getStage,
+    stageCount: stageCount
   };
 })(typeof window !== 'undefined' ? window : this);

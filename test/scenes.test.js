@@ -208,6 +208,20 @@
       expect(typeof S2.isOn()).toBe('boolean');
     });
 
+    it('ステージの数だけ曲が用意されている', function () {
+      expect(S2.stageCount()).toBe(window.PULSAR.game.CONFIG.stageCount);
+    });
+
+    it('ステージ番号は用意した曲の範囲へ収められる', function () {
+      S2.setStage(-3);
+      expect(S2.getStage()).toBe(1);
+      S2.setStage(999);
+      expect(S2.getStage()).toBe(S2.stageCount());
+      S2.setStage(3);
+      expect(S2.getStage()).toBe(3);
+      S2.setStage(1);
+    });
+
     it('テンポ倍率は極端な値に丸められる', function () {
       S2.setTempoScale(0.1);
       expect(S2.getTempoScale()).toBe(0.5);

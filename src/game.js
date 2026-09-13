@@ -34,25 +34,16 @@
      * 遅い。繋がり始めるまでは落ち着いて狙いを定められる。
      */
     baseSpeed: 2.6,
-    /**
-     * @brief ゲージ満タン時の速度。
-     *
-     * ここまで来ると、序盤とは別のゲームになる速さ。
-     * 速さ・音の厚み・曲のテンポが同時に上がるので、勢いが一気に立ち上がる。
-     */
-    maxSpeed: 7.0,
     /** @brief 速度がゲージに追従する速さ。急変させず、加速を体で感じさせる。 */
     speedRate: 1.6,
     /** @brief 透視投影の焦点距離。画面短辺に対する比率。 */
     focal: 0.62,
-    /** @brief リングの切れ目の開き角 [rad]。約109度と広めに取る。 */
-    gapWidth: 1.9,
-    /**
-     * @brief 隣り合うリングで切れ目がずれる最大量 [rad]。
-     *
-     * 大きすぎると、間に合わない位置に切れ目が現れて理不尽になる。
+    /*
+     * 切れ目の広さ・ずれ幅・立体の間隔・最高速はステージごとに変わるため、
+     * ここではなく `stageParams()` が持つ。値の置き場所を1つにしておかないと、
+     * どちらが効いているのか分からなくなる。
      */
-    gapDrift: 0.75,
+
     /** @brief 衝突直後、判定を止める時間 [s]。連続で轢かれるのを防ぐ。 */
     graceSeconds: 0.7,
     /** @brief 自機が置かれる奥行き（この位置を通過するリングと判定する）。 */
@@ -69,11 +60,14 @@
     ringThickness: 3,
     /** @brief コンボゲージが満タンになる連続通過数。 */
     comboForMax: 20,
-    /** @brief 1回の挑戦の持ち時間 [s]。 */
-    sessionSeconds: 180,
+    /** @brief 1つのステージの持ち時間 [s]。 */
+    sessionSeconds: 120,
 
-    /** @brief 時間を延ばす立体が並ぶ間隔（奥行き）。 */
-    itemPeriod: 5.2,
+    /** @brief ステージ数。 */
+    stageCount: 6,
+    /** @brief 1ステージを抜けるのに必要な走行距離。 */
+    stageDistance: 1000,
+
     /** @brief 立体を置く円の半径（トンネル半径を 1 とする）。 */
     itemOrbit: 0.52,
     /** @brief 立体に触れたとみなす角度の幅 [rad]。 */
@@ -86,8 +80,34 @@
      * 取り続ければ無限に遊べてしまうため、上限を設ける。
      * 初期値より少しだけ高くして、貯金できる余地を残す。
      */
-    maxSeconds: 210
+    maxSeconds: 150
   };
+
+  /**
+   * @brief ステージごとの難しさ。
+   *
+   * 段階を追って次のように変える:
+   * - 通り抜ける切れ目を狭くする
+   * - 隣り合う切れ目のずれを大きくし、より大きく回り込ませる
+   * - 時間を延ばす立体の間隔を広げ、拾える機会を減らす
+   * - 最高速を上げる
+   *
+   * どれか1つだけを強めると理不尽になりやすいので、少しずつ同時に動かす。
+   *
+   * @param {number} stage ステージ番号（1 から始まる）
+   * @returns {{gapWidth: number, gapDrift: number, itemPeriod: number, maxSpeed: number}}
+   */
+  function stageParams(stage) {
+    var last = Math.max(1, CONFIG.stageCount - 1);
+    var t = M.clamp((stage - 1) / last, 0, 1);
+
+    return {
+      gapWidth: M.lerp(1.95, 1.15, t),
+      gapDrift: M.lerp(0.6, 1.05, t),
+      itemPeriod: M.lerp(4.6, 9.5, t),
+      maxSpeed: M.lerp(6.4, 8.8, t)
+    };
+  }
 
   /**
    * @brief 走行状態。
@@ -131,7 +151,18 @@
     /** @brief 立体で延ばした合計時間 [s]。 */
     timeGained: 0,
     /** @brief 取った直後の演出用の値 [0..1]。時間とともに減る。 */
-    collectFlash: 0
+    collectFlash: 0,
+
+    /** @brief 現在のステージ番号（1 から始まる）。 */
+    stage: 1,
+    /** @brief 現在のステージに入った時点の走行距離。 */
+    stageStartDist: 0,
+    /** @brief 現在のステージの難しさ。 */
+    params: stageParams(1),
+    /** @brief 全ステージを抜けたか。 */
+    cleared: false,
+    /** @brief ステージが変わった直後の演出用の値 [0..1]。 */
+    stageFlash: 0
   };
 
   /**
@@ -170,7 +201,7 @@
    */
   function makeRing(z, prevGap) {
     // 直前の切れ目から離れすぎないようにして、避けられない配置を防ぐ。
-    var delta = (Math.random() - 0.5) * 2 * CONFIG.gapDrift;
+    var delta = (Math.random() - 0.5) * 2 * state.params.gapDrift;
     return { z: z, gap: M.wrapAngle(prevGap + delta), judged: false };
   }
 
@@ -206,6 +237,64 @@
    * @brief 走行状態を初期化する。
    * @returns {void}
    */
+  /**
+   * @brief 現在のステージの難しさでコースを敷き直す。
+   *
+   * ステージが変わるたびに呼ぶ。距離や記録はそのまま引き継ぐ。
+   *
+   * @private
+   * @returns {void}
+   */
+  function buildCourse() {
+    state.rings = [];
+    state.items = [];
+
+    // 最初のリングは自機の正面に切れ目を置く。切り替わった直後に
+    // いきなり轢かれると、腕前ではなく運の問題になってしまう。
+    var gap = state.angle;
+    for (var z = CONFIG.shipZ + 4; z < CONFIG.farZ; z += CONFIG.spacing) {
+      state.rings.push({ z: z, gap: gap, judged: false });
+      gap = M.wrapAngle(gap + (Math.random() - 0.5) * 2 * state.params.gapDrift);
+    }
+
+    for (var iz = CONFIG.shipZ + 6; iz < CONFIG.farZ; iz += state.params.itemPeriod) {
+      state.items.push(makeItem(iz));
+    }
+  }
+
+  /**
+   * @brief 次のステージへ進む。最後のステージを抜けたら踏破とする。
+   *
+   * @private
+   * @returns {void}
+   */
+  function advanceStage() {
+    if (state.stage >= CONFIG.stageCount) {
+      state.cleared = true;
+      state.finished = true;
+      return;
+    }
+
+    state.stage++;
+    state.stageStartDist = state.dist;
+    state.params = stageParams(state.stage);
+    state.stageFlash = 1;
+
+    // 持ち時間は次のステージ分だけ戻す。拾って貯めた分は引き継がない。
+    state.timeLeft = CONFIG.sessionSeconds;
+    state.combo = 0;
+
+    buildCourse();
+  }
+
+  /**
+   * @brief 現在のステージの進み具合。
+   * @returns {number} 0（入ったところ）〜1（抜ける直前）
+   */
+  function stageProgress() {
+    return M.clamp((state.dist - state.stageStartDist) / CONFIG.stageDistance, 0, 1);
+  }
+
   function reset() {
     state.angle = 0;
     state.dist = 0;
@@ -227,16 +316,13 @@
     state.timeGained = 0;
     state.collectFlash = 0;
 
-    // 最初のリングは自機の正面に切れ目を置く。開幕でいきなり轢かれないように。
-    var gap = state.angle;
-    for (var z = CONFIG.shipZ + 4; z < CONFIG.farZ; z += CONFIG.spacing) {
-      state.rings.push({ z: z, gap: gap, judged: false });
-      gap = M.wrapAngle(gap + (Math.random() - 0.5) * 2 * CONFIG.gapDrift);
-    }
+    state.stage = 1;
+    state.stageStartDist = 0;
+    state.params = stageParams(1);
+    state.cleared = false;
+    state.stageFlash = 0;
 
-    for (var iz = CONFIG.shipZ + 6; iz < CONFIG.farZ; iz += CONFIG.itemPeriod) {
-      state.items.push(makeItem(iz));
-    }
+    buildCourse();
   }
 
   /**
@@ -300,9 +386,11 @@
       if (state.timeLeft === 0) state.finished = true;
     }
 
+    state.stageFlash = M.approach(state.stageFlash, 0, 2.2, dt);
+
     // 速度はコンボゲージに従う。繋げば速くなり、ぶつかれば元の速さへ戻る。
     // 「上手くなるほど手強くなる」関係を、時間経過ではなく腕前に結びつける。
-    var wanted = M.lerp(CONFIG.baseSpeed, CONFIG.maxSpeed, gauge());
+    var wanted = M.lerp(CONFIG.baseSpeed, state.params.maxSpeed, gauge());
     state.speed = M.approach(state.speed, wanted, CONFIG.speedRate, dt);
     state.dist += state.speed * dt;
     state.sinceHit += dt;
@@ -324,7 +412,7 @@
         r.judged = true;
         if (state.finished) continue;
 
-        if (M.canPass(state.angle, r.gap, CONFIG.gapWidth)) {
+        if (M.canPass(state.angle, r.gap, state.params.gapWidth)) {
           state.combo++;
           state.passed++;
           if (state.combo > state.maxCombo) state.maxCombo = state.combo;
@@ -355,6 +443,12 @@
     }
 
     updateItems(f, dt);
+
+    // 規定の距離を走り抜けたら次のステージへ。
+    if (state.started && !state.finished &&
+        state.dist - state.stageStartDist >= CONFIG.stageDistance) {
+      advanceStage();
+    }
 
     state.score = M.scoreFromDistance(state.dist);
     if (state.score > state.best) {
@@ -409,7 +503,7 @@
 
       // 通り過ぎたら奥へ戻して使い回す。
       if (it.z < -1.5) {
-        farthest += CONFIG.itemPeriod;
+        farthest += state.params.itemPeriod;
         var fresh = makeItem(farthest);
         it.z = fresh.z;
         it.angle = fresh.angle;
@@ -463,8 +557,8 @@
       var alpha = 0.15 + near * 0.8;
       var hue = f.hue + r.z * 9 + near * 40;
 
-      var start = r.gap + CONFIG.gapWidth * 0.5;
-      var end = r.gap - CONFIG.gapWidth * 0.5 + TAU;
+      var start = r.gap + state.params.gapWidth * 0.5;
+      var end = r.gap - state.params.gapWidth * 0.5 + TAU;
       var width = (1.5 + near * 3.5) * CONFIG.ringThickness;
 
       // 太い線の下に、さらに広がる淡い線を敷いて厚みを出す。
@@ -555,6 +649,8 @@
     reset: reset,
     update: update,
     draw: draw,
-    gauge: gauge
+    gauge: gauge,
+    stageParams: stageParams,
+    stageProgress: stageProgress
   };
 })(typeof window !== 'undefined' ? window : this);
