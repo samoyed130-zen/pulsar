@@ -67,7 +67,7 @@
 
     <div class="menuList">
       <button id="sensBtn" type="button">操作感度 ×1</button>
-      <button id="guideBtn" type="button">ガイド あり</button>
+      <button id="guideBtn" type="button">ガイドサークル あり</button>
       <button id="bgBtn" type="button">背景 あり</button>
       <button id="smoothBtn" type="button">なめらか あり</button>
       <button id="soundBtn" type="button">♪ 音 あり</button>
@@ -250,7 +250,7 @@
         5段階（×1/4 〜 ×4）から選べます。細かく狙うなら遅く、素早く振るなら速く。
       </li>
       <li>
-        <strong>ガイド</strong> で、自機が動く円の表示を切り替えられます。
+        <strong>ガイドサークル</strong> で、自機が動く円の表示を切り替えられます。
         消していても、走り始めの数秒だけは出て静かに消えます。
       </li>
       <li>
@@ -398,7 +398,7 @@
 
       // 逃げ道。開いているものを閉じる
       if (k === 'Escape') {
-        if (!confirmEl.hidden) { setConfirm(false); return true; }
+        if (!confirmEl.hidden) { closeConfirm(true); return true; }
         if (!help.hidden) { setHelp(false); return true; }
         if (!menuEl.hidden) { setMenu(false); return true; }
         return false;
@@ -407,7 +407,7 @@
       // 確認が出ている間は、その返事だけを受け付ける
       if (!confirmEl.hidden) {
         if (k === 'y' || k === 'Enter') { confirmYesBtn.click(); return true; }
-        if (k === 'n') { setConfirm(false); return true; }
+        if (k === 'n') { closeConfirm(true); return true; }
         return false;
       }
 
@@ -476,7 +476,7 @@
     /** ガイドボタンの表示を今の設定に合わせる。 */
     function syncGuideButton() {
       var on = PULSAR.game.isGuide();
-      guideBtn.textContent = on ? 'ガイド あり' : 'ガイド なし';
+      guideBtn.textContent = on ? 'ガイドサークル あり' : 'ガイドサークル なし';
       guideBtn.classList.toggle('on', on);
     }
 
@@ -587,27 +587,42 @@
      * 確認が要る操作はこれから増えるので、画面を作り分けるより
      * 1つを使い回すほうが、見た目も受け答えも揃う。
      *
-     * @param {boolean} open 開くなら true
-     * @param {string} [message] 訊く内容
-     * @param {Function} [action] 「はい」を選んだときの処理
+     * @param {Array<string>} lines 訊く内容。1要素が1行になる
+     * @param {Function} action 「はい」を選んだときの処理
      */
-    function setConfirm(open, message, action) {
-      confirmEl.hidden = !open;
-
-      if (open) {
-        confirmTitleEl.textContent = message;
-        confirmAction = action || null;
-        // 確認はメニューから開くので、開くときはメニューを畳む
-        menuEl.hidden = true;
-      } else {
-        confirmAction = null;
+    function openConfirm(lines, action) {
+      // 1文が長いと読点の位置で勝手に折り返され、どこで切れるかが
+      // 画面幅任せになる。行はこちらで決める。
+      confirmTitleEl.textContent = '';
+      for (var i = 0; i < lines.length; i++) {
+        if (i > 0) confirmTitleEl.appendChild(document.createElement('br'));
+        confirmTitleEl.appendChild(document.createTextNode(lines[i]));
       }
 
+      confirmAction = action || null;
+      confirmEl.hidden = false;
+      // 確認はメニューから開くので、開いている間はメニューを畳む
+      menuEl.hidden = true;
       syncOverlayPause();
     }
 
+    /**
+     * 確認を閉じる。
+     *
+     * @param {boolean} backToMenu 呼び出し元のメニューへ戻すなら true。
+     *   断ったときは、いきなり走り出すのではなく開いた場所へ帰す。
+     *   承諾したときは、続けて別の画面へ移るので戻さない。
+     */
+    function closeConfirm(backToMenu) {
+      confirmEl.hidden = true;
+      confirmAction = null;
+
+      if (backToMenu) setMenu(true);
+      else syncOverlayPause();
+    }
+
     titleBtn.addEventListener('click', function () {
-      setConfirm(true, 'タイトルへ戻りますか', function () {
+      openConfirm(['タイトルへ戻ります。', '本当によろしいですか？'], function () {
         PULSAR.app.showAutoplay();
         buildStageSelect();   // 途中で開放されたステージを反映する
         setTitle(true);
@@ -617,7 +632,7 @@
     // --- 設定を初期化する ---
 
     document.getElementById('resetBtn').addEventListener('click', function () {
-      setConfirm(true, '初期化後タイトルに戻ります。本当によろしいですか？', function () {
+      openConfirm(['初期化後タイトルに戻ります。', '本当によろしいですか？'], function () {
         PULSAR.store.clear();
 
         /*
@@ -632,18 +647,18 @@
     });
 
     document.getElementById('confirmNo').addEventListener('click', function () {
-      setConfirm(false);
+      closeConfirm(true);
     });
 
     confirmYesBtn.addEventListener('click', function () {
       // 閉じる処理で消えてしまうので、先に受け取っておく
       var act = confirmAction;
-      setConfirm(false);
+      closeConfirm(false);
       if (act) act();
     });
 
     confirmEl.addEventListener('click', function (e) {
-      if (e.target === confirmEl) setConfirm(false);
+      if (e.target === confirmEl) closeConfirm(true);
     });
 
     // リザルトからは確認なしでタイトルへ戻す（走行はもう終わっているため）

@@ -65,6 +65,20 @@
 <script src="src/scenes.js"></script>
 <script src="src/main.js"></script>
 
+<script>
+  /*
+   * このページでは音を鳴らさない。
+   *
+   * sound.js は「タブへ戻ったら中断から復帰する」仕組みを持っており、
+   * 前回「音あり」で遊んでいると、作品のタブと行き来した拍子に
+   * こちらでも曲が鳴り出してしまう。テストの結果を見に来ただけの
+   * ページで鳴られては困るので、読み込んだ直後に黙らせる。
+   *
+   * 保存はすでに止めてあるため、この消音が設定として残ることはない。
+   */
+  PULSAR.sound.setMuted(true);
+</script>
+
 <script src="test/runner.js"></script>
 <script src="test/mathx.test.js"></script>
 <script src="test/mesh3d.test.js"></script>
