@@ -169,7 +169,9 @@
       gapWidth: M.lerp(1.95, 1.15, t),
       gapDrift: M.lerp(0.6, 1.05, t),
       itemPeriod: M.lerp(46, 95, t),
-      maxSpeed: M.lerp(6.4, 8.8, t)
+      // 最高速を保てば、時間延長を当てにしなくても時間内に抜けられる速さ。
+      // 立方体は数が少ないので、拾えることを前提にすると詰みやすい。
+      maxSpeed: M.lerp(7.0, 9.2, t)
     };
   }
 
