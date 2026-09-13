@@ -526,6 +526,37 @@
       expect(G.stageProgress()).toBe(1);
     });
 
+    it('開放していないステージからは始められない', function () {
+      G.reset();
+      var unlocked = G.unlockedStage();
+      G.reset(unlocked + 3);
+      expect(G.state.stage).toBe(unlocked);
+    });
+
+    it('ステージ番号の指定が不正でも 1 以上になる', function () {
+      G.reset(-4);
+      expect(G.state.stage).toBe(1);
+      G.reset(0);
+      expect(G.state.stage).toBe(1);
+    });
+
+    it('ステージを抜けると、その先が開放される', function () {
+      G.reset();
+      var f = makeFrame();
+      f.pointer.everTouched = true;
+      G.update(f);
+
+      G.state.dist = G.CONFIG.stageDistance + 1;
+      G.update(f);
+
+      expect(G.unlockedStage() >= 2).toBeTrue();
+    });
+
+    it('開放済みのステージ番号は範囲内に収まる', function () {
+      expect(G.unlockedStage() >= 1).toBeTrue();
+      expect(G.unlockedStage() <= G.CONFIG.stageCount).toBeTrue();
+    });
+
     it('reset でステージ1に戻る', function () {
       G.state.stage = 4;
       G.state.cleared = true;

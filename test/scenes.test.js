@@ -286,6 +286,13 @@
       expect(app.isPaused()).toBeFalse();
     });
 
+    it('カウントダウン中も止まっている', function () {
+      app.setPaused('countdown', true);
+      expect(app.isPaused()).toBeTrue();
+      app.setPaused('countdown', false);
+      expect(app.isPaused()).toBeFalse();
+    });
+
     it('同じ理由を重ねて解除しても壊れない', function () {
       app.setPaused('manual', false);
       app.setPaused('manual', false);

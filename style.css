@@ -176,18 +176,44 @@ body {
   margin-bottom: 34px;
 }
 
+/* 開放済みのステージぶんだけ並ぶ開始ボタン */
+.stageSelect {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  pointer-events: auto;
+}
+
 .startBtn {
   pointer-events: auto;
-  font-family: "Consolas", monospace;
-  font-size: 17px;
-  font-weight: 800;
-  letter-spacing: 0.3em;
-  padding: 16px 46px 16px 52px;
-  color: #04121c;
-  background: var(--accent);
-  border: none;
+  min-width: 240px;
+  font-family: "Consolas", "Hiragino Sans", system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  padding: 14px 32px;
+  color: var(--fg);
+  background: rgba(10, 14, 26, 0.72);
+  border: 1px solid rgba(122, 215, 255, 0.45);
   border-radius: 999px;
   cursor: pointer;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.startBtn:hover {
+  color: #04121c;
+  background: #9ce2ff;
+  border-color: #9ce2ff;
+}
+
+/* 最初のステージだけは、押す場所として目立たせる */
+.startBtn.primary {
+  color: #04121c;
+  background: var(--accent);
+  border-color: var(--accent);
   animation: startPulse 1.9s ease-in-out infinite;
 }
 
@@ -195,8 +221,6 @@ body {
   0%, 100% { box-shadow: 0 0 0 0 rgba(122, 215, 255, 0.5); }
   50% { box-shadow: 0 0 0 18px rgba(122, 215, 255, 0); }
 }
-
-.startBtn:hover { background: #9ce2ff; }
 
 .titleHint {
   margin: 18px 0 0;
@@ -476,6 +500,100 @@ body {
 }
 
 #resumeBtn:hover { background: #9ce2ff; }
+
+/* --- カウントダウン ------------------------------------------------ */
+
+#countdown[hidden] { display: none; }
+
+#countdown {
+  position: fixed;
+  inset: 0;
+  z-index: 13;
+  display: grid;
+  place-items: center;
+  font-family: "Consolas", monospace;
+  font-size: clamp(90px, 22vw, 190px);
+  font-weight: 800;
+  color: var(--accent);
+  text-shadow: 0 0 60px rgba(122, 215, 255, 0.6), 0 6px 30px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+  background: rgba(4, 5, 10, 0.35);
+}
+
+/* 数字が変わるたびに一度だけ弾ませる */
+@keyframes countTick {
+  0%   { transform: scale(1.5); opacity: 0; }
+  30%  { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.94); opacity: 0.75; }
+}
+
+#countdown.tick { animation: countTick 0.7s ease-out; }
+
+/* --- 確認ダイアログ ------------------------------------------------ */
+
+#confirm[hidden] { display: none; }
+
+#confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 14;
+  display: grid;
+  place-items: center;
+  padding: var(--pad);
+  background: rgba(4, 5, 10, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.confirmPanel {
+  width: min(360px, 100%);
+  padding: 26px 24px 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(12, 15, 26, 0.96);
+  text-align: center;
+}
+
+.confirmPanel h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--fg);
+}
+
+.confirmLead {
+  margin: 0 0 22px;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.confirmButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.confirmButtons button {
+  flex: 1 1 0;
+  padding: 13px 10px;
+  font: inherit;
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.confirmButtons button:hover { border-color: var(--accent); }
+
+.confirmButtons .primary {
+  color: #04121c;
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 700;
+}
 
 /* --- リザルト ------------------------------------------------------ */
 

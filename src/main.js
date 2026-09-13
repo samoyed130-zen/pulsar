@@ -94,6 +94,9 @@
   /** @brief 遊び始めた時刻 [s]（`clock` 基準）。操作案内の表示に使う。 @private */
   var startedAt = -999;
 
+  /** @brief 直前に始めたステージ番号。「もう一度あそぶ」で使う。 @private */
+  var lastStage = 1;
+
   /**
    * @brief 一時停止の理由ごとの状態。
    *
@@ -103,7 +106,10 @@
    * 解除されてしまう。
    * @private
    */
-  var pauseReasons = { manual: false, dialog: false, hidden: false };
+  var pauseReasons = { manual: false, dialog: false, hidden: false, countdown: false };
+
+  /** @brief カウントダウンの残り秒数を進めるタイマー。 @private */
+  var countdownTimer = 0;
 
   /** @brief 一時停止に入る前、音が鳴っていたか。再開時に戻すため。 @private */
   var soundWasOn = false;
@@ -412,7 +418,8 @@
   var TAU_LOCAL = M.TAU;
 
   /** @brief 走行パネルとリザルトの DOM 参照。 @private */
-  var panelEl = null, distEl = null, bestEl = null, timeEl = null, pausedEl = null;
+  var panelEl = null, distEl = null, bestEl = null, timeEl = null;
+  var pausedEl = null, countdownEl = null;
   var comboValueEl = null, gaugeFillEl = null, layerEls = null;
   var stageValueEl = null, stageFillEl = null;
   var resultEl = null;
@@ -491,6 +498,13 @@
 
     if (st.stage !== shownStage) {
       stageValueEl.textContent = String(st.stage);
+
+      // 次のステージへ進んだ瞬間も、数えてから走り出す。
+      // 難しさと景色が変わるので、構える時間を挟む。
+      if (shownStage > 0 && st.stage > shownStage) {
+        lastStage = st.stage;
+        startCountdown(3);
+      }
       shownStage = st.stage;
     }
     stageFillEl.style.width = (game.stageProgress() * 100).toFixed(1) + '%';
@@ -556,7 +570,8 @@
    * @returns {boolean} 止まっていれば true
    */
   function isPaused() {
-    return pauseReasons.manual || pauseReasons.dialog || pauseReasons.hidden;
+    return pauseReasons.manual || pauseReasons.dialog ||
+           pauseReasons.hidden || pauseReasons.countdown;
   }
 
   /**
@@ -585,7 +600,67 @@
       prevMs = 0;
     }
 
-    if (pausedEl) pausedEl.hidden = !(after && !pauseReasons.dialog);
+    // 説明を開いているときとカウントダウン中は、それぞれの画面が前に出るため
+    // 「PAUSED」は出さない。
+    if (pausedEl) {
+      pausedEl.hidden = !(after && !pauseReasons.dialog && !pauseReasons.countdown);
+    }
+  }
+
+  /**
+   * @brief 3・2・1 と数えてから走り出す。
+   *
+   * 止まった状態からいきなり動き出すと、身構える間もなくリングが来る。
+   * 数えるあいだに指の位置を決められるようにする。
+   *
+   * @param {number} [from=3] 数え始める数
+   * @returns {void}
+   */
+  function startCountdown(from) {
+    var left = from || 3;
+
+    global.clearTimeout(countdownTimer);
+    setPaused('countdown', true);
+
+    if (countdownEl) {
+      countdownEl.hidden = false;
+      countdownEl.textContent = String(left);
+      // 数字が変わるたびにアニメーションを掛け直す
+      countdownEl.classList.remove('tick');
+      void countdownEl.offsetWidth;
+      countdownEl.classList.add('tick');
+    }
+
+    var step = function () {
+      left--;
+
+      if (left > 0) {
+        if (countdownEl) {
+          countdownEl.textContent = String(left);
+          countdownEl.classList.remove('tick');
+          void countdownEl.offsetWidth;
+          countdownEl.classList.add('tick');
+        }
+        countdownTimer = global.setTimeout(step, 700);
+        return;
+      }
+
+      if (countdownEl) countdownEl.hidden = true;
+      setPaused('countdown', false);
+    };
+
+    countdownTimer = global.setTimeout(step, 700);
+  }
+
+  /**
+   * @brief カウントダウンを取り消す（タイトルへ戻るときなど）。
+   * @private
+   * @returns {void}
+   */
+  function cancelCountdown() {
+    global.clearTimeout(countdownTimer);
+    if (countdownEl) countdownEl.hidden = true;
+    setPaused('countdown', false);
   }
 
   /**
@@ -593,30 +668,55 @@
    * @returns {boolean} 切り替え後に止まっているか
    */
   function togglePause() {
-    setPaused('manual', !pauseReasons.manual);
-    return pauseReasons.manual;
+    var next = !pauseReasons.manual;
+    setPaused('manual', next);
+
+    // 解除するときは、いきなり動き出さずに数えてから戻す。
+    if (!next && global.PULSAR.game.state.started &&
+        !global.PULSAR.game.state.finished) {
+      startCountdown(3);
+    }
+    return next;
   }
 
   /**
    * @brief 遊び始める。タイトル画面から呼ばれる。
    * @returns {void}
    */
-  function startGame() {
-    global.PULSAR.game.reset();
+  function startGame(stage) {
+    global.PULSAR.game.reset(stage);
+    lastStage = global.PULSAR.game.state.stage;
     pointer.everTouched = true;
     lastInput = clock;
     startedAt = clock;
     jumpToPlayable();
+    startCountdown(3);
   }
 
   /**
-   * @brief もう一度挑戦する。
+   * @brief もう一度挑戦する。直前に遊んでいたステージから始める。
    * @returns {void}
    */
   function retry() {
     resultEl.hidden = true;
     resultShown = false;
-    startGame();
+    startGame(lastStage);
+  }
+
+  /**
+   * @brief デモ（自動操縦）の状態へ戻す。タイトルへ帰るときに使う。
+   * @returns {void}
+   */
+  function showAutoplay() {
+    cancelCountdown();
+    resultEl.hidden = true;
+    resultShown = false;
+
+    global.PULSAR.game.reset(1);
+    pointer.everTouched = false;
+    lastInput = -999;
+    startedAt = -999;
+    jumpToPlayable();
   }
 
 
@@ -809,6 +909,7 @@
 
     resultEl = document.getElementById('result');
     pausedEl = document.getElementById('paused');
+    countdownEl = document.getElementById('countdown');
 
     // タブが隠れている間は止める。戻ったときに時間だけ進んでいる事故を防ぐ。
     document.addEventListener('visibilitychange', function () {
@@ -836,6 +937,8 @@
     impact: impact,
     startGame: startGame,
     retry: retry,
+    showAutoplay: showAutoplay,
+    startCountdown: startCountdown,
     setPaused: setPaused,
     togglePause: togglePause,
     isPaused: isPaused

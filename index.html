@@ -23,16 +23,33 @@
 <div id="title">
   <div class="titleInner">
     <h1 class="titleLogo">PULSAR</h1>
-    <button id="startBtn" type="button" class="startBtn">START</button>
-    <p class="titleHint">画面のどこを押しても始まります</p>
+    <!-- 開放済みのステージぶんだけボタンが並ぶ（起動時に組み立てる） -->
+    <div class="stageSelect" id="stageSelect"></div>
+    <p class="titleHint" id="titleHint">抜けたステージは次から選べます</p>
   </div>
 
   <!-- テストページへの入口。タイトル画面にだけ置く -->
   <a class="testLink" href="test.html" target="_blank" rel="noopener">TESTS</a>
 </div>
 
+<!-- 3・2・1 のカウントダウン -->
+<div id="countdown" hidden>3</div>
+
+<!-- タイトルへ戻るかどうかの確認 -->
+<div id="confirm" hidden>
+  <div class="confirmPanel" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <h2 id="confirmTitle">タイトルへ戻りますか</h2>
+    <p class="confirmLead">今の走行は記録されません。</p>
+    <div class="confirmButtons">
+      <button id="confirmYes" type="button" class="primary">はい</button>
+      <button id="confirmNo" type="button">いいえ</button>
+    </div>
+  </div>
+</div>
+
 <div id="hud">
   <span class="brand">PULSAR</span>
+  <button id="titleBtn" type="button">タイトルへ</button>
   <button id="pauseBtn" type="button">❙❙ 一時停止</button>
   <button id="helpBtn" type="button">あそびかた</button>
   <button id="bgBtn" type="button">背景 3D</button>
@@ -119,6 +136,7 @@
 
     <div class="resultButtons">
       <button id="retryBtn" type="button" class="primary">もう一度あそぶ</button>
+      <button id="resultTitleBtn" type="button">タイトルへ</button>
     </div>
   </div>
 </div>
@@ -240,22 +258,58 @@
     }, 700);
 
     var title = document.getElementById('title');
+    var stageSelect = document.getElementById('stageSelect');
+    var titleHint = document.getElementById('titleHint');
 
-    /** タイトル画面を閉じて遊び始める。 */
-    function startPlaying() {
+    /**
+     * 指定したステージから遊び始める。
+     * @param {number} stage ステージ番号
+     */
+    function startPlaying(stage) {
       title.hidden = true;
       PULSAR.sound.turnOn();   // 操作を起点にしないと音は鳴らせない
-      PULSAR.app.startGame();
+      PULSAR.app.startGame(stage);
     }
 
-    // どこを押しても始まる。ボタンは「押す場所」を示すための目印。
-    // ただしテストページへの入口を押したときは、遊び始めない。
-    title.addEventListener('pointerdown', function (e) {
-      if (e.target && e.target.closest && e.target.closest('.testLink')) return;
-      e.preventDefault();
-      startPlaying();
+    /**
+     * 開放済みのステージぶんだけ、開始ボタンを並べ直す。
+     * 抜けたステージは次回以降そこから始められる（端末に保存される）。
+     */
+    function buildStageSelect() {
+      var unlocked = PULSAR.game.unlockedStage();
+      stageSelect.textContent = '';
+
+      for (var s = 1; s <= unlocked; s++) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'startBtn' + (s === 1 ? ' primary' : '');
+        btn.textContent = 'ステージ ' + s + ' から';
+        btn.setAttribute('data-stage', String(s));
+        stageSelect.appendChild(btn);
+      }
+
+      titleHint.textContent = unlocked > 1
+        ? '抜けたステージから始められます'
+        : 'ステージを抜けると、次から選べるようになります';
+    }
+
+    stageSelect.addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('button[data-stage]') : null;
+      if (!btn) return;
+      startPlaying(parseInt(btn.getAttribute('data-stage'), 10));
     });
-    document.getElementById('startBtn').addEventListener('click', startPlaying);
+
+    // タイトル画面でどこかを押したら、自動操縦の場面へ戻す。
+    // 幾何学的な場面を眺めている途中でも、作品の中身をすぐ見せられる。
+    title.addEventListener('pointerdown', function (e) {
+      if (e.target && e.target.closest &&
+          (e.target.closest('.testLink') || e.target.closest('button'))) {
+        return;
+      }
+      PULSAR.app.showAutoplay();
+    });
+
+    buildStageSelect();
 
     var pauseBtn = document.getElementById('pauseBtn');
 
@@ -293,6 +347,45 @@
 
     document.getElementById('retryBtn').addEventListener('click', function () {
       PULSAR.app.retry();
+    });
+
+    // --- タイトルへ戻る（確認してから） ---
+
+    var confirmEl = document.getElementById('confirm');
+
+    /**
+     * 確認の表示を切り替える。開いている間はゲームを止める。
+     * @param {boolean} open 開くなら true
+     */
+    function setConfirm(open) {
+      confirmEl.hidden = !open;
+      PULSAR.app.setPaused('dialog', open);
+    }
+
+    document.getElementById('titleBtn').addEventListener('click', function () {
+      setConfirm(true);
+    });
+
+    document.getElementById('confirmNo').addEventListener('click', function () {
+      setConfirm(false);
+    });
+
+    document.getElementById('confirmYes').addEventListener('click', function () {
+      setConfirm(false);
+      PULSAR.app.showAutoplay();
+      buildStageSelect();   // 途中で開放されたステージを反映する
+      title.hidden = false;
+    });
+
+    confirmEl.addEventListener('click', function (e) {
+      if (e.target === confirmEl) setConfirm(false);
+    });
+
+    // リザルトからは確認なしでタイトルへ戻す（走行はもう終わっているため）
+    document.getElementById('resultTitleBtn').addEventListener('click', function () {
+      PULSAR.app.showAutoplay();
+      buildStageSelect();
+      title.hidden = false;
     });
 
     var help = document.getElementById('help');

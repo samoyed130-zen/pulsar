@@ -162,7 +162,9 @@
     /** @brief 全ステージを抜けたか。 */
     cleared: false,
     /** @brief ステージが変わった直後の演出用の値 [0..1]。 */
-    stageFlash: 0
+    stageFlash: 0,
+    /** @brief 開放済みの最大ステージ番号。端末に保存される。 */
+    unlocked: 1
   };
 
   /**
@@ -178,6 +180,45 @@
       // プライベートモード等で localStorage が例外を投げる場合がある。
       return 0;
     }
+  }
+
+  /**
+   * @brief どのステージまで開放されているかを読み出す。
+   *
+   * 一度抜けたステージは、次回以降そこから始められる。長い作品を
+   * 毎回最初からやり直させると、先の景色にたどり着けないため。
+   *
+   * @private
+   * @returns {number} 開放済みの最大ステージ番号（最低 1）
+   */
+  function loadUnlocked() {
+    try {
+      var v = parseInt(global.localStorage.getItem('pulsar.unlocked'), 10);
+      if (isNaN(v)) return 1;
+      return M.clamp(v, 1, CONFIG.stageCount);
+    } catch (e) {
+      return 1;
+    }
+  }
+
+  /**
+   * @brief 開放済みステージを保存する。失敗しても無視する。
+   * @private
+   * @param {number} v 開放済みの最大ステージ番号
+   * @returns {void}
+   */
+  function saveUnlocked(v) {
+    try {
+      global.localStorage.setItem('pulsar.unlocked', String(v));
+    } catch (e) { /* 保存できなくても遊べる */ }
+  }
+
+  /**
+   * @brief 開放済みの最大ステージ番号。
+   * @returns {number} 1 以上 stageCount 以下
+   */
+  function unlockedStage() {
+    return state.unlocked;
   }
 
   /**
@@ -272,10 +313,12 @@
     if (state.stage >= CONFIG.stageCount) {
       state.cleared = true;
       state.finished = true;
+      unlock(CONFIG.stageCount);
       return;
     }
 
     state.stage++;
+    unlock(state.stage);
     state.stageStartDist = state.dist;
     state.params = stageParams(state.stage);
     state.stageFlash = 1;
@@ -288,6 +331,20 @@
   }
 
   /**
+   * @brief ステージを開放し、保存する。すでに先まで開放済みなら何もしない。
+   *
+   * @private
+   * @param {number} n 開放するステージ番号
+   * @returns {void}
+   */
+  function unlock(n) {
+    var v = M.clamp(Math.floor(n), 1, CONFIG.stageCount);
+    if (v <= state.unlocked) return;
+    state.unlocked = v;
+    saveUnlocked(v);
+  }
+
+  /**
    * @brief 現在のステージの進み具合。
    * @returns {number} 0（入ったところ）〜1（抜ける直前）
    */
@@ -295,7 +352,12 @@
     return M.clamp((state.dist - state.stageStartDist) / CONFIG.stageDistance, 0, 1);
   }
 
-  function reset() {
+  /**
+   * @brief 走行状態を初期化する。
+   * @param {number} [startStage=1] 始めるステージ番号。開放済みの範囲へ丸める
+   * @returns {void}
+   */
+  function reset(startStage) {
     state.angle = 0;
     state.dist = 0;
     state.speed = CONFIG.baseSpeed;
@@ -316,9 +378,12 @@
     state.timeGained = 0;
     state.collectFlash = 0;
 
-    state.stage = 1;
+    state.unlocked = loadUnlocked();
+
+    // 開放していないステージからは始められない。
+    state.stage = M.clamp(Math.floor(startStage || 1), 1, state.unlocked);
     state.stageStartDist = 0;
-    state.params = stageParams(1);
+    state.params = stageParams(state.stage);
     state.cleared = false;
     state.stageFlash = 0;
 
@@ -651,6 +716,7 @@
     draw: draw,
     gauge: gauge,
     stageParams: stageParams,
-    stageProgress: stageProgress
+    stageProgress: stageProgress,
+    unlockedStage: unlockedStage
   };
 })(typeof window !== 'undefined' ? window : this);
