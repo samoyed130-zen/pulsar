@@ -13,8 +13,8 @@
   var M = window.PULSAR.mathx;
 
   describe('scenes.timeline', function () {
-    it('シーンが4つある', function () {
-      expect(S.timeline.length).toBe(4);
+    it('シーンが5つある', function () {
+      expect(S.timeline.length).toBe(5);
     });
 
     it('全シーンに名前・尺・遷移・描画関数が揃っている', function () {
@@ -116,6 +116,15 @@
           }
         }
       }
+    });
+  });
+
+  describe('scenes.SCROLL_TEXT', function () {
+    it('空でない', function () {
+      expect(S.SCROLL_TEXT.length > 0).toBeTrue();
+    });
+    it('作者名が含まれている', function () {
+      expect(S.SCROLL_TEXT.indexOf('samoyed130-zen') >= 0).toBeTrue();
     });
   });
 

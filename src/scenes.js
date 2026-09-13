@@ -14,6 +14,15 @@
   var M = global.PULSAR.mathx;
   var TAU = M.TAU;
 
+  /** @brief スクロールテキストに流す文章。 */
+  var SCROLL_TEXT =
+    '  PULSAR  —  a megademo written in plain javascript  ' +
+    '***  外部ライブラリなし。canvas 2d と web audio だけで書いています  ' +
+    '***  トンネルの区間では画面に触れると操縦できます  ' +
+    '***  code + music by samoyed130-zen  ' +
+    '***  ZEN Study プログラミングコンテスト 2026 夏  ' +
+    '***  greetings to everyone still writing demos in 2026  ';
+
   /**
    * @brief 星の一覧。シーンを跨いで保持し、毎回作り直さない。
    * @private
@@ -647,6 +656,111 @@
   }
 
   // -----------------------------------------------------------------
+  // S5 コッパーバー + スクロールテキスト
+  // -----------------------------------------------------------------
+
+  /**
+   * @brief 横帯の走査と、波打つ横スクロール文字。デモの締めにあたる場面。
+   * @param {Object} f フレーム文脈
+   * @returns {void}
+   */
+  function drawCopper(f) {
+    var c = f.ctx;
+    c.fillStyle = '#04050a';
+    c.fillRect(0, 0, f.W, f.H);
+
+    // --- コッパーバー ---
+    //
+    // 帯は画面の高さに等間隔で配り、そこから小さく揺らす。
+    // 全部を同じ正弦波で動かすと一箇所に集まり、加算合成で白く飽和して
+    // 何が映っているのか分からなくなる。
+    var bars = f.light ? 5 : 8;
+    var h = f.H * 0.042 * (1 + f.kick * 0.35);
+
+    c.globalCompositeOperation = 'lighter';
+
+    for (var i = 0; i < bars; i++) {
+      var slot = (i + 0.5) / bars;                       // 等間隔の定位置
+      var wobble = Math.sin(f.t * 1.1 + i * 0.9) * 0.055; // 定位置からの揺れ
+      var cy = f.H * (slot + wobble);
+
+      // 色相の幅を狭く保つ。広く散らすと重なった部分が白へ寄る。
+      var hue = f.hue + (i - bars * 0.5) * 9;
+
+      // 中心が明るく端が暗い帯。縦方向のグラデーションで厚みを出す。
+      var grad = c.createLinearGradient(0, cy - h, 0, cy + h);
+      grad.addColorStop(0, M.hsl(hue, 92, 6, 0));
+      grad.addColorStop(0.45, M.hsl(hue, 92, 46, 0.62));
+      grad.addColorStop(0.5, M.hsl(hue, 80, 62, 0.75));
+      grad.addColorStop(0.55, M.hsl(hue, 92, 46, 0.62));
+      grad.addColorStop(1, M.hsl(hue, 92, 6, 0));
+      c.fillStyle = grad;
+      c.fillRect(0, cy - h, f.W, h * 2);
+    }
+
+    c.globalCompositeOperation = 'source-over';
+
+    // 文字の帯だけ暗く落とし、背後の帯に埋もれないようにする。
+    var textY = f.H * 0.5;
+    var band = c.createLinearGradient(0, textY - f.H * 0.22, 0, textY + f.H * 0.22);
+    band.addColorStop(0, 'rgba(4,5,10,0)');
+    band.addColorStop(0.5, 'rgba(4,5,10,0.72)');
+    band.addColorStop(1, 'rgba(4,5,10,0)');
+    c.fillStyle = band;
+    c.fillRect(0, textY - f.H * 0.22, f.W, f.H * 0.44);
+
+    drawScroller(f);
+  }
+
+  /**
+   * @brief 正弦波で上下に波打つ横スクロール文字を描く。
+   * @private
+   * @param {Object} f フレーム文脈
+   * @returns {void}
+   */
+  function drawScroller(f) {
+    var c = f.ctx;
+    var size = M.clamp(f.W * 0.045, 18, 34);
+    var speed = 190; // [px/s]
+
+    c.save();
+    c.font = '700 ' + size.toFixed(0) + 'px "Consolas", monospace';
+    c.textBaseline = 'middle';
+    c.textAlign = 'left';
+
+    var chars = SCROLL_TEXT.split('');
+    var x = f.W - (f.t * speed) % (measureText(c, SCROLL_TEXT) + f.W);
+    var baseY = f.H * 0.5;
+
+    for (var i = 0; i < chars.length; i++) {
+      var w = c.measureText(chars[i]).width;
+
+      // 画面外の文字は描かない（1文字ずつ描くため、これが効く）
+      if (x > -w && x < f.W) {
+        var wave = Math.sin(x * 0.012 + f.t * 2.2) * f.H * 0.09;
+        var hue = f.hue + x * 0.25;
+        c.fillStyle = M.hsl(hue, 95, 72, 0.95);
+        c.fillText(chars[i], x, baseY + wave);
+      }
+      x += w;
+      if (x > f.W) break;
+    }
+
+    c.restore();
+  }
+
+  /**
+   * @brief 文字列全体の描画幅を測る（スクロールの折り返し位置に使う）。
+   * @private
+   * @param {CanvasRenderingContext2D} c 計測に使う文脈（フォント設定済みであること）
+   * @param {string} text 対象の文字列
+   * @returns {number} 幅 [px]
+   */
+  function measureText(c, text) {
+    return c.measureText(text).width;
+  }
+
+  // -----------------------------------------------------------------
   // タイムライン
   // -----------------------------------------------------------------
 
@@ -663,7 +777,8 @@
     { name: 'starfield', duration: 9,  transition: 'flash',  glare: 0.45, draw: drawStarfield },
     { name: 'plasma',    duration: 8,  transition: 'wipe',   glare: 0.35, draw: drawPlasma },
     { name: 'tunnel',    duration: 16, transition: 'flash',  glare: 1,    draw: drawTunnel },
-    { name: 'metaballs', duration: 8,  transition: 'blinds', glare: 0.4,  draw: drawMetaballs }
+    { name: 'metaballs', duration: 8,  transition: 'blinds', glare: 0.4,  draw: drawMetaballs },
+    { name: 'copper',    duration: 12, transition: 'wipe',   glare: 0.5,  draw: drawCopper }
   ];
 
   global.PULSAR.scenes = {
@@ -671,6 +786,7 @@
     HALL: HALL,
     setRaymarch: setRaymarch,
     isRaymarch: isRaymarch,
+    SCROLL_TEXT: SCROLL_TEXT,
     hslToRgb: hslToRgb,
     drawHall: drawHall
   };
