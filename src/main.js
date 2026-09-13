@@ -32,6 +32,13 @@
      * 直線の階段が目立たない下限を探した結果の値。
      */
     rasterWidth: 560,
+    /**
+     * @brief 描画が追いついていないときの、ラスタライザの横幅 [px]。
+     *
+     * 塗りをやめるのではなく粗くする。1画素ずつ塗る方式はブラウザによる
+     * 速度差がほとんどないので、遅い環境でこそ頼りになる経路になる。
+     */
+    rasterWidthLow: 380,
     /** @brief 画面の対角がこれ未満なら描画量を落とす（スマートフォン想定）。 */
     lightModeDiagonal: 900,
     /** @brief 触れたときに飛ぶ先のシーン名。作品の主張そのもの。 */
@@ -275,7 +282,11 @@
 
     if (frameMs > CONFIG.slowMs) {
       slowFrames++;
-      if (slowFrames > 45) quality = 0;
+      if (slowFrames > 45) {
+        quality = 0;
+        // 自前の塗りは解像度がそのまま負荷なので、粗いバッファへ作り直す
+        resizeRaster();
+      }
     } else {
       slowFrames = 0;
     }
@@ -475,7 +486,7 @@
   function resizeRaster() {
     if (!rasterCtx) return;
 
-    var rw = CONFIG.rasterWidth;
+    var rw = quality === 0 ? CONFIG.rasterWidthLow : CONFIG.rasterWidth;
     var rh = Math.max(1, Math.round(rw * H / Math.max(1, W)));
     if (rasterBuf && rasterBuf.w === rw && rasterBuf.h === rh) return;
 
@@ -1439,6 +1450,23 @@
   }
 
   /**
+   * @brief 今の描画の状態を返す（調整用）。
+   *
+   * ブラウザごとの速度差を追うには、実際にかかっている時間を見るのが
+   * いちばん早い。開発者コンソールから `PULSAR.app.stats()` で確認する。
+   *
+   * @returns {Object} フレーム時間 [ms]、品質の段階、ラスタライザの解像度
+   */
+  function stats() {
+    return {
+      frameMs: frameMs,
+      quality: quality,
+      rasterWidth: rasterBuf ? rasterBuf.w : 0,
+      smooth: global.PULSAR.scenes.isSmooth()
+    };
+  }
+
+  /**
    * @brief 外部へ公開する窓口。
    *
    * `onShortcut` はキー入力を受け取る差し込み口で、`index.html` 側が
@@ -1458,6 +1486,7 @@
     isPaused: isPaused,
     isManualPaused: isManualPaused,
     isBusy: isBusy,
+    stats: stats,
     onShortcut: null
   };
 
