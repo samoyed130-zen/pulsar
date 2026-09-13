@@ -635,11 +635,25 @@
       if (e.key === 'ArrowRight') keys.right = false;
     });
 
-    var t = null;
-    global.addEventListener('resize', function () {
+    // 画面の大きさが変わったら作り直す。
+    //
+    // 回した直後は、まだ古い大きさを返す端末がある。1回だけだと縦向きの
+    // ままの絵が横向きの画面に残ってしまうため、少し置いてもう一度測る。
+    var t = null, t2 = null;
+    function scheduleResize() {
       clearTimeout(t);
+      clearTimeout(t2);
       t = setTimeout(resize, 150);
-    });
+      t2 = setTimeout(resize, 600);
+    }
+
+    global.addEventListener('resize', scheduleResize);
+    global.addEventListener('orientationchange', scheduleResize);
+
+    // 端末によっては、ブラウザの枠の出入りがこちらにしか通知されない
+    if (global.visualViewport) {
+      global.visualViewport.addEventListener('resize', scheduleResize);
+    }
   }
 
   /**

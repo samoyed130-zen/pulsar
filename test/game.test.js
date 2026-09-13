@@ -767,6 +767,24 @@
       }
     });
 
+    it('スマートフォンでも、リングの線が輪を塗り潰さない', function () {
+      // 輪の半径は画面に比例して小さくなる。線の太さを据え置くと、
+      // 小さい画面では線が輪の内側を埋めてしまい、切れ目が読めなくなる。
+      var sizes = [360, 800, 1400];
+
+      for (var i = 0; i < sizes.length; i++) {
+        var focal = sizes[i] * G.CONFIG.focal;
+        var radius = G.cursorRadius(focal);
+        // くぐる直前（いちばん太いところ）で比べる
+        var width = G.ringLineWidth(1, sizes[i]);
+        expect(width < radius * 0.5).toBeTrue();
+      }
+    });
+
+    it('小さい画面ほど、リングの線は細くなる', function () {
+      expect(G.ringLineWidth(1, 360) < G.ringLineWidth(1, 1400)).toBeTrue();
+    });
+
     it('最初のステージの切れ目は円周の 1/4 より広い（入口は易しく）', function () {
       expect(G.stageParams(1).gapWidth > M.TAU / 4).toBeTrue();
     });
