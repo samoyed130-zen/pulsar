@@ -444,6 +444,15 @@ body.on-title #panel { display: none; }
  */
 .comboStat { gap: calc(var(--gap-ui) * 1.1); }
 
+/*
+ * 数字とゲージの間は、見出しと数字の間と同じだけ空ける。
+ *
+ * 同じ間隔を指定しても、数字側は発光がにじんで境目が曖昧になる一方、
+ * ゲージは輪郭がはっきりしているため、こちらだけ詰まって見える。
+ * 見た目を揃えるには、実際の数値を少し足す必要がある。
+ */
+.comboStat .gauge { margin-left: calc(var(--gap-ui) * 0.5); }
+
 .comboStat .statValue {
   text-align: right;
   color: var(--accent);
