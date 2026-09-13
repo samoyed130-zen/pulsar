@@ -97,8 +97,7 @@ body {
   opacity: 0.55;
 }
 
-#hud button,
-#hud .link {
+#hud button {
   pointer-events: auto;
   font: inherit;
   font-size: 11px;
@@ -116,8 +115,7 @@ body {
   transition: color 0.2s ease, border-color 0.2s ease;
 }
 
-#hud button:hover,
-#hud .link:hover {
+#hud button:hover {
   color: var(--fg);
   border-color: var(--accent);
 }
@@ -135,6 +133,11 @@ body {
  */
 #title[hidden] { display: none; }
 
+/*
+ * 背後のデモを覆わない。作品の第一印象は動いている絵そのものなので、
+ * 暗幕を掛けるとその印象を殺してしまう。
+ * 文字は影と発光で浮かせ、明るい絵の上でも読めるようにする。
+ */
 #title {
   position: fixed;
   inset: 0;
@@ -142,12 +145,6 @@ body {
   display: grid;
   place-items: center;
   padding: var(--pad);
-  background: radial-gradient(
-    ellipse 70% 60% at 50% 50%,
-    rgba(4, 5, 10, 0.78) 0%,
-    rgba(4, 5, 10, 0.35) 70%,
-    rgba(4, 5, 10, 0.1) 100%
-  );
   cursor: pointer;
   animation: titleIn 0.8s ease both;
 }
@@ -170,17 +167,13 @@ body {
   letter-spacing: 0.12em;
   line-height: 1;
   color: var(--fg);
+  /* 色収差ふうの縁取りに加え、黒い影で明るい背景からも切り離す */
   text-shadow:
     -3px 0 0 rgba(122, 215, 255, 0.75),
      3px 0 0 rgba(255, 110, 200, 0.75),
-     0 0 42px rgba(122, 215, 255, 0.35);
-}
-
-.titleSub {
-  margin: 16px 0 34px;
-  font-size: clamp(13px, 3.4vw, 17px);
-  letter-spacing: 0.16em;
-  color: rgba(223, 229, 247, 0.75);
+     0 0 42px rgba(122, 215, 255, 0.45),
+     0 4px 24px rgba(0, 0, 0, 0.75);
+  margin-bottom: 34px;
 }
 
 .startBtn {
@@ -209,7 +202,33 @@ body {
   margin: 18px 0 0;
   font-size: 11px;
   letter-spacing: 0.1em;
-  color: rgba(223, 229, 247, 0.4);
+  color: rgba(223, 229, 247, 0.75);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+}
+
+/* テストページへの入口。タイトル画面の左下に控えめに置く */
+.testLink {
+  position: fixed;
+  left: var(--pad);
+  bottom: max(14px, env(safe-area-inset-bottom));
+  pointer-events: auto;
+  font-family: "Consolas", monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: rgba(223, 229, 247, 0.45);
+  text-decoration: none;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(4, 5, 10, 0.4);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.testLink:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 /* --- 走行パネル ----------------------------------------------------- */
@@ -646,10 +665,8 @@ body {
     /* 狭い画面ではボタンを優先し、作品名は畳む */
     font-size: 10px;
   }
-  #hud { gap: 8px; }
-  #hud button,
-  #hud .link { padding: 6px 10px; font-size: 10px; }
-  #hud .link { display: none; }
+  #hud { gap: 6px; }
+  #hud button { padding: 6px 9px; font-size: 10px; }
 
   #panel {
     padding: 11px 13px 12px;

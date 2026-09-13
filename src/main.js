@@ -772,6 +772,12 @@
     resize();
     bindInput();
     global.PULSAR.game.reset();
+
+    // 最初に見せるのは操作区間の自動操縦。
+    // 何が遊べる作品なのかを、説明ではなく動きそのもので示す。
+    // 一巡したあとは幾何学的なエフェクトへ移っていく。
+    sceneTime = sceneStartOf(CONFIG.playableScene) + CONFIG.fade;
+
     global.requestAnimationFrame(frame);
   }
 

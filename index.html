@@ -23,10 +23,12 @@
 <div id="title">
   <div class="titleInner">
     <h1 class="titleLogo">PULSAR</h1>
-    <p class="titleSub">触れると、デモがゲームになる</p>
     <button id="startBtn" type="button" class="startBtn">START</button>
     <p class="titleHint">画面のどこを押しても始まります</p>
   </div>
+
+  <!-- テストページへの入口。タイトル画面にだけ置く -->
+  <a class="testLink" href="test.html" target="_blank" rel="noopener">TESTS</a>
 </div>
 
 <div id="hud">
@@ -35,7 +37,6 @@
   <button id="helpBtn" type="button">あそびかた</button>
   <button id="bgBtn" type="button">背景 3D</button>
   <button id="soundBtn" type="button">♪ 音を出す</button>
-  <a class="link" href="test.html" target="_blank" rel="noopener">TESTS</a>
 </div>
 
 <!-- 一時停止中の表示。説明を開いているときは、その画面が兼ねるので出さない -->
@@ -234,7 +235,9 @@
     }
 
     // どこを押しても始まる。ボタンは「押す場所」を示すための目印。
+    // ただしテストページへの入口を押したときは、遊び始めない。
     title.addEventListener('pointerdown', function (e) {
+      if (e.target && e.target.closest && e.target.closest('.testLink')) return;
       e.preventDefault();
       startPlaying();
     });
