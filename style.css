@@ -178,13 +178,12 @@ body.on-title #panel { display: none; }
 #hud button#menuBtn,
 #hud button#menuBtn.on {
   font-family: "Consolas", "Hiragino Sans", system-ui, sans-serif;
-  font-size: 15px;
+  /* 大きさは他のボタンに合わせ、目立たせるのは色だけに任せる。
+     塗ってあれば、小さくても押す場所だと分かる */
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.14em;
-  padding: 14px 28px;
-  /* 文字数が少ないぶん、幅を持たせないとスタートより小さく見える */
-  min-width: 170px;
-  text-align: center;
+  letter-spacing: 0.1em;
+  padding: 7px 14px;
   color: #04121c;
   background: var(--accent);
   border-color: var(--accent);
@@ -1120,7 +1119,7 @@ body.on-title #titleBtn { display: none; }
   #hud { gap: 6px; }
   #hud button { padding: 6px 9px; font-size: 10px; }
   /* 狭い画面でも、唯一の入口は縮めない。横の余白だけ詰める */
-  #hud button#menuBtn { padding: 13px 20px; font-size: 15px; min-width: 150px; }
+  #hud button#menuBtn { padding: 7px 12px; font-size: 11px; }
 
   #panel {
     padding: 8px 10px 9px;
@@ -1173,10 +1172,5 @@ body.on-title #titleBtn { display: none; }
   }
   #hud { justify-content: flex-end; }
   #hud button { padding: 6px 8px; font-size: 9px; letter-spacing: 0.04em; }
-  #hud button#menuBtn {
-    padding: 13px 16px;
-    font-size: 15px;
-    letter-spacing: 0.08em;
-    min-width: 130px;
-  }
+  #hud button#menuBtn { padding: 7px 11px; font-size: 10px; letter-spacing: 0.06em; }
 }
