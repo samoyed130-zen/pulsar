@@ -220,13 +220,19 @@
    */
   var RAY = {
     /** @brief 光線を進める回数。多いほど精細で重い。 */
-    steps: 18,
+    steps: 16,
     /** @brief 描画量を落とすときの歩数。 */
-    stepsLight: 12,
-    /** @brief 描画に使う横幅 [px]。拡大前提なので粗くてよい。 */
-    width: 112,
+    stepsLight: 13,
+    /**
+     * @brief 描画に使う横幅 [px]。
+     *
+     * ここを上げると輪郭のにじみが減るが、負荷は面積に比例して増える。
+     * 176px で約 8ms/フレーム。立体の描画を三角形へ移して浮いた分を、
+     * この解像度に充てている。
+     */
+    width: 176,
     /** @brief 描画量を落とすときの横幅 [px]。 */
-    widthLight: 84,
+    widthLight: 112,
     /** @brief 光線を打ち切る距離。 */
     far: 26,
     /** @brief 1歩の最小距離。小さすぎると進まず、歩数を無駄にする。 */
@@ -541,6 +547,8 @@
 
     c.save();
     c.imageSmoothingEnabled = true;
+    // 既定の補間は粗く、拡大率が大きいと縞が出る。品質を上げてにじみを抑える。
+    c.imageSmoothingQuality = 'high';
     c.drawImage(rayBuf, 0, 0, f.W, f.H);
     c.restore();
   }
