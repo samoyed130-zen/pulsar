@@ -678,6 +678,21 @@
       expect(G.stageParams(1).gapWidth > M.TAU / 4).toBeTrue();
     });
 
+    it('どのステージも、最高速を保てば時間内に抜けられる', function () {
+      // これが成り立たないと、完璧に操作しても物理的にクリアできない。
+      // 立方体による時間延長を当てにしない前提で見る。
+      for (var s = 1; s <= G.CONFIG.stageCount; s++) {
+        var reach = G.stageParams(s).maxSpeed * G.CONFIG.sessionSeconds;
+        expect(reach > G.CONFIG.stageDistance).toBeTrue();
+      }
+    });
+
+    it('初速のままでも、目標の半分以上は進める（立て直す余地がある）', function () {
+      // ぶつかって速度が落ちたときに、そこで詰みにならないための下限。
+      var reach = G.CONFIG.baseSpeed * G.CONFIG.sessionSeconds;
+      expect(reach > G.CONFIG.stageDistance * 0.5).toBeTrue();
+    });
+
     it('衝突後に無敵時間がある', function () {
       expect(G.CONFIG.graceSeconds > 0).toBeTrue();
     });

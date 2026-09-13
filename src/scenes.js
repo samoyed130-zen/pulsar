@@ -486,6 +486,15 @@
     var hw = HALL.halfWidth;
     var hh = HALL.halfHeight;
 
+    // カメラの位置での通路の中心を求め、その分だけ全体をずらす。
+    //
+    // これをしないと、通路が曲がるたびにカメラだけが取り残され、
+    // 壁が正面から迫ってくる見え方になる。通路の中心に沿って
+    // カメラが滑る形にすれば、曲がっていく通路を進む感覚になる。
+    hallBend(0, f.t, look, bendOut);
+    var camX = bendOut[0];
+    var camY = bendOut[1];
+
     // 映り込む照明の本数もステージで変える。金属面に映る景色が変われば、
     // 同じ形の通路でも別の場所に見える。
     mesh3d.ENV.streaks = 4 + (global.PULSAR.game.state.stage % 4) * 2;
@@ -495,8 +504,8 @@
       if (z < HALL.nearZ * 0.5) continue;
 
       hallBend(z, f.t, look, bendOut);
-      var bx = bendOut[0];
-      var by = bendOut[1];
+      var bx = bendOut[0] - camX;
+      var by = bendOut[1] - camY;
       var half = period * 0.5;
 
       // 壁・床・天井は奥行きに長いので、短く割って並べる。
@@ -507,8 +516,8 @@
       for (var s = 0; s < HALL.segments; s++) {
         var zs = z + (s - (HALL.segments - 1) * 0.5) * segLen;
         hallBend(zs, f.t, look, bendOut);
-        var sx = bendOut[0];
-        var sy = bendOut[1];
+        var sx = bendOut[0] - camX;
+        var sy = bendOut[1] - camY;
 
         // 左右の壁
         addPart(sx - hw, sy, zs, 0.12, hh, segHalf, HALL_HUE.wall, 0.35, false);
