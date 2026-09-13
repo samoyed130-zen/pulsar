@@ -340,23 +340,11 @@
       expect(app.CONFIG.fastMs === undefined).toBeTrue();
     });
 
-    it('グレアを止める環境では明るさを持ち上げる', function () {
-      // グレアは光を加算するので、止めると画面全体が沈む。
-      expect(app.CONFIG.noGlareBoost > 1).toBeTrue();
-    });
-
-    it('明るさの補正は白く飛ばない範囲に収める', function () {
-      expect(app.CONFIG.noGlareBoost < 2).toBeTrue();
-    });
-
-    it('ぼかし無しの加算ライトは本来のグレアより弱い', function () {
-      // 暗部を切り落とせないぶん、同じ強さで加算すると画面が白く濁る。
-      expect(app.CONFIG.softGlare < app.CONFIG.glare).toBeTrue();
-    });
-
-    it('ぼかし無しの加算ライトは、より小さく縮めてにじませる', function () {
-      // filter を使えないので、縮小と拡大の補間そのものがぼかしになる。
-      expect(app.CONFIG.softGlareScale < app.CONFIG.glareScale).toBeTrue();
+    it('塗る側の明るさは持ち上げない', function () {
+      // 明るさには上限があるので、掛けて持ち上げると多くの面が上限で
+      // 頭打ちになり、面と面の境目が段差として見えてしまう。
+      // 暗さはグレア側で取り戻す。
+      expect(app.CONFIG.noGlareBoost === undefined).toBeTrue();
     });
 
     it('ずらし加算のずれ幅は 0 より大きい', function () {

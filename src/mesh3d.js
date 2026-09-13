@@ -470,7 +470,6 @@
    * @param {number} o.cy 画面中心 y [px]
    * @param {number} o.hue 色相 [deg]
    * @param {number} o.alpha 不透明度 [0..1]
-   * @param {number} [o.boost=1] 明るさの補正倍率。グレアを使えない環境で 1 より大きくする
    * @returns {number} 実際に描いた面の数
    */
   function drawMesh(ctx, mesh, o) {
@@ -581,8 +580,7 @@
         vl2 = l + (v.e2 - v.env) * reflectivity;
       }
 
-      // グレアを使えない環境では、その分をここで補って持ち上げる。
-      var dim = (o.dim === undefined ? 1 : o.dim) * (o.boost === undefined ? 1 : o.boost);
+      var dim = (o.dim === undefined ? 1 : o.dim);
       l = clampLight(l * dim);
 
       // 明暗の付け方を2通り用意している。
