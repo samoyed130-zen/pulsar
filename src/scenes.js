@@ -316,13 +316,22 @@
     return imageCache.img;
   }
 
+  /** @brief 光の向き（正規化済み）。斜めから当てて、面の傾きを読み取りやすくする。 */
+  var LIGHT = [0.48, 0.62, -0.62];
+
   /**
-   * @brief 八面体を中心軸から離す距離。
+   * @brief 物体ごとの色相のずらし幅 [deg]。内壁と輪を描き分ける。
    *
-   * 0 にすると軸上に並び、カメラが内部を通過して形が見えなくなる。
-   * 壁（半径 3.5 前後）より内側に収めつつ、脇を通り過ぎる位置にする。
+   * 背景は近い色でまとめて沈める。主役（三角形で描く立体と自機）が
+   * 前に出るよう、ここでは色を散らさない。
    */
-  var ORBIT = 1.9;
+  var MAT_HUE = [0, 34];
+
+  /** @brief 物体ごとの彩度 [0..1]。 */
+  var MAT_SAT = [0.55, 0.7];
+
+  /** @brief 法線の計算結果を受け取る配列。毎回の確保を避けるため使い回す。 @private */
+  var normal = [0, 0, 0];
 
   /**
    * @brief 空間上の点から、最も近い物体までのおおよその距離を返す（距離関数）。
@@ -361,29 +370,64 @@
     var qx = rad - 2.9;
     var ring = Math.sqrt(qx * qx + zz * zz) - 0.13;
 
-    var d = wall < ring ? wall : ring;
+    // 立体（八面体など）はここでは扱わない。面の数が少ない物体を
+    // 1ピクセルずつ探すのは割に合わないため、三角形として mesh3d.js が描く。
+    return wall < ring ? wall : ring;
+  }
 
-    // 各区画に、回転する八面体を1つ浮かべる。
-    //
-    // 中心軸の上に置くとカメラが内部を通過してしまい、形として見えない。
-    // 軸から離した位置に置き、脇を通り過ぎていくようにする。
-    // 区画ごとに角度をずらすので、同じ配置の繰り返しには見えない。
-    var a = t * 0.9 + cell * 1.7;
-    var ca = Math.cos(a), sa = Math.sin(a);
+  /**
+   * @brief その位置で最も近い物体の種類を返す（色分けに使う）。
+   *
+   * 距離関数と同じ計算を行い、どの項が最小だったかを答える。
+   * 交点が求まった後に1回だけ呼ぶので、距離関数ほど速さを求めなくてよい。
+   *
+   * @private
+   * @param {number} x 座標 x
+   * @param {number} y 座標 y
+   * @param {number} z 座標 z
+   * @param {number} t 時刻 [s]
+   * @returns {number} 0=内壁 / 1=輪 / 2=八面体
+   */
+  function sceneMaterial(x, y, z, t) {
+    var s1 = Math.sin(z * 0.55 + t * 1.2);
+    var c1 = Math.cos(z * 0.23 - t * 0.7);
+    var dx = x - s1 * 1.15;
+    var dy = y - c1 * 1.15;
+    var rad = Math.sqrt(dx * dx + dy * dy);
 
-    // 配置（軸から ORBIT だけ離す）と姿勢の回転に、同じ角度を使い回す。
-    var px = dx - ORBIT * ca;
-    var py = dy - ORBIT * sa;
-    var ox = px * ca - zz * sa;
-    var oz = px * sa + zz * ca;
+    var wall = 3.5 + s1 * 0.3 + c1 * 0.25 - rad;
 
-    // 八面体の距離関数。|x|+|y|+|z| が一定の面で、正八面体になる。
-    var ax = ox < 0 ? -ox : ox;
-    var ay = py < 0 ? -py : py;
-    var az = oz < 0 ? -oz : oz;
-    var octa = (ax + ay + az - 0.95) * 0.5773;
+    var period = 2.8;
+    var cell = Math.floor(z / period);
+    var zz = z - cell * period - period * 0.5;
+    var qx = rad - 2.9;
+    var ring = Math.sqrt(qx * qx + zz * zz) - 0.13;
 
-    return d < octa ? d : octa;
+    return ring <= wall ? 1 : 0;
+  }
+
+  /**
+   * @brief 交点における面の向き（法線）を求める。
+   *
+   * 距離関数を4方向にわずかにずらして比べる。傾きが最も急な向きが面の法線になる。
+   *
+   * @private
+   * @param {number} x 座標 x
+   * @param {number} y 座標 y
+   * @param {number} z 座標 z
+   * @param {number} t 時刻 [s]
+   * @param {Array<number>} out 結果を書き込む長さ3の配列（確保を避けるため使い回す）
+   * @returns {void}
+   */
+  function sceneNormal(x, y, z, t, out) {
+    var h = 0.015;
+    var nx = sceneDistance(x + h, y, z, t) - sceneDistance(x - h, y, z, t);
+    var ny = sceneDistance(x, y + h, z, t) - sceneDistance(x, y - h, z, t);
+    var nz = sceneDistance(x, y, z + h, t) - sceneDistance(x, y, z - h, t);
+    var len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+    out[0] = nx / len;
+    out[1] = ny / len;
+    out[2] = nz / len;
   }
 
   /**
@@ -421,31 +465,69 @@
         var len = Math.sqrt(sx * sx + sy * sy + 1);
         var dx = sx / len, dy = sy / len, dz = 1 / len;
 
-        var dist = 0.4;
+        var dist = 0.5;
+        var hit = false;
         var glow = 0;
+        var d = 0;
 
         for (var i = 0; i < steps; i++) {
-          var d = sceneDistance(dx * dist, dy * dist, camZ + dz * dist, t);
+          d = sceneDistance(dx * dist, dy * dist, camZ + dz * dist, t);
           var ad = d < 0 ? -d : d;
 
-          // 物体に近いほど強く光る。表面に触れなくても輪郭が浮かび上がる。
-          glow += 0.09 / (0.06 + ad * ad);
+          // 遠くの面ほど粗くてよい。距離に比例した許容量で面に乗ったと判定する。
+          if (ad < 0.006 * dist + 0.004) { hit = true; break; }
 
-          dist += ad * 0.75 + RAY.minStep;
+          // 面に触れなくても、かすめた分だけ淡く光らせる（輪郭が浮かぶ）。
+          // 強くすると画面全体が単色に覆われ、せっかくの立体が沈むので控えめにする。
+          glow += 0.006 / (0.05 + ad * ad);
+
+          dist += ad * 0.92;
           if (dist > RAY.far) break;
         }
 
-        // 奥ほど暗く落として、距離を感じさせる
-        var v = glow / steps * brightness;
-        v = v > 1.4 ? 1.4 : v;
+        var r = 0, g = 0, b = 0;
 
-        var hue = (hueBase + v * 150 + 200) % 360;
-        var rgb = hslToRgb(hue / 360, 0.85, v * 0.42);
+        if (hit) {
+          var hx = dx * dist, hy = dy * dist, hz = camZ + dz * dist;
+          sceneNormal(hx, hy, hz, t, normal);
+
+          // 拡散光。面の向きと光の向きの一致具合で明るさを決める。
+          var lambert = normal[0] * LIGHT[0] + normal[1] * LIGHT[1] + normal[2] * LIGHT[2];
+          if (lambert < 0) lambert = 0;
+
+          // 視線と面が浅い角度で交わるところを光らせ、輪郭を立たせる。
+          var facing = -(normal[0] * dx + normal[1] * dy + normal[2] * dz);
+          if (facing < 0) facing = 0;
+          var rim = Math.pow(1 - facing, 3);
+
+          // 奥ほど暗く落として距離を感じさせる
+          var fog = 1 / (1 + dist * dist * 0.012);
+
+          var mat = sceneMaterial(hx, hy, hz, t);
+          var hue = hueBase + MAT_HUE[mat];
+          var light = (0.10 + lambert * 0.42 + rim * 0.34) * fog * brightness;
+          if (light > 0.72) light = 0.72;
+
+          var rgb = hslToRgb((((hue % 360) + 360) % 360) / 360, MAT_SAT[mat], light);
+          r = rgb[0]; g = rgb[1]; b = rgb[2];
+        }
+
+        // かすめた光を足す。何にも当たらなかった画素も真っ黒にはしない。
+        if (glow > 0) {
+          var gv = glow * brightness;
+          if (gv > 0.35) gv = 0.35;
+          // 面の色と喧嘩しないよう、かすめ光は基準の色相のまま薄く乗せる。
+          var grgb = hslToRgb(((((hueBase + 20) % 360) + 360) % 360) / 360, 0.85, gv * 0.3);
+          r += grgb[0]; g += grgb[1]; b += grgb[2];
+          if (r > 255) r = 255;
+          if (g > 255) g = 255;
+          if (b > 255) b = 255;
+        }
 
         var o = (py * bw + px) * 4;
-        data[o] = rgb[0];
-        data[o + 1] = rgb[1];
-        data[o + 2] = rgb[2];
+        data[o] = r;
+        data[o + 1] = g;
+        data[o + 2] = b;
         data[o + 3] = 255;
       }
     }
@@ -472,6 +554,84 @@
    * @param {Object} f フレーム文脈
    * @returns {void}
    */
+  /**
+   * @brief トンネルに浮かぶ立体の配置。
+   */
+  var SOLIDS = {
+    /** @brief 何個を同時に出すか。 */
+    count: 6,
+    /** @brief 奥行き方向の間隔（トンネルのリングと同じ単位）。 */
+    period: 3.4,
+    /** @brief 中心軸から離す距離（トンネル半径を 1 とする）。 */
+    orbit: 0.52,
+    /** @brief 立体の大きさ。 */
+    scale: 0.17,
+    /** @brief 最も手前に置く位置。これより手前は描かない。 */
+    nearZ: 1.1,
+    /** @brief 立体の種類。区画ごとに順番に使う。 */
+    shapes: null
+  };
+
+  /**
+   * @brief トンネルに浮かぶ立体を描く。
+   *
+   * レイマーチングではなく三角形で描く。面が8枚しかない物体を
+   * 1ピクセルずつ探すより、頂点を回して塗る方が速く、輪郭も鮮明になる。
+   *
+   * @private
+   * @param {Object} f フレーム文脈
+   * @param {number} travel 走行距離（奥行きの基準）
+   * @returns {void}
+   */
+  function drawSolids(f, travel) {
+    var mesh3d = global.PULSAR.mesh3d;
+    if (!SOLIDS.shapes) {
+      SOLIDS.shapes = [mesh3d.OCTAHEDRON, mesh3d.CUBE, mesh3d.TETRAHEDRON];
+    }
+
+    var c = f.ctx;
+    var cx = f.W / 2;
+    var cy = f.H / 2;
+    var focal = Math.min(f.W, f.H) * global.PULSAR.game.CONFIG.focal;
+
+    // 手前から奥へ、一定間隔で並べる。走行に合わせて全体を手前へ流す。
+    var offset = travel % SOLIDS.period;
+    var pos = [0, 0, 0];
+
+    c.save();
+    c.lineJoin = 'round';
+
+    for (var i = 0; i < SOLIDS.count; i++) {
+      var z = SOLIDS.nearZ + i * SOLIDS.period - offset + SOLIDS.period;
+      if (z < SOLIDS.nearZ * 0.5) continue;
+
+      // 区画ごとに固有の番号を作り、位置と種類をばらけさせる。
+      var index = Math.floor((travel + z) / SOLIDS.period);
+      var angle = index * 1.7 + f.t * 0.35;
+
+      pos[0] = Math.cos(angle) * SOLIDS.orbit;
+      pos[1] = Math.sin(angle) * SOLIDS.orbit;
+      pos[2] = z;
+
+      // 奥ほど薄く。手前の立体だけが主張するようにする。
+      var alpha = M.clamp(1.25 - z / (SOLIDS.period * SOLIDS.count), 0.12, 0.95);
+
+      mesh3d.drawMesh(c, SOLIDS.shapes[index % SOLIDS.shapes.length], {
+        pos: pos,
+        scale: SOLIDS.scale * (1 + f.kick * 0.12),
+        rx: f.t * 0.9 + index,
+        ry: f.t * 0.6 + index * 2.1,
+        focal: focal,
+        cx: cx,
+        cy: cy,
+        hue: (f.hue + 168 + index * 9) % 360,
+        alpha: alpha
+      });
+    }
+
+    c.restore();
+  }
+
   function drawTunnel(f) {
     var game = global.PULSAR.game;
     game.update(f);
@@ -484,6 +644,10 @@
       // 背景なしのときは残像だけを残し、リングの軌跡で奥行きを見せる。
       fadeCanvas(f, 0.26);
     }
+
+    // 立体はリングより先に描く。リングと自機が常に手前に見える方が、
+    // 避ける対象を見失わずに済む。
+    drawSolids(f, game.state.dist);
 
     game.draw(f);
     // スコア表示と操作案内は main.js が DOM 側でまとめて担当する。
@@ -652,6 +816,8 @@
     isRaymarch: isRaymarch,
     SCROLL_TEXT: SCROLL_TEXT,
     hslToRgb: hslToRgb,
-    sceneDistance: sceneDistance
+    sceneDistance: sceneDistance,
+    sceneMaterial: sceneMaterial,
+    drawRaymarch: drawRaymarch
   };
 })(typeof window !== 'undefined' ? window : this);

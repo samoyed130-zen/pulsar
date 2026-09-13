@@ -36,6 +36,7 @@ function load(rel) {
 
 // 作品側。DOM に触れるのは起動関数の中だけなので、読み込むだけなら通る。
 load('src/mathx.js');
+load('src/mesh3d.js');
 load('src/sound.js');
 load('src/game.js');
 load('src/scenes.js');
@@ -43,6 +44,7 @@ load('src/main.js');
 
 load('test/runner.js');
 load('test/mathx.test.js');
+load('test/mesh3d.test.js');
 load('test/game.test.js');
 load('test/scenes.test.js');
 
