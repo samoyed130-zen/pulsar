@@ -150,32 +150,35 @@ body.on-title #panel { display: none; }
  * 設定にも一時停止にもここからしか行けないため、控えめだと
  * 「どこを押せばいいのか」で迷わせてしまう。
  */
-#menuBtn {
-  /* タイトルのスタートと同じ大きさ・同じ書体にする。
-     どちらも「ここを押す」場所なので、見た目を揃える */
+/*
+ * タイトルのスタートと同じ見た目にする。どちらも「ここを押す」場所で、
+ * 画面に出ている唯一の入口でもあるので、常に塗って目立たせる。
+ */
+#menuBtn,
+#menuBtn.on {
   font-family: "Consolas", "Hiragino Sans", system-ui, sans-serif;
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.14em;
   padding: 14px 28px;
-  color: var(--accent);
-  background: rgba(10, 14, 26, 0.72);
-  border-color: rgba(122, 215, 255, 0.45);
-  /* ほのかに光らせて、絵の上でも沈まないようにする */
-  box-shadow: 0 0 18px rgba(122, 214, 255, 0.22);
+  color: #04121c;
+  background: var(--accent);
+  border-color: var(--accent);
+  /* ほのかに光らせて、明るい絵の上でも沈まないようにする */
+  box-shadow: 0 0 18px rgba(122, 214, 255, 0.28);
 }
 
 #menuBtn:hover {
-  color: #04121c;
   background: #9ce2ff;
   border-color: #9ce2ff;
 }
 
-/* 開いている間は、押すと閉じる側であることを見た目でも示す */
-#menuBtn.on {
-  color: #04121c;
-  background: var(--accent);
-  border-color: var(--accent);
+/* 合図の最中は押せない。塗ったままだと押せそうに見えるので戻す */
+#menuBtn:disabled {
+  color: var(--dim);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--line);
+  box-shadow: none;
 }
 
 #hud button.on {
