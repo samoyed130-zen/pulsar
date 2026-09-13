@@ -31,7 +31,7 @@
 
   見た目や動きを直したら、この番号を1つ進めること。
 -->
-<link rel="stylesheet" href="style.css?v=10">
+<link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
 
@@ -237,6 +237,15 @@
             自機は画面中心のまわりを回るため、縦持ちの方が指の動きと自機の動きが一致します。
           </td>
         </tr>
+        <tr>
+          <th>全画面で遊ぶ</th>
+          <td>
+            メニューの <strong>フルスクリーン</strong> で画面いっぱいになります。
+            iPhone の Safari はこの仕組みに対応していないため、
+            <strong>共有 →「ホーム画面に追加」</strong>をして、そこから開いてください。
+            アドレスバーもツールバーも消えた状態で遊べます。
+          </td>
+        </tr>
       </tbody>
     </table>
 
@@ -309,11 +318,6 @@
         <strong>なめらか</strong> で、立体背景の塗り方を切り替えられます。
         入れているときは、三角形を1画素ずつ塗る自前の描画を使います。
       </li>
-      <li>
-        <strong>フルスクリーン</strong> で画面いっぱいに表示できます。
-        iPhone の Safari はこの仕組みに対応していないため、
-        <strong>ホーム画面に追加</strong>してそこから開くと全画面になります。
-      </li>
       <li>外部ライブラリは一切使っていません。Canvas 2D と Web Audio のみです。</li>
     </ul>
 
@@ -325,14 +329,14 @@
   <p class="noscript">この作品は JavaScript で描画しています。有効にしてご覧ください。</p>
 </noscript>
 
-<script src="src/store.js?v=10"></script>
-<script src="src/mathx.js?v=10"></script>
-<script src="src/raster.js?v=10"></script>
-<script src="src/mesh3d.js?v=10"></script>
-<script src="src/sound.js?v=10"></script>
-<script src="src/game.js?v=10"></script>
-<script src="src/scenes.js?v=10"></script>
-<script src="src/main.js?v=10"></script>
+<script src="src/store.js?v=11"></script>
+<script src="src/mathx.js?v=11"></script>
+<script src="src/raster.js?v=11"></script>
+<script src="src/mesh3d.js?v=11"></script>
+<script src="src/sound.js?v=11"></script>
+<script src="src/game.js?v=11"></script>
+<script src="src/scenes.js?v=11"></script>
+<script src="src/main.js?v=11"></script>
 <script>
   // 読み込み順に依存するため、起動はここで1度だけ行う。
   PULSAR.app.boot();
@@ -913,7 +917,7 @@
       // 結果を眺めている最中に消えて出直すことになる。
       if (open && !testsFrame.getAttribute('src')) {
         // 版番号は作品側と揃える（古いまま読み込まれるのを避ける）
-        testsFrame.setAttribute('src', 'test.html?v=10');
+        testsFrame.setAttribute('src', 'test.html?v=11');
       }
 
       if (open) {
