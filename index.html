@@ -23,28 +23,16 @@
   <a class="link" href="test.html">TESTS</a>
 </div>
 
-<!-- 走行スコア。操作区間に入ると現れる -->
-<div id="score" class="hidden" aria-live="off">
-  <div class="scoreRow">
-    <span class="scoreLabel">DISTANCE</span>
-    <span class="scoreValue" id="scoreDist">0</span>
-  </div>
-  <div class="scoreRow sub">
-    <span class="scoreLabel">BEST</span>
-    <span class="scoreValue" id="scoreBest">0</span>
-  </div>
-  <div class="scoreRow sub">
-    <span class="scoreLabel">TIME</span>
-    <span class="scoreValue" id="scoreTime">3:00</span>
-  </div>
-</div>
-
-<!-- コンボゲージ。溜まるほど曲の層が増える -->
-<div id="combo" class="hidden" aria-live="off">
-  <div class="comboHead">
-    <span class="comboLabel">COMBO</span>
+<!--
+  走行情報。視線が集まるトンネルの中心の真下に、1つの塊として置く。
+  上から順に コンボ → ゲージ → 数値 と、大きい情報から並べる。
+-->
+<div id="panel" class="hidden" aria-live="off">
+  <div class="comboRow">
     <span class="comboValue" id="comboValue">0</span>
+    <span class="comboUnit">COMBO</span>
   </div>
+
   <div class="gauge">
     <span class="gaugeFill" id="gaugeFill"></span>
     <!-- 音の層が加わる位置。どこまで溜めれば何が増えるかを目で示す -->
@@ -52,12 +40,28 @@
     <i class="gaugeTick" style="left:55%"></i>
     <i class="gaugeTick" style="left:85%"></i>
   </div>
-  <div class="comboLayers" id="comboLayers">
+
+  <div class="layers" id="comboLayers">
     <span class="layer on">DRUM</span>
     <span class="layer" data-layer="bass">BASS</span>
     <span class="layer" data-layer="hat">HAT</span>
     <span class="layer" data-layer="lead">LEAD</span>
     <span class="layer" data-layer="arp">ARP</span>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <span class="statLabel">DISTANCE</span>
+      <span class="statValue" id="scoreDist">0</span>
+    </div>
+    <div class="stat">
+      <span class="statLabel">TIME</span>
+      <span class="statValue" id="scoreTime">3:00</span>
+    </div>
+    <div class="stat">
+      <span class="statLabel">BEST</span>
+      <span class="statValue" id="scoreBest">0</span>
+    </div>
   </div>
 </div>
 
@@ -147,18 +151,26 @@
     'use strict';
 
     var soundBtn = document.getElementById('soundBtn');
+
+    /** ボタンの見た目を、実際の音の状態に合わせる。 */
+    function syncSoundButton() {
+      var on = PULSAR.sound.isPlaying();
+      soundBtn.textContent = on ? '♪ 音を止める' : '♪ 音を出す';
+      soundBtn.classList.toggle('on', on);
+    }
+
     soundBtn.addEventListener('click', function () {
-      if (!PULSAR.sound.isPlaying()) {
-        PULSAR.sound.start();
-        // 起動直後は suspended のことがあるため、状態ではなく操作で表示を決める。
-        soundBtn.textContent = '♪ 音を止める';
-        soundBtn.classList.add('on');
+      if (PULSAR.sound.isMuted()) {
+        PULSAR.sound.turnOn();
       } else {
-        PULSAR.sound.toggleMute();
-        soundBtn.textContent = '♪ 音を出す';
-        soundBtn.classList.remove('on');
+        PULSAR.sound.setMuted(true);
       }
+      // 起動直後は state が running になるまで一瞬かかるため、少し待って同期する。
+      setTimeout(syncSoundButton, 60);
     });
+
+    // 画面に触れた時点でも音は起動する。その状態をボタンにも反映させる。
+    window.setInterval(syncSoundButton, 700);
 
     document.getElementById('retryBtn').addEventListener('click', function () {
       PULSAR.app.retry();

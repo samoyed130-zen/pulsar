@@ -78,6 +78,15 @@
    * @brief 層が加わる順番と、それぞれが出てくる厚みのしきい値。
    * @private
    */
+  /**
+   * @brief テンポ倍率。1.0 で `CONFIG.bpm` どおり。
+   *
+   * 走行速度に合わせて曲が速くなる。映像側の拍もこの倍率を共有しているため、
+   * 加速しても絵と音がずれない。
+   * @private
+   */
+  var tempoScale = 1;
+
   var LAYER = {
     bass: 0.02,   // 触れて走り出せばすぐ土台が入る
     hat: 0.30,
@@ -228,13 +237,31 @@
    */
   function schedule() {
     if (!ac) return;
-    var stepDur = 60 / CONFIG.bpm / 4;
 
     while (nextTime < ac.currentTime + CONFIG.lookahead) {
       scheduleStep(step, nextTime);
       step++;
-      nextTime += stepDur;
+      // 予約のたびに現在のテンポで刻み幅を計算する。
+      // 先に長い時間を予約してしまうと、加速がすぐ音に反映されない。
+      nextTime += 60 / (CONFIG.bpm * tempoScale) / 4;
     }
+  }
+
+  /**
+   * @brief テンポ倍率を設定する。
+   * @param {number} v 倍率（0.5〜2.0 に丸める）
+   * @returns {void}
+   */
+  function setTempoScale(v) {
+    tempoScale = v < 0.5 ? 0.5 : (v > 2 ? 2 : v);
+  }
+
+  /**
+   * @brief 現在のテンポ倍率を返す。
+   * @returns {number} 倍率
+   */
+  function getTempoScale() {
+    return tempoScale;
   }
 
   /**
@@ -262,15 +289,38 @@
   }
 
   /**
+   * @brief 消音状態を設定する。
+   * @param {boolean} v true で消音
+   * @returns {void}
+   */
+  function setMuted(v) {
+    muted = !!v;
+    if (master && ac) {
+      master.gain.setTargetAtTime(muted ? 0 : CONFIG.masterGain, ac.currentTime, 0.02);
+    }
+  }
+
+  /**
    * @brief 消音を切り替える。
    * @returns {boolean} 切り替え後に消音されているか
    */
   function toggleMute() {
-    muted = !muted;
-    if (master) {
-      master.gain.setTargetAtTime(muted ? 0 : CONFIG.masterGain, ac.currentTime, 0.02);
-    }
+    setMuted(!muted);
     return muted;
+  }
+
+  /**
+   * @brief 音を鳴らす。停止中なら起動し、消音中なら解除する。
+   *
+   * 「起動」と「消音解除」を1つの操作にまとめる。この2つを別々に扱うと、
+   * 起動済みで消音中のときにボタンが効かなくなる。
+   *
+   * @returns {void}
+   */
+  function turnOn() {
+    start();
+    setMuted(false);
+    if (ac && ac.state === 'suspended') ac.resume();
   }
 
   /**
@@ -281,14 +331,27 @@
     return !!ac && !muted && ac.state === 'running';
   }
 
+  /**
+   * @brief 消音されているか（未起動も消音とみなす）。
+   * @returns {boolean} 消音中なら true
+   */
+  function isMuted() {
+    return !ac || muted;
+  }
+
   global.PULSAR = global.PULSAR || {};
   global.PULSAR.sound = {
     CONFIG: CONFIG,
     LAYER: LAYER,
     start: start,
+    turnOn: turnOn,
+    setMuted: setMuted,
     toggleMute: toggleMute,
     isPlaying: isPlaying,
+    isMuted: isMuted,
     setIntensity: setIntensity,
-    getIntensity: getIntensity
+    getIntensity: getIntensity,
+    setTempoScale: setTempoScale,
+    getTempoScale: getTempoScale
   };
 })(typeof window !== 'undefined' ? window : this);

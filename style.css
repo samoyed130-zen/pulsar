@@ -124,113 +124,73 @@ body {
   border-color: var(--accent);
 }
 
-/* --- スコア -------------------------------------------------------- */
+/* --- 走行パネル ----------------------------------------------------- */
 
-#score {
+/*
+ * 視線はトンネルの中心に集まる。情報はその真下へ一列に積み、
+ * 目を左右へ振らずに読めるようにする。
+ * 並びは「大きい情報が上」— コンボ → ゲージ → 音の層 → 数値。
+ */
+#panel {
   position: fixed;
-  right: var(--pad);
-  bottom: max(16px, env(safe-area-inset-bottom));
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(440px, calc(100% - 2 * var(--pad)));
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-  padding: 10px 14px;
+  align-items: center;
+  gap: 9px;
+  padding: 14px 20px 15px;
   border: 1px solid var(--line);
-  border-radius: 10px;
-  background: rgba(4, 5, 10, 0.45);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  border-radius: 14px;
+  background: rgba(4, 5, 10, 0.52);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   font-family: "Consolas", "SF Mono", monospace;
   pointer-events: none;
   /* 絵の邪魔をしないよう、出入りは静かに */
   transition: opacity 0.45s ease, transform 0.45s ease;
 }
 
-#score.hidden {
+#panel.hidden {
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateX(-50%) translateY(10px);
 }
 
-.scoreRow {
+.comboRow {
   display: flex;
   align-items: baseline;
-  gap: 10px;
-}
-
-.scoreLabel {
-  font-size: 9px;
-  letter-spacing: 0.18em;
-  color: rgba(223, 229, 247, 0.4);
-}
-
-.scoreValue {
-  min-width: 4.5em;
-  text-align: right;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-}
-
-.scoreRow.sub .scoreValue {
-  font-size: 12px;
-  font-weight: 600;
-  color: rgba(223, 229, 247, 0.55);
-}
-
-/* --- コンボゲージ -------------------------------------------------- */
-
-#combo {
-  position: fixed;
-  left: var(--pad);
-  bottom: max(16px, env(safe-area-inset-bottom));
-  width: min(280px, 42vw);
-  padding: 10px 13px 11px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: rgba(4, 5, 10, 0.45);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  font-family: "Consolas", "SF Mono", monospace;
-  pointer-events: none;
-  transition: opacity 0.45s ease, transform 0.45s ease;
-}
-
-#combo.hidden {
-  opacity: 0;
-  transform: translateY(8px);
-}
-
-.comboHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-
-.comboLabel {
-  font-size: 9px;
-  letter-spacing: 0.18em;
-  color: rgba(223, 229, 247, 0.4);
+  gap: 9px;
+  line-height: 1;
 }
 
 .comboValue {
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
   transition: transform 0.12s ease;
+  text-shadow: 0 0 18px rgba(122, 215, 255, 0.45);
 }
 
 /* コンボが伸びた瞬間だけ弾ませる */
-.comboValue.bump { transform: scale(1.35); }
+.comboValue.bump { transform: scale(1.28); }
+
+.comboUnit {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: rgba(223, 229, 247, 0.5);
+}
 
 .gauge {
   position: relative;
-  height: 5px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.08);
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.09);
   overflow: hidden;
 }
 
@@ -238,7 +198,7 @@ body {
   display: block;
   height: 100%;
   width: 0%;
-  border-radius: 3px;
+  border-radius: 4px;
   background: linear-gradient(90deg, #4aa8ff, #7ad7ff, #b98cff);
   transition: width 0.18s ease;
 }
@@ -247,32 +207,64 @@ body {
 .gaugeTick {
   position: absolute;
   top: 0;
-  width: 1px;
+  width: 2px;
   height: 100%;
-  background: rgba(4, 5, 10, 0.8);
+  background: rgba(4, 5, 10, 0.85);
 }
 
-.comboLayers {
+.layers {
   display: flex;
-  gap: 6px;
-  margin-top: 7px;
-  flex-wrap: wrap;
+  gap: 5px;
+  width: 100%;
 }
 
 .layer {
-  font-size: 8px;
-  letter-spacing: 0.14em;
-  padding: 2px 5px;
-  border-radius: 3px;
+  flex: 1 1 0;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 4px 2px;
+  border-radius: 4px;
   border: 1px solid rgba(223, 229, 247, 0.14);
-  color: rgba(223, 229, 247, 0.3);
+  color: rgba(223, 229, 247, 0.32);
   transition: color 0.25s ease, border-color 0.25s ease, background 0.25s ease;
 }
 
 .layer.on {
   color: var(--accent);
-  border-color: rgba(122, 215, 255, 0.55);
-  background: rgba(122, 215, 255, 0.1);
+  border-color: rgba(122, 215, 255, 0.6);
+  background: rgba(122, 215, 255, 0.12);
+}
+
+.stats {
+  display: flex;
+  width: 100%;
+  margin-top: 2px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(223, 229, 247, 0.12);
+}
+
+.stat {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.statLabel {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: rgba(223, 229, 247, 0.4);
+}
+
+.statValue {
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
 }
 
 /* --- リザルト ------------------------------------------------------ */
@@ -511,9 +503,11 @@ body {
   #hud .link { padding: 6px 10px; font-size: 10px; }
   #hud .link { display: none; }
 
-  #score { padding: 8px 11px; }
-  .scoreValue { font-size: 16px; min-width: 4em; }
-  .scoreRow.sub .scoreValue { font-size: 11px; }
+  #panel { padding: 11px 14px 12px; gap: 7px; }
+  .comboValue { font-size: 34px; }
+  .comboUnit { font-size: 10px; }
+  .statValue { font-size: 17px; }
+  .layer { font-size: 9px; letter-spacing: 0.06em; }
 
   .helpPanel { padding: 20px 18px 18px; }
   .helpTable th { width: auto; display: block; padding-bottom: 0; border-top: none; }

@@ -28,12 +28,21 @@
      * 最高速でも約0.46秒。これより詰めると反応する時間が無くなる。
      */
     spacing: 3.0,
-    /** @brief 走行速度の初期値（1秒あたりの距離）。 */
-    baseSpeed: 4.0,
-    /** @brief 走行速度の上限。 */
-    maxSpeed: 6.5,
-    /** @brief 1秒あたりの加速量。ゆっくり効かせて、難しくなる実感だけを残す。 */
-    accel: 0.06,
+    /**
+     * @brief ゲージが空のときの速度（1秒あたりの距離）。
+     *
+     * 遅い。繋がり始めるまでは落ち着いて狙いを定められる。
+     */
+    baseSpeed: 2.6,
+    /**
+     * @brief ゲージ満タン時の速度。
+     *
+     * ここまで来ると、序盤とは別のゲームになる速さ。
+     * 速さ・音の厚み・曲のテンポが同時に上がるので、勢いが一気に立ち上がる。
+     */
+    maxSpeed: 7.0,
+    /** @brief 速度がゲージに追従する速さ。急変させず、加速を体で感じさせる。 */
+    speedRate: 1.6,
     /** @brief 透視投影の焦点距離。画面短辺に対する比率。 */
     focal: 0.62,
     /** @brief リングの切れ目の開き角 [rad]。約109度と広めに取る。 */
@@ -228,7 +237,10 @@
       if (state.timeLeft === 0) state.finished = true;
     }
 
-    state.speed = Math.min(CONFIG.maxSpeed, state.speed + CONFIG.accel * dt);
+    // 速度はコンボゲージに従う。繋げば速くなり、ぶつかれば元の速さへ戻る。
+    // 「上手くなるほど手強くなる」関係を、時間経過ではなく腕前に結びつける。
+    var wanted = M.lerp(CONFIG.baseSpeed, CONFIG.maxSpeed, gauge());
+    state.speed = M.approach(state.speed, wanted, CONFIG.speedRate, dt);
     state.dist += state.speed * dt;
     state.sinceHit += dt;
 
@@ -256,7 +268,6 @@
         } else if (state.sinceHit >= CONFIG.graceSeconds) {
           // 衝突直後は判定を止める。立て直す間もなく次に轢かれると理不尽に感じるため。
           f.impact(1);
-          state.speed = CONFIG.baseSpeed; // 衝突した分だけ減速する（終了はしない）
           state.sinceHit = 0;
           state.combo = 0;
           state.hits++;

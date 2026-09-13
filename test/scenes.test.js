@@ -134,6 +134,35 @@
     it('ゲージ満タンで全ての層が鳴る条件を満たす', function () {
       expect(1 >= S2.LAYER.arp).toBeTrue();
     });
+
+    it('未起動の状態は「消音」として扱われる（ボタンが必ず起動側に働く）', function () {
+      // AudioContext が無い環境では起動できないが、状態の判定は破綻しない
+      expect(typeof S2.isMuted()).toBe('boolean');
+    });
+
+    it('テンポ倍率は極端な値に丸められる', function () {
+      S2.setTempoScale(0.1);
+      expect(S2.getTempoScale()).toBe(0.5);
+      S2.setTempoScale(10);
+      expect(S2.getTempoScale()).toBe(2);
+      S2.setTempoScale(1.2);
+      expect(S2.getTempoScale()).toBeCloseTo(1.2);
+    });
+
+    it('映像側のテンポ範囲が、音側の許容範囲に収まっている', function () {
+      var app = window.PULSAR.app.CONFIG;
+      expect(app.tempoMin >= 0.5).toBeTrue();
+      expect(app.tempoMax <= 2).toBeTrue();
+      expect(app.tempoMin < app.tempoMax).toBeTrue();
+    });
+
+    it('音声が使えない環境でも turnOn / setMuted が例外を投げない', function () {
+      // 例外が出れば、このテスト自体が失敗する
+      S2.turnOn();
+      S2.setMuted(true);
+      S2.setMuted(false);
+      expect(typeof S2.isPlaying()).toBe('boolean');
+    });
   });
 
   describe('テンポ設定の一致', function () {

@@ -70,7 +70,27 @@
     it('速度は上限を超えない', function () {
       G.reset();
       for (var i = 0; i < 2000; i++) G.update(makeFrame({ dt: 1 / 30 }));
-      expect(G.state.speed <= G.CONFIG.maxSpeed).toBeTrue();
+      expect(G.state.speed <= G.CONFIG.maxSpeed + 1e-9).toBeTrue();
+    });
+
+    it('コンボが 0 のままなら速度は初速付近に留まる', function () {
+      G.reset();
+      var f = makeFrame({ dt: 1 / 30 });
+      for (var i = 0; i < 300; i++) {
+        G.state.combo = 0; // 繋がっていない状態を保つ
+        G.update(f);
+      }
+      expect(G.state.speed <= G.CONFIG.baseSpeed + 0.2).toBeTrue();
+    });
+
+    it('ゲージ満タンを保つと最高速へ近づく', function () {
+      G.reset();
+      var f = makeFrame({ dt: 1 / 30 });
+      for (var i = 0; i < 400; i++) {
+        G.state.combo = G.CONFIG.comboForMax;
+        G.update(f);
+      }
+      expect(G.state.speed >= G.CONFIG.maxSpeed - 0.2).toBeTrue();
     });
 
     it('自機の角度は常に [0, 2π) に入る', function () {
@@ -115,11 +135,13 @@
       expect(f.impacts > 0).toBeTrue();
     });
 
-    it('衝突すると速度が初期値まで落ちる', function () {
+    it('衝突するとコンボが切れ、速度が初速へ向かって落ちていく', function () {
       G.reset();
       var f = makeFrame({ dt: 1 / 60 });
+      G.state.combo = G.CONFIG.comboForMax;
       G.state.speed = G.CONFIG.maxSpeed;
-      // 直近のリングの反対側へ置いて、通過judgeを衝突させる
+
+      // 直近のリングの反対側へ置いて、通過判定を衝突させる
       var near = null;
       for (var j = 0; j < G.state.rings.length; j++) {
         var r = G.state.rings[j];
@@ -128,8 +150,18 @@
       near.z = G.CONFIG.shipZ + 0.001;
       G.state.angle = M.wrapAngle(near.gap + Math.PI);
       G.update(f);
+
       expect(f.impacts).toBe(1);
-      expect(G.state.speed <= G.CONFIG.baseSpeed + 0.01).toBeTrue();
+      expect(G.state.combo).toBe(0);
+
+      // ゲージが空になったので、速度は初速へ戻っていく
+      var before = G.state.speed;
+      for (var i = 0; i < 120; i++) {
+        G.state.combo = 0;
+        G.update(f);
+      }
+      expect(G.state.speed < before).toBeTrue();
+      expect(G.state.speed <= G.CONFIG.baseSpeed + 0.3).toBeTrue();
     });
 
     it('スコアは距離から導かれ、負にならない', function () {

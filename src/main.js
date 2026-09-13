@@ -30,7 +30,11 @@
     /** @brief 触れたときに飛ぶ先のシーン名。作品の主張そのもの。 */
     playableScene: 'tunnel',
     /** @brief 最後の操作からこの秒数のあいだは、操作区間に留まる [s]。 */
-    holdSeconds: 7
+    holdSeconds: 7,
+    /** @brief 走り出しのテンポ倍率（遅い方）。 */
+    tempoMin: 0.80,
+    /** @brief 最高速でのテンポ倍率（速い方）。 */
+    tempoMax: 1.28
   };
 
   /** @brief 表示用のキャンバスと文脈。 @private */
@@ -68,6 +72,18 @@
 
   /** @brief 最後に操作された時刻 [s]（`clock` 基準）。 @private */
   var lastInput = -999;
+
+  /**
+   * @brief 拍の進行位置（1.0 で1拍）。
+   *
+   * テンポが変わるため、時刻から割り算で求めるのではなく積算する。
+   * こうしないと、テンポを上げた瞬間に拍の位置が飛んで演出が乱れる。
+   * @private
+   */
+  var beatPos = 0;
+
+  /** @brief 現在のテンポ倍率。 @private */
+  var tempoScale = 1;
 
   /** @brief 衝突などで一時的に加わる画面の揺れの強さ [0..1]。 @private */
   var shake = 0;
@@ -330,9 +346,9 @@
   /** @brief 円周。`mathx` の TAU をローカルに束縛して参照を短くする。 @private */
   var TAU_LOCAL = M.TAU;
 
-  /** @brief スコアとゲージの DOM 参照。 @private */
-  var scoreEl = null, distEl = null, bestEl = null, timeEl = null;
-  var comboEl = null, comboValueEl = null, gaugeFillEl = null, layerEls = null;
+  /** @brief 走行パネルとリザルトの DOM 参照。 @private */
+  var panelEl = null, distEl = null, bestEl = null, timeEl = null;
+  var comboValueEl = null, gaugeFillEl = null, layerEls = null;
   var resultEl = null;
 
   /** @brief 直前に描いた値。同じなら DOM を触らない。 @private */
@@ -365,12 +381,11 @@
    * @returns {void}
    */
   function updateScore(visible) {
-    if (!scoreEl) return;
+    if (!panelEl) return;
     var game = global.PULSAR.game;
     var st = game.state;
 
-    scoreEl.classList.toggle('hidden', !visible);
-    comboEl.classList.toggle('hidden', !visible);
+    panelEl.classList.toggle('hidden', !visible);
     if (!visible) return;
 
     if (st.score !== shownDist) {
@@ -486,7 +501,20 @@
       scene = timeline[pick.index];
     }
 
-    var phase = M.beatPhase(CONFIG.bpm, clock);
+    var game = global.PULSAR.game;
+    var playing = game.state.started && !game.state.finished;
+
+    // 走行速度をテンポに写す。速く走るほど曲も前のめりになる。
+    var speedRatio = (game.state.speed - game.CONFIG.baseSpeed) /
+                     Math.max(0.001, game.CONFIG.maxSpeed - game.CONFIG.baseSpeed);
+    var wantedTempo = playing
+      ? M.lerp(CONFIG.tempoMin, CONFIG.tempoMax, M.clamp(speedRatio, 0, 1))
+      : 1;
+    tempoScale = M.approach(tempoScale, wantedTempo, 2.5, dt);
+    global.PULSAR.sound.setTempoScale(tempoScale);
+
+    beatPos += dt * CONFIG.bpm * tempoScale / 60;
+    var phase = beatPos - Math.floor(beatPos);
     // 拍の頭で 1、次の拍へ向かって減衰する値。キックの手応えを視覚に流用する。
     var kick = Math.exp(-phase * 5.5);
 
@@ -505,7 +533,7 @@
       dt: dt,
       local: pick.local,
       progress: pick.progress,
-      beat: M.beatAt(CONFIG.bpm, clock),
+      beat: Math.floor(beatPos),
       phase: phase,
       kick: kick,
       hue: (clock * 7) % 360,   // 全シーン共通の色相。作品を一本に見せるための背骨
@@ -538,11 +566,8 @@
 
     // 曲の厚み。遊んでいる間はコンボゲージ、デモとして流れている間は
     // 場面の進行に合わせて自動でうねらせる（無人でも音が育って聞こえる）。
-    var game = global.PULSAR.game;
     global.PULSAR.sound.setIntensity(
-      game.state.started && !game.state.finished
-        ? game.gauge()
-        : 0.35 + 0.35 * Math.sin(clock * 0.12)
+      playing ? game.gauge() : 0.35 + 0.35 * Math.sin(clock * 0.12)
     );
 
     if (game.state.finished && !resultShown) showResult();
@@ -571,12 +596,11 @@
     buf = document.createElement('canvas');
     bufCtx = buf.getContext('2d', { willReadFrequently: true });
 
-    scoreEl = document.getElementById('score');
+    panelEl = document.getElementById('panel');
     distEl = document.getElementById('scoreDist');
     bestEl = document.getElementById('scoreBest');
     timeEl = document.getElementById('scoreTime');
 
-    comboEl = document.getElementById('combo');
     comboValueEl = document.getElementById('comboValue');
     gaugeFillEl = document.getElementById('gaugeFill');
     layerEls = document.getElementById('comboLayers').querySelectorAll('.layer');
