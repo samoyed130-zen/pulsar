@@ -47,7 +47,15 @@
      * こちらは暗部を切り落とさずに画面全体を加算するので、
      * 同じ強さだと白く濁る。本来のグレアより弱めに入れる。
      */
-    softGlare: 0.5,
+    softGlare: 0.55,
+    /**
+     * @brief 暗部潰しの乗算を繰り返す回数。
+     *
+     * 1回（明るさの2乗）では中間の明るさが残り、光らせたくない壁まで
+     * 一緒に持ち上がって画面全体が白く濁る。増やすほど本当に明るい
+     * ところだけが滲むようになる。
+     */
+    softGlareSqueeze: 2,
     /**
      * @brief 加算ライトに使う縮小率。
      *
@@ -70,14 +78,14 @@
      * 段差として浮くが、彩度は面の向きによる差を作っていないので、
      * 同じように掛けても境目は生まれない。
      */
-    softGlareSat: 2,
+    softGlareSat: 1.6,
     /**
      * @brief 疑似グレアの環境で、明るさを底上げする割合 [0..1)。
      *
      * 倍率ではなく「上限までの残りに対する割合」。倍率で持ち上げると
      * 明るい面から順に上限へ張り付き、面の境目が段差として見えてしまう。
      */
-    softGlareLift: 0.36,
+    softGlareLift: 0.1,
     /** @brief この時間を超え続けたら描画を軽くする [ms]。戻すことはしない。 */
     slowMs: 22
   };
@@ -312,7 +320,8 @@
    *
    * 1. 画面を縮小して写す
    * 2. その画を自分自身に乗算で重ねる。明るさが2乗になるので、
-   *    暗いところほど大きく沈む。`contrast` の代わりになる
+   *    暗いところほど大きく沈む。`contrast` の代わりになる。
+   *    繰り返すほど明るいところだけが残る
    * 3. 縦横にずらしながら加算で積む。等間隔のずらし加算は
    *    そのまま矩形のぼかしなので、`blur` の代わりになる
    *
@@ -335,10 +344,18 @@
 
     // 暗部潰し。乗算の相手として同じ画がもう1枚要るので、
     // いったん glareBuf へ写してから掛け合わせる。
-    glareCtx.clearRect(0, 0, gw, gh);
-    glareCtx.drawImage(glareTmp, 0, 0);
-    glareTmpCtx.globalCompositeOperation = 'multiply';
-    glareTmpCtx.drawImage(glareBuf, 0, 0);
+    //
+    // 1回（2乗）では中間の明るさが残り、光らせたくない壁まで一緒に
+    // 持ち上がって画面全体が白く濁る。繰り返して本当に明るいところだけを
+    // 残すほど、グレアらしい「眩しいところが滲む」形に近づく。
+    for (var n = 0; n < CONFIG.softGlareSqueeze; n++) {
+      glareCtx.globalCompositeOperation = 'source-over';
+      glareCtx.globalAlpha = 1;
+      glareCtx.clearRect(0, 0, gw, gh);
+      glareCtx.drawImage(glareTmp, 0, 0);
+      glareTmpCtx.globalCompositeOperation = 'multiply';
+      glareTmpCtx.drawImage(glareBuf, 0, 0);
+    }
 
     // ずらし加算。taps が奇数なので、中心のずれ 0 も必ず含まれる。
     var taps = CONFIG.softGlareTaps;

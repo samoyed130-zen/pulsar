@@ -356,6 +356,12 @@
       expect(app.CONFIG.noGlareBoost === undefined).toBeTrue();
     });
 
+    it('暗部潰しは複数回かける', function () {
+      // 1回では中間の明るさが残り、光らせたくない面まで持ち上がって
+      // 画面全体が白く濁る。
+      expect(app.CONFIG.softGlareSqueeze >= 2).toBeTrue();
+    });
+
     it('ずらし加算のずれ幅は 0 より大きい', function () {
       expect(app.CONFIG.softGlareSpread > 0).toBeTrue();
     });
