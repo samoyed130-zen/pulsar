@@ -584,6 +584,8 @@
         emissive: p.emissive,
         // 映り込む照明の位置を走行に合わせて流す
         phase: f.t * 0.8 + travel * 0.25,
+        // 重いときだけ、グラデーションを使わない塗り分けに切り替える
+        shade: f.quality === 0 ? 'pieces' : 'gradient',
         dim: fade,
         alpha: 1,
         // 照明帯は光の面として見せたいので、輪郭線を描かない。

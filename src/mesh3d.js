@@ -237,8 +237,12 @@
    * @brief この大きさ未満の面は、グラデーションを作らず単色で塗る [px]。
    *
    * グラデーションは面ごとに作り直すため、数が増えると生成だけで重くなる。
+   * 小さく映っている面では、作っても違いが見えない。
    */
-  var GRADIENT_MIN_SIZE = 26;
+  var GRADIENT_MIN_SIZE = 20;
+
+  /** @brief 割って塗り分ける方式で、これ未満の面は1色にする [px]。 */
+  var SHADE_MIN_SIZE = 14;
 
   /** @brief 一時領域。 @private */
   var tmpNormal = [0, 0, 0];
@@ -287,6 +291,119 @@
    * @param {number} alpha 不透明度 [0..1]
    * @returns {CanvasGradient|string} 塗りに使う値
    */
+  /**
+   * @brief 面の稜線を描く。
+   *
+   * 塗り方が2通りあるため、線を引く処理だけを切り出しておく。
+   *
+   * @private
+   * @param {CanvasRenderingContext2D} ctx 描画先
+   * @param {Array<number>} s0 画面座標（頂点1）
+   * @param {Array<number>} s1 画面座標（頂点2）
+   * @param {Array<number>} s2 画面座標（頂点3）
+   * @param {Object} o 見た目の指定
+   * @returns {void}
+   */
+  function strokeEdges(ctx, s0, s1, s2, o) {
+    if (o.edges === false) return;
+
+    ctx.beginPath();
+    ctx.moveTo(s0[0], s0[1]);
+    ctx.lineTo(s1[0], s1[1]);
+    ctx.lineTo(s2[0], s2[1]);
+    ctx.closePath();
+
+    ctx.strokeStyle = 'hsla(' + o.hue.toFixed(0) + ',100%,' +
+                      (o.emissive ? 88 : 70) + '%,' +
+                      (o.alpha * (o.emissive ? 0.9 : 0.32)).toFixed(3) + ')';
+    ctx.lineWidth = o.emissive ? 1.4 : 0.9;
+    ctx.stroke();
+  }
+
+  /**
+   * @brief 三角形を、頂点ごとの明るさで塗り分ける。
+   *
+   * Canvas 2D には頂点の色を面内で混ぜる仕組みがない。グラデーションを
+   * 作る方法もあるが、面ごとに作り直す必要があり、その生成だけで重くなる。
+   * ブラウザによっては、これが処理落ちの主因になる。
+   *
+   * そこで三角形を重心から3つに割り、それぞれを「その辺の2頂点と重心の
+   * 平均の明るさ」で塗る。塗りつぶしは速いので、面の数が増えても耐える。
+   * 厳密な補間ではないが、平らな面が単色に潰れるのは防げる。
+   *
+   * @private
+   * @param {CanvasRenderingContext2D} ctx 描画先
+   * @param {Array<number>} s0 画面座標（頂点1）
+   * @param {Array<number>} s1 画面座標（頂点2）
+   * @param {Array<number>} s2 画面座標（頂点3）
+   * @param {number} l0 頂点1の明るさ [%]
+   * @param {number} l1 頂点2の明るさ [%]
+   * @param {number} l2 頂点3の明るさ [%]
+   * @param {number} hue 色相 [deg]
+   * @param {number} sat 彩度 [%]
+   * @param {number} alpha 不透明度 [0..1]
+   * @returns {void}
+   */
+  function fillShaded(ctx, s0, s1, s2, l0, l1, l2, hue, sat, alpha) {
+    var h = hue.toFixed(0);
+    var s = sat.toFixed(0);
+    var a = alpha.toFixed(3);
+
+    // 画面上で小さい面、または明暗の差が無い面は、割らずに1色で塗る。
+    var minX = Math.min(s0[0], s1[0], s2[0]);
+    var maxX = Math.max(s0[0], s1[0], s2[0]);
+    var minY = Math.min(s0[1], s1[1], s2[1]);
+    var maxY = Math.max(s0[1], s1[1], s2[1]);
+    var spread = Math.max(l0, l1, l2) - Math.min(l0, l1, l2);
+
+    if (((maxX - minX) < SHADE_MIN_SIZE && (maxY - minY) < SHADE_MIN_SIZE) ||
+        spread < 1.5) {
+      ctx.fillStyle = 'hsla(' + h + ',' + s + '%,' +
+                      ((l0 + l1 + l2) / 3).toFixed(1) + '%,' + a + ')';
+      ctx.beginPath();
+      ctx.moveTo(s0[0], s0[1]);
+      ctx.lineTo(s1[0], s1[1]);
+      ctx.lineTo(s2[0], s2[1]);
+      ctx.closePath();
+      ctx.fill();
+      return;
+    }
+
+    var gx = (s0[0] + s1[0] + s2[0]) / 3;
+    var gy = (s0[1] + s1[1] + s2[1]) / 3;
+    var gl = (l0 + l1 + l2) / 3;
+
+    // 重心と各辺で3枚に割る。隣り合う破片どうしの明るさが近いので、
+    // 境目はほとんど見えない。
+    shadePiece(ctx, gx, gy, s0, s1, (gl + l0 + l1) / 3, h, s, a);
+    shadePiece(ctx, gx, gy, s1, s2, (gl + l1 + l2) / 3, h, s, a);
+    shadePiece(ctx, gx, gy, s2, s0, (gl + l2 + l0) / 3, h, s, a);
+  }
+
+  /**
+   * @brief 重心と1辺で作る三角形を1枚塗る。
+   * @private
+   * @param {CanvasRenderingContext2D} ctx 描画先
+   * @param {number} gx 重心 x
+   * @param {number} gy 重心 y
+   * @param {Array<number>} a1 辺の端1
+   * @param {Array<number>} a2 辺の端2
+   * @param {number} light 明るさ [%]
+   * @param {string} h 色相の文字列
+   * @param {string} s 彩度の文字列
+   * @param {string} alpha 不透明度の文字列
+   * @returns {void}
+   */
+  function shadePiece(ctx, gx, gy, a1, a2, light, h, s, alpha) {
+    ctx.fillStyle = 'hsla(' + h + ',' + s + '%,' + light.toFixed(1) + '%,' + alpha + ')';
+    ctx.beginPath();
+    ctx.moveTo(gx, gy);
+    ctx.lineTo(a1[0], a1[1]);
+    ctx.lineTo(a2[0], a2[1]);
+    ctx.closePath();
+    ctx.fill();
+  }
+
   function faceGradient(ctx, s0, s1, s2, l0, l1, l2, hue, sat, alpha) {
     // 画面上で小さい面は単色で塗る。
     //
@@ -433,13 +550,6 @@
     for (i = 0; i < visible.length; i++) {
       v = visible[i];
       var s0 = sbuf[v.f[0]], s1 = sbuf[v.f[1]], s2 = sbuf[v.f[2]];
-
-      ctx.beginPath();
-      ctx.moveTo(s0[0], s0[1]);
-      ctx.lineTo(s1[0], s1[1]);
-      ctx.lineTo(s2[0], s2[1]);
-      ctx.closePath();
-
       var sat = (o.sat === undefined ? 92 : o.sat);
       var metal = (o.metal === undefined ? 0 : o.metal);
       var l, vl0 = 0, vl1 = 0, vl2 = 0;
@@ -472,6 +582,26 @@
 
       var dim = (o.dim === undefined ? 1 : o.dim);
       l = clampLight(l * dim);
+
+      // 明暗の付け方を2通り用意している。
+      //
+      // 既定はグラデーション。面の中を滑らかに変えられるが、面ごとに
+      // 作り直す必要があり、実装によってはその生成だけで処理落ちする。
+      // 重いと判定された環境では、三角形を割って塗り分ける方式に切り替える。
+      // 滑らかさは落ちるが、単色に潰すよりは面の表情が残る。
+      if (!o.emissive && o.shade === 'pieces') {
+        fillShaded(ctx, s0, s1, s2,
+                   clampLight(vl0 * dim), clampLight(vl1 * dim), clampLight(vl2 * dim),
+                   o.hue, sat, o.alpha);
+        strokeEdges(ctx, s0, s1, s2, o);
+        continue;
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(s0[0], s0[1]);
+      ctx.lineTo(s1[0], s1[1]);
+      ctx.lineTo(s2[0], s2[1]);
+      ctx.closePath();
 
       if (o.emissive) {
         ctx.fillStyle = 'hsla(' + o.hue.toFixed(0) + ',' + sat.toFixed(0) + '%,' +
