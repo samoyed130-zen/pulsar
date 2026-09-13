@@ -412,6 +412,18 @@ body.on-title #panel { display: none; }
   line-height: 1.1;
 }
 
+/*
+ * 桁を埋めるための 0。
+ *
+ * 見せたいのは数字の位置であって 0 そのものではない。`visibility` で
+ * 消せば、場所は取ったまま見えなくなる（`display: none` だと詰まる）。
+ * 読み上げにも乗らない。
+ */
+.pad {
+  font-style: normal;
+  visibility: hidden;
+}
+
 /* 区切りと目標も同じ白さ・同じ大きさで出す。薄くすると読み取れない */
 .statSep {
   margin: 0 0.15em;
@@ -457,11 +469,20 @@ body.on-title #panel { display: none; }
   text-align: right;
   color: var(--accent);
   text-shadow: 0 0 18px rgba(122, 215, 255, 0.45);
+}
+
+/*
+ * 伸びた瞬間だけ弾ませる（クラスは main.js が付け外しする）。
+ *
+ * 弾むのは数字だけ。桁を埋める見えない 0 まで一緒に拡大すると、
+ * 場所取りの幅が変わって隣がずれる。
+ */
+#comboValue {
+  display: inline-block;
   transition: transform 0.12s ease;
 }
 
-/* 伸びた瞬間だけ弾ませる（クラスは main.js が付け外しする） */
-.comboStat .statValue.bump { transform: scale(1.25); }
+#comboValue.bump { transform: scale(1.25); }
 
 .gauge {
   position: relative;

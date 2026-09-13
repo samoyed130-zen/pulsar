@@ -954,6 +954,9 @@
   /** @brief FPS の文字を最後に書き換えた時刻 [ms]。 @private */
   var fpsShownMs = 0;
   var comboValueEl = null, gaugeFillEl = null, stageValueEl = null;
+
+  /** @brief 桁を埋める見えない 0 を入れる要素。 @private */
+  var distPadEl = null, comboPadEl = null;
   var resultEl = null;
 
   /** @brief 直前に描いた値。同じなら DOM を触らない。 @private */
@@ -987,21 +990,30 @@
   }
 
   /**
-   * @brief 数を、頭に 0 を足して決まった桁数にする。
+   * @brief 数を、決まった桁数の位置に置く。
    *
    * 桁が変わるたびに文字数が増えると、その場で表示の幅も変わる。
    * 走っている最中に数字の位置が動くと、目で追えなくなってしまう。
-   * 桁数を固定すれば、等幅の書体と合わせて位置が動かなくなる。
+   *
+   * そこで足りない桁を 0 で埋めるが、その 0 は見えない要素に入れる。
+   * 場所だけ取って見た目には出ないので、`7` と出したまま位置は
+   * `007` のときと変わらない。
    *
    * @private
+   * @param {HTMLElement} padEl 見えない 0 を入れる要素
+   * @param {HTMLElement} numEl 数字を入れる要素
    * @param {number} value 値（0 以上）
    * @param {number} digits 桁数
-   * @returns {string} 頭を 0 で埋めた文字列
+   * @returns {void}
    */
-  function padNumber(value, digits) {
+  function showNumber(padEl, numEl, value, digits) {
     var s = String(value);
-    while (s.length < digits) s = '0' + s;
-    return s;
+    var zeros = '';
+
+    for (var i = s.length; i < digits; i++) zeros += '0';
+
+    if (padEl) padEl.textContent = zeros;
+    numEl.textContent = s;
   }
 
   /**
@@ -1027,9 +1039,9 @@
     var run = Math.floor(st.dist - st.stageStartDist);
     if (run < 0) run = 0;
     if (run !== shownDist) {
-      // 目標と同じ桁数に揃える。桁が増えるたびに幅が変わると、
+      // 目標と同じ桁数の位置に置く。桁が増えるたびに幅が変わると、
       // 走っている最中に数字が横へずれて読み取れない。
-      distEl.textContent = padNumber(run, goalDigits);
+      showNumber(distPadEl, distEl, run, goalDigits);
       shownDist = run;
     }
 
@@ -1048,7 +1060,7 @@
     }
 
     if (st.combo !== shownCombo) {
-      comboValueEl.textContent = padNumber(st.combo, 3);
+      showNumber(comboPadEl, comboValueEl, st.combo, 3);
       // 伸びた瞬間だけ弾ませる。次のフレームでクラスを外して再生し直せるようにする。
       if (st.combo > shownCombo) {
         comboValueEl.classList.remove('bump');
@@ -1649,6 +1661,9 @@
     stageValueEl = document.getElementById('stageValue');
     comboValueEl = document.getElementById('comboValue');
     gaugeFillEl = document.getElementById('gaugeFill');
+
+    distPadEl = document.getElementById('distPad');
+    comboPadEl = document.getElementById('comboPad');
 
     resultEl = document.getElementById('result');
     fpsEl = document.getElementById('fps');
