@@ -520,3 +520,14 @@ body {
   /* 小さい画面では走査線が潰れて汚くなるため薄くする */
   .crt { opacity: 0.35; }
 }
+
+/* ボタンが3つ並ぶため、極端に狭い画面では作品名を畳んで場所を譲る */
+@media (max-width: 400px) {
+  .brand {
+    overflow: hidden;
+    text-indent: -999px;
+    flex: 0 1 0;
+  }
+  #hud { justify-content: flex-end; }
+  #hud button { padding: 6px 8px; font-size: 9px; letter-spacing: 0.04em; }
+}

@@ -19,6 +19,7 @@
 <div id="hud">
   <span class="brand">PULSAR</span>
   <button id="helpBtn" type="button">あそびかた</button>
+  <button id="bgBtn" type="button">背景 3D</button>
   <button id="soundBtn" type="button">♪ 音を出す</button>
   <a class="link" href="test.html">TESTS</a>
 </div>
@@ -127,6 +128,10 @@
     <ul class="helpList">
       <li>5つの場面が約53秒で一周します。触れるといつでもトンネルへ飛びます。</li>
       <li>音は右上のボタンから。音源ファイルは使わず、その場で合成しています。</li>
+      <li>
+        <strong>背景 3D</strong> ボタンで、トンネルの立体背景を切り替えられます。
+        1ピクセルずつ光線を進めて描いているため、動きが重い端末では切ってください。
+      </li>
       <li>外部ライブラリは一切使っていません。Canvas 2D と Web Audio のみです。</li>
     </ul>
 
@@ -171,6 +176,21 @@
 
     // 画面に触れた時点でも音は起動する。その状態をボタンにも反映させる。
     window.setInterval(syncSoundButton, 700);
+
+    var bgBtn = document.getElementById('bgBtn');
+
+    /** 背景ボタンの見た目を現在の設定に合わせる。 */
+    function syncBgButton() {
+      var on = PULSAR.scenes.isRaymarch();
+      bgBtn.textContent = on ? '背景 3D' : '背景 なし';
+      bgBtn.classList.toggle('on', on);
+    }
+
+    bgBtn.addEventListener('click', function () {
+      PULSAR.scenes.setRaymarch(!PULSAR.scenes.isRaymarch());
+      syncBgButton();
+    });
+    syncBgButton();
 
     document.getElementById('retryBtn').addEventListener('click', function () {
       PULSAR.app.retry();

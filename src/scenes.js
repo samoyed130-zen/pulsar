@@ -268,6 +268,40 @@
   };
 
   /**
+   * @brief 立体背景を描くかどうか。
+   *
+   * 1ピクセルずつ光線を進める処理は、この作品でいちばん重い。
+   * 描画が追いつかない端末でも遊べるよう、切れるようにしてある。
+   * @private
+   */
+  var raymarchEnabled = true;
+
+  /**
+   * @brief 立体背景の有無を設定する。
+   * @param {boolean} on 描くなら true
+   * @returns {void}
+   */
+  function setRaymarch(on) {
+    raymarchEnabled = !!on;
+    try {
+      global.localStorage.setItem('pulsar.bg', raymarchEnabled ? '1' : '0');
+    } catch (e) { /* 保存できなくても動作には影響しない */ }
+  }
+
+  /**
+   * @brief 立体背景を描く設定になっているか。
+   * @returns {boolean} 描くなら true
+   */
+  function isRaymarch() {
+    return raymarchEnabled;
+  }
+
+  // 前回の選択を復元する。設定が読めない環境では既定（描く）のままにする。
+  try {
+    if (global.localStorage.getItem('pulsar.bg') === '0') raymarchEnabled = false;
+  } catch (e) { /* 既定のまま */ }
+
+  /**
    * @brief レイマーチング専用のバッファ。
    *
    * 他のエフェクトより粗い解像度で描くため、共有バッファとは別に持つ。
@@ -445,9 +479,14 @@
     var game = global.PULSAR.game;
     game.update(f);
 
-    // 背景はレイマーチングで描く。走った距離をそのままカメラの位置にするため、
-    // 手前のリングと奥の構造物が同じ速さで流れ、立体感が一致する。
-    drawRaymarch(f, game.state.dist * 0.55, 0.75 + game.gauge() * 0.5);
+    if (raymarchEnabled) {
+      // 背景はレイマーチングで描く。走った距離をそのままカメラの位置にするため、
+      // 手前のリングと奥の構造物が同じ速さで流れ、立体感が一致する。
+      drawRaymarch(f, game.state.dist * 0.55, 0.75 + game.gauge() * 0.5);
+    } else {
+      // 背景なしのときは残像だけを残し、リングの軌跡で奥行きを見せる。
+      fadeCanvas(f, 0.26);
+    }
 
     game.draw(f);
     // スコア表示と操作案内は main.js が DOM 側でまとめて担当する。
@@ -612,6 +651,8 @@
   global.PULSAR.scenes = {
     timeline: timeline,
     RAY: RAY,
+    setRaymarch: setRaymarch,
+    isRaymarch: isRaymarch,
     SCROLL_TEXT: SCROLL_TEXT,
     hslToRgb: hslToRgb,
     sceneDistance: sceneDistance

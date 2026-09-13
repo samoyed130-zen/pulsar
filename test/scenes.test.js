@@ -131,6 +131,22 @@
       expect(S.RAY.widthLight < S.RAY.width).toBeTrue();
       expect(S.RAY.stepsLight < S.RAY.steps).toBeTrue();
     });
+
+    it('背景の有無を切り替えられる', function () {
+      var before = S.isRaymarch();
+      S.setRaymarch(false);
+      expect(S.isRaymarch()).toBeFalse();
+      S.setRaymarch(true);
+      expect(S.isRaymarch()).toBeTrue();
+      S.setRaymarch(before);
+    });
+
+    it('設定が保存できない環境でも切り替えが例外を投げない', function () {
+      // localStorage が無い環境（このテストの実行環境を含む）でも動くこと
+      S.setRaymarch(false);
+      S.setRaymarch(true);
+      expect(typeof S.isRaymarch()).toBe('boolean');
+    });
   });
 
   describe('scenes.SCROLL_TEXT', function () {
