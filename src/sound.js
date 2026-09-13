@@ -357,6 +357,25 @@
   }
 
   /**
+   * @brief その位置で鳴らす和音の根音を求める。
+   *
+   * ベースの音型をそのまま和音の進行として使う。別に進行表を持つと、
+   * ベースと和音が食い違ったときに濁る原因になる。
+   *
+   * @private
+   * @param {Object} p ステージの曲
+   * @param {number} i 16分音符の位置
+   * @returns {number} 根音の周波数 [Hz]
+   */
+  function chordRoot(p, i) {
+    // その位置に音が無ければ、直前に鳴っていた音まで遡る。
+    for (var k = i; k >= 0; k--) {
+      if (p.bass[k] !== null) return p.bass[k];
+    }
+    return p.bass[0] || 55;
+  }
+
+  /**
    * @brief 16分音符1つ分の音を予約する。
    * @private
    * @param {number} n 通し番号
@@ -398,20 +417,23 @@
       var root = p.bass[0] || 55;
 
       // 小節の頭で、2小節ぶん伸びる長三和音を敷く。
+      // 打つ和音が前に出るので、こちらは土台として控えめにする。
       if (i === 0 && bar % 2 === 0) {
         for (var n = 0; n < MAJOR_CHORD.length; n++) {
-          pad(root * 2 * MAJOR_CHORD[n], at, beat * 8, 0.055 - n * 0.011);
+          pad(root * 2 * MAJOR_CHORD[n], at, beat * 8, 0.038 - n * 0.008);
         }
       }
 
-      // 拍の終わりの16分が空いていれば、そこへ和音を差し込む。
-      //
-      // 旋律や打点と重なる位置を避ける。ベースは音域が離れているので
-      // 重なっても濁らないが、リードやキックと同時に鳴らすと団子になる。
-      // 拍の裏に置くことで、隙間が埋まりつつ前へ出てこない。
-      var quiet = (p.lead[i] === null) && !p.kick[i];
-      if (quiet && i % 4 === 3) {
-        chord(root * 4, at, beat * 0.75, 0.04, 'triangle');
+      // 拍の頭で和音を打つ。隙間を埋める飾りではなく、ここまで来た人への
+      // ご褒美として前に出す。和音はその時点のベースに合わせて動かすので、
+      // 同じ響きが続かず進行として聞こえる。
+      if (i % 4 === 0) {
+        chord(chordRoot(p, i) * 4, at, beat * 0.95, 0.085, 'triangle');
+      }
+
+      // 2拍目と4拍目の裏に軽く足して、前へ進む感じを出す。
+      if (i === 6 || i === 14) {
+        chord(chordRoot(p, i) * 4, at, beat * 0.5, 0.05, 'triangle');
       }
     }
   }
