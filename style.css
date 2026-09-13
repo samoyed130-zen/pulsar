@@ -14,6 +14,24 @@
   --line: rgba(223, 229, 247, 0.18);
   --accent: #7ad7ff;
   --pad: max(14px, env(safe-area-inset-left));
+
+  /*
+   * 画面の大きさに追従する寸法。
+   *
+   * `0.6vw + 0.6vh` としているのは、縦横どちらかだけを基準にすると
+   * 持ち方で破綻するため。縦持ちの携帯では幅が、横向きの画面では
+   * 高さが足りなくなるので、両方の平均で決める。
+   *
+   * 上下は clamp で止める。大きな画面で文字が間延びせず、小さな画面でも
+   * 読めない大きさまで縮まない。この2つの値が実質的な設計の幅になる。
+   */
+  --fs-label: clamp(9px, calc(0.45vw + 0.45vh), 13px);   /* 見出し・単位 */
+  --fs-ui: clamp(12px, calc(0.62vw + 0.62vh), 17px);     /* ボタン・本文 */
+  --fs-value: clamp(15px, calc(0.78vw + 0.78vh), 23px);  /* 数値 */
+  --fs-title: clamp(16px, calc(0.85vw + 0.85vh), 25px);  /* 見出し */
+
+  --gap-ui: clamp(7px, calc(0.5vw + 0.5vh), 14px);
+  --pad-ui: clamp(10px, calc(0.62vw + 0.62vh), 18px);
 }
 
 * { box-sizing: border-box; }
@@ -98,7 +116,7 @@ body {
   justify-content: flex-end;
   /* 入りきらないときは折り返す。押せないボタンが画面外に出るのを防ぐ */
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--gap-ui);
   pointer-events: none;
 }
 
@@ -115,7 +133,7 @@ body.on-title #panel { display: none; }
 .brand {
   flex: 0 0 auto;
   margin-right: auto;
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 700;
   letter-spacing: 0.42em;
   color: var(--dim);
@@ -128,13 +146,13 @@ body.on-title #panel { display: none; }
      場面によって大きさが違って見える */
   flex: 0 0 auto;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--fs-ui);
   letter-spacing: 0.1em;
   color: var(--dim);
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 7px 13px;
+  padding: calc(var(--gap-ui) * 0.75) calc(var(--gap-ui) * 1.4);
   cursor: pointer;
   text-decoration: none;
   white-space: nowrap;
@@ -180,10 +198,10 @@ body.on-title #panel { display: none; }
   font-family: "Consolas", "Hiragino Sans", system-ui, sans-serif;
   /* 大きさは他のボタンに合わせ、目立たせるのは色だけに任せる。
      塗ってあれば、小さくても押す場所だと分かる */
-  font-size: 12px;
+  font-size: var(--fs-ui);
   font-weight: 700;
   letter-spacing: 0.1em;
-  padding: 7px 14px;
+  padding: calc(var(--gap-ui) * 0.75) calc(var(--gap-ui) * 1.5);
   color: #04121c;
   background: var(--accent);
   border-color: var(--accent);
@@ -268,12 +286,12 @@ body.on-title #panel { display: none; }
 
 .startBtn {
   pointer-events: auto;
-  min-width: 240px;
+  min-width: clamp(190px, calc(12vw + 12vh), 300px);
   font-family: "Consolas", "Hiragino Sans", system-ui, sans-serif;
-  font-size: 15px;
+  font-size: var(--fs-ui);
   font-weight: 700;
   letter-spacing: 0.14em;
-  padding: 14px 32px;
+  padding: var(--pad-ui) calc(var(--pad-ui) * 1.8);
   color: var(--fg);
   background: rgba(10, 14, 26, 0.72);
   border: 1px solid rgba(122, 215, 255, 0.45);
@@ -305,7 +323,7 @@ body.on-title #panel { display: none; }
 
 .titleHint {
   margin: 20px 0 0;
-  font-size: 13px;
+  font-size: var(--fs-ui);
   font-weight: 600;
   letter-spacing: 0.12em;
   color: var(--accent);
@@ -329,8 +347,8 @@ body.on-title #panel { display: none; }
   max-width: calc(100% - 2 * var(--pad));
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 8px 18px;
+  gap: calc(var(--gap-ui) * 1.8);
+  padding: calc(var(--gap-ui) * 0.8) calc(var(--gap-ui) * 1.8);
   border: 1px solid var(--line);
   border-radius: 999px;
   background: rgba(4, 5, 10, 0.52);
@@ -353,18 +371,18 @@ body.on-title #panel { display: none; }
 .stat {
   display: flex;
   align-items: baseline;
-  gap: 7px;
+  gap: calc(var(--gap-ui) * 0.7);
 }
 
 .statLabel {
-  font-size: 10px;
+  font-size: var(--fs-label);
   font-weight: 600;
   letter-spacing: 0.18em;
   color: rgba(223, 229, 247, 0.45);
 }
 
 .statValue {
-  font-size: 18px;
+  font-size: var(--fs-value);
   font-weight: 700;
   color: var(--fg);
   /* 数字の幅を揃える。桁が変わるたびに並びが動くと読みにくい */
@@ -374,13 +392,13 @@ body.on-title #panel { display: none; }
 
 .statSep {
   margin: 0 3px;
-  font-size: 13px;
+  font-size: var(--fs-ui);
   font-weight: 400;
   color: rgba(223, 229, 247, 0.3);
 }
 
 .statSub {
-  font-size: 13px;
+  font-size: var(--fs-ui);
   font-weight: 600;
   color: rgba(223, 229, 247, 0.5);
 }
@@ -408,8 +426,8 @@ body.on-title #panel { display: none; }
 
 .gauge {
   position: relative;
-  width: 110px;
-  height: 7px;
+  width: clamp(56px, calc(4vw + 4vh), 150px);
+  height: clamp(5px, calc(0.2vw + 0.2vh), 10px);
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.09);
   overflow: hidden;
@@ -447,11 +465,11 @@ body.on-title #panel { display: none; }
   bottom: max(14px, env(safe-area-inset-bottom));
   z-index: 30;
   pointer-events: none;
-  padding: 8px 14px;
+  padding: calc(var(--gap-ui) * 0.7) var(--gap-ui);
   border-radius: 10px;
   background: rgba(4, 5, 10, 0.72);
   font-family: "Consolas", "SF Mono", monospace;
-  font-size: clamp(15px, 3.4vmin, 26px);
+  font-size: calc(var(--fs-value) * 0.9);
   font-weight: 700;
   letter-spacing: 0.06em;
   color: #dfe5f7;
@@ -481,8 +499,8 @@ body.on-title #panel { display: none; }
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 22px 22px 20px;
+  gap: var(--gap-ui);
+  padding: calc(var(--pad-ui) * 1.4);
   border: 1px solid var(--line);
   border-radius: 18px;
   background: rgba(9, 11, 20, 0.94);
@@ -491,7 +509,7 @@ body.on-title #panel { display: none; }
 .menuPanel h2 {
   margin: 0;
   font-family: "Consolas", monospace;
-  font-size: 12px;
+  font-size: var(--fs-label);
   font-weight: 700;
   letter-spacing: 0.34em;
   color: rgba(223, 229, 247, 0.55);
@@ -510,9 +528,9 @@ body.on-title #panel { display: none; }
 
 .menuList button {
   width: 100%;
-  padding: 13px 16px;
+  padding: var(--gap-ui) calc(var(--gap-ui) * 1.3);
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--fs-ui);
   letter-spacing: 0.06em;
   text-align: left;
   color: var(--fg);
@@ -550,8 +568,8 @@ body.on-title #panel { display: none; }
   height: min(80vh, 100%);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 20px 20px 18px;
+  gap: var(--gap-ui);
+  padding: calc(var(--pad-ui) * 1.3);
   border: 1px solid var(--line);
   border-radius: 18px;
   background: rgba(9, 11, 20, 0.96);
@@ -560,7 +578,7 @@ body.on-title #panel { display: none; }
 .testsPanel h2 {
   margin: 0;
   font-family: "Consolas", monospace;
-  font-size: 12px;
+  font-size: var(--fs-label);
   font-weight: 700;
   letter-spacing: 0.34em;
   color: rgba(223, 229, 247, 0.55);
@@ -584,9 +602,9 @@ body.on-title #panel { display: none; }
 }
 
 .testsFooter button {
-  padding: 11px 22px;
+  padding: var(--gap-ui) calc(var(--gap-ui) * 2);
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--fs-ui);
   letter-spacing: 0.1em;
   color: var(--fg);
   background: transparent;
@@ -612,9 +630,9 @@ body.on-title #panel { display: none; }
 
 .menuFooter button {
   flex: 1;
-  padding: 13px 10px;
+  padding: var(--gap-ui) calc(var(--gap-ui) * 0.9);
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--fs-ui);
   letter-spacing: 0.08em;
   color: var(--fg);
   background: transparent;
@@ -736,7 +754,7 @@ body.on-title #titleBtn { display: none; }
 
 .confirmPanel {
   width: min(360px, 100%);
-  padding: 26px 24px 22px;
+  padding: calc(var(--pad-ui) * 1.7) calc(var(--pad-ui) * 1.5);
   border: 1px solid var(--line);
   border-radius: 16px;
   background: rgba(12, 15, 26, 0.96);
@@ -745,7 +763,7 @@ body.on-title #titleBtn { display: none; }
 
 .confirmPanel h2 {
   margin: 0 0 22px;
-  font-size: 16px;
+  font-size: var(--fs-title);
   font-weight: 700;
   letter-spacing: 0.08em;
   /* 2行になることがあるので、行の間を空けて読みやすくする */
@@ -760,9 +778,9 @@ body.on-title #titleBtn { display: none; }
 
 .confirmButtons button {
   flex: 1 1 0;
-  padding: 13px 10px;
+  padding: var(--gap-ui) calc(var(--gap-ui) * 0.9);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   letter-spacing: 0.1em;
   color: var(--fg);
   background: rgba(255, 255, 255, 0.05);
@@ -798,7 +816,7 @@ body.on-title #titleBtn { display: none; }
 
 .resultPanel {
   width: min(420px, 100%);
-  padding: 28px 26px 24px;
+  padding: calc(var(--pad-ui) * 1.8) calc(var(--pad-ui) * 1.6);
   border: 1px solid rgba(122, 215, 255, 0.3);
   border-radius: 16px;
   background: rgba(12, 15, 26, 0.95);
@@ -808,7 +826,7 @@ body.on-title #titleBtn { display: none; }
 .resultPanel h2 {
   margin: 0;
   font-family: "Consolas", monospace;
-  font-size: 26px;
+  font-size: calc(var(--fs-title) * 1.6);
   font-weight: 800;
   letter-spacing: 0.3em;
   color: var(--accent);
@@ -816,7 +834,7 @@ body.on-title #titleBtn { display: none; }
 
 .resultLead {
   margin: 8px 0 22px;
-  font-size: 12px;
+  font-size: var(--fs-label);
   color: var(--dim);
 }
 
@@ -827,7 +845,7 @@ body.on-title #titleBtn { display: none; }
 }
 
 .resultLead.clear {
-  font-size: 15px;
+  font-size: var(--fs-ui);
   font-weight: 700;
   color: #ffd76e;
 }
@@ -848,7 +866,7 @@ body.on-title #titleBtn { display: none; }
 
 .resultStats dt {
   font-family: "Consolas", monospace;
-  font-size: 11px;
+  font-size: var(--fs-label);
   letter-spacing: 0.18em;
   color: rgba(223, 229, 247, 0.45);
 }
@@ -856,7 +874,7 @@ body.on-title #titleBtn { display: none; }
 .resultStats dd {
   margin: 0;
   font-family: "Consolas", monospace;
-  font-size: 26px;
+  font-size: calc(var(--fs-value) * 1.15);
   font-weight: 700;
   color: var(--fg);
   font-variant-numeric: tabular-nums;
@@ -865,7 +883,7 @@ body.on-title #titleBtn { display: none; }
 .resultNote {
   margin: 0 0 20px;
   min-height: 1.2em;
-  font-size: 12px;
+  font-size: var(--fs-label);
   line-height: 1.7;
   color: var(--accent);
 }
@@ -877,8 +895,8 @@ body.on-title #titleBtn { display: none; }
 
 .resultButtons button {
   flex: 1 1 0;
-  padding: 13px 10px;
-  font-size: 13px;
+  padding: var(--gap-ui) calc(var(--gap-ui) * 0.9);
+  font-size: var(--fs-ui);
   letter-spacing: 0.08em;
   color: var(--fg);
   background: rgba(255, 255, 255, 0.05);
@@ -923,7 +941,7 @@ body.on-title #titleBtn { display: none; }
   width: min(520px, 100%);
   max-height: calc(100vh - 2 * var(--pad));
   overflow-y: auto;
-  padding: 26px 26px 22px;
+  padding: calc(var(--pad-ui) * 1.7);
   border: 1px solid var(--line);
   border-radius: 16px;
   background: rgba(12, 15, 26, 0.94);
@@ -931,7 +949,7 @@ body.on-title #titleBtn { display: none; }
 
 .helpPanel h2 {
   margin: 0 0 14px;
-  font-size: 12px;
+  font-size: var(--fs-label);
   font-weight: 700;
   letter-spacing: 0.26em;
   color: var(--accent);
@@ -939,7 +957,7 @@ body.on-title #titleBtn { display: none; }
 
 .helpPanel h3 {
   margin: 22px 0 8px;
-  font-size: 11px;
+  font-size: var(--fs-label);
   font-weight: 700;
   letter-spacing: 0.2em;
   color: rgba(223, 229, 247, 0.5);
@@ -947,7 +965,7 @@ body.on-title #titleBtn { display: none; }
 
 .helpLead {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--fs-ui);
   line-height: 1.8;
   color: var(--fg);
 }
@@ -957,7 +975,7 @@ body.on-title #titleBtn { display: none; }
 .helpTable {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--fs-ui);
   line-height: 1.7;
 }
 
@@ -982,7 +1000,7 @@ body.on-title #titleBtn { display: none; }
 .helpList {
   margin: 0;
   padding-left: 1.2em;
-  font-size: 13px;
+  font-size: var(--fs-ui);
   line-height: 1.9;
   color: var(--dim);
 }
@@ -993,8 +1011,8 @@ body.on-title #titleBtn { display: none; }
 #helpClose {
   width: 100%;
   margin-top: 24px;
-  padding: 12px;
-  font-size: 13px;
+  padding: var(--gap-ui);
+  font-size: var(--fs-ui);
   letter-spacing: 0.1em;
   color: var(--fg);
   background: rgba(255, 255, 255, 0.05);
@@ -1015,65 +1033,28 @@ body.on-title #titleBtn { display: none; }
   text-align: center;
   background: var(--bg);
   color: var(--fg);
-  font-size: 14px;
+  font-size: var(--fs-ui);
 }
 
+/*
+ * 画面が狭いときだけの調整。
+ *
+ * 文字や余白の大きさは `:root` の寸法が画面に合わせて縮めるので、
+ * ここでは「並べ方を変える」ことだけを書く。同じ数値を二度書くと、
+ * 片方を直し忘れて食い違う。
+ */
 @media (max-width: 560px) {
-  .brand {
-    letter-spacing: 0.3em;
-    /* 狭い画面ではボタンを優先し、作品名は畳む */
-    font-size: 10px;
-  }
-  #hud { gap: 6px; }
-  #hud button { padding: 6px 9px; font-size: 10px; }
-  /* 狭い画面でも、唯一の入口は縮めない。横の余白だけ詰める */
-  #hud button#menuBtn { padding: 7px 12px; font-size: 11px; }
-
-  /*
-   * 一列に収めるため、間隔と文字を詰める。
-   * 横幅が足りずメニューのボタンと重なるので、その下へ落とす。
-   */
-  #panel {
-    top: calc(max(12px, env(safe-area-inset-top)) + 44px);
-    gap: 10px;
-    padding: 6px 12px;
-  }
-  .stat { gap: 5px; }
-  .statLabel { font-size: 8px; letter-spacing: 0.1em; }
-  .statValue { font-size: 14px; }
-  .statSep, .statSub { font-size: 11px; }
-  .gauge { width: 70px; height: 6px; }
-  .resultStats dd { font-size: 22px; }
+  /* 作品名は場所を譲る。ボタンの方が先に必要になる */
   .brand { display: none; }
 
-  .helpPanel { padding: 20px 18px 18px; }
+  /* 横幅が足りず、メニューのボタンと重なるので下へ落とす */
+  #panel { top: calc(max(12px, env(safe-area-inset-top)) + 44px); }
+
+  /* 説明の表は、見出しと中身を縦に積む */
   .helpTable th { width: auto; display: block; padding-bottom: 0; border-top: none; }
   .helpTable td { display: block; padding-top: 2px; }
   .helpTable tr { display: block; padding: 8px 0; border-top: 1px solid rgba(223, 229, 247, 0.1); }
 
   /* 小さい画面では走査線が潰れて汚くなるため薄くする */
   .crt { opacity: 0.35; }
-}
-
-/*
- * 横持ちのスマートフォンなど、背の低い画面。
- *
- * 高さが足りないので、上端の帯をさらに薄くする。
- */
-@media (max-height: 480px) {
-  #panel { padding: 5px 12px; gap: 12px; }
-  .statValue { font-size: 14px; }
-  .gauge { width: 80px; height: 6px; }
-}
-
-/* ボタンが3つ並ぶため、極端に狭い画面では作品名を畳んで場所を譲る */
-@media (max-width: 400px) {
-  .brand {
-    overflow: hidden;
-    text-indent: -999px;
-    flex: 0 1 0;
-  }
-  #hud { justify-content: flex-end; }
-  #hud button { padding: 6px 8px; font-size: 9px; letter-spacing: 0.04em; }
-  #hud button#menuBtn { padding: 7px 11px; font-size: 10px; letter-spacing: 0.06em; }
 }
