@@ -418,14 +418,14 @@
   var TAU_LOCAL = M.TAU;
 
   /** @brief 走行パネルとリザルトの DOM 参照。 @private */
-  var panelEl = null, distEl = null, bestEl = null, timeEl = null;
+  var panelEl = null, distEl = null, goalEl = null, timeEl = null;
   var pausedEl = null, countdownEl = null;
   var comboValueEl = null, gaugeFillEl = null, layerEls = null;
   var stageValueEl = null, stageFillEl = null;
   var resultEl = null;
 
   /** @brief 直前に描いた値。同じなら DOM を触らない。 @private */
-  var shownDist = -1, shownBest = -1, shownTime = '', shownCombo = -1;
+  var shownDist = -1, shownTime = '', shownCombo = -1;
   var shownCollected = -1, shownStage = -1;
 
   /** @brief リザルトを表示済みか。 @private */
@@ -462,13 +462,13 @@
     panelEl.classList.toggle('hidden', !visible);
     if (!visible) return;
 
-    if (st.score !== shownDist) {
-      distEl.textContent = String(st.score);
-      shownDist = st.score;
-    }
-    if (st.best !== shownBest) {
-      bestEl.textContent = String(st.best);
-      shownBest = st.best;
+    // 距離は「このステージで進んだぶん / 抜けるのに必要なぶん」で出す。
+    // 通算の距離より、あとどれだけでクリアかの方が今の判断に効く。
+    var run = Math.floor(st.dist - st.stageStartDist);
+    if (run < 0) run = 0;
+    if (run !== shownDist) {
+      distEl.textContent = String(run);
+      shownDist = run;
     }
 
     var tm = formatTime(st.timeLeft);
@@ -897,8 +897,11 @@
 
     panelEl = document.getElementById('panel');
     distEl = document.getElementById('scoreDist');
-    bestEl = document.getElementById('scoreBest');
+    goalEl = document.getElementById('scoreGoal');
     timeEl = document.getElementById('scoreTime');
+
+    // 目標の距離は変わらないので、一度だけ入れておく。
+    goalEl.textContent = String(global.PULSAR.game.CONFIG.stageDistance);
 
     stageValueEl = document.getElementById('stageValue');
     stageFillEl = document.getElementById('stageFill');
