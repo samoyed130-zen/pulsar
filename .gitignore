@@ -13,3 +13,17 @@ docs/latex/
 
 # 作業用
 *.log
+
+# 制作過程のメモ・作業計画（作品そのものではないため公開しない）
+TODO.md
+NOTES.md
+memo*.md
+
+# コード生成 AI 向けの指示書・設定（作品の一部ではない）
+zen-study-programming-contest-2026-summer.md
+.claude/
+CLAUDE.md
+.cursor/
+.cursorrules
+.github/copilot-instructions.md
+*.prompt.md
