@@ -549,7 +549,6 @@
     document.getElementById('rsStage').textContent =
       st.stage + ' / ' + global.PULSAR.game.CONFIG.stageCount;
     document.getElementById('rsDist').textContent = String(st.score);
-    document.getElementById('rsBest').textContent = String(st.best);
     document.getElementById('rsCombo').textContent = String(st.maxCombo);
     document.getElementById('rsItems').textContent = String(st.collected);
     document.getElementById('rsGained').textContent = Math.round(st.timeGained) + 's';
@@ -557,8 +556,7 @@
     document.getElementById('rsHits').textContent = String(st.hits);
 
     var note = '';
-    if (st.score >= st.best && st.score > 0) note = '自己ベスト更新。';
-    else if (st.hits === 0) note = 'ノーミス走破。';
+    if (st.hits === 0 && st.passed > 0) note = 'ノーミス走破。';
     else if (st.maxCombo >= global.PULSAR.game.CONFIG.comboForMax) note = 'ゲージ満タン到達。';
     document.getElementById('rsNote').textContent = note;
 

@@ -133,8 +133,6 @@
     rings: [],
     /** @brief 表示用スコア（距離の整数化）。 */
     score: 0,
-    /** @brief この端末での最高記録。 */
-    best: 0,
     /** @brief 直近の衝突からの経過時間 [s]。 */
     sinceHit: 99,
     /** @brief 連続通過数。衝突で 0 に戻る。 */
@@ -175,21 +173,6 @@
   };
 
   /**
-   * @brief ベストスコアを読み出す。保存が使えない環境でも落ちないようにする。
-   * @private
-   * @returns {number} 保存されていたベストスコア。無ければ 0
-   */
-  function loadBest() {
-    try {
-      var v = parseInt(global.localStorage.getItem('pulsar.best'), 10);
-      return isNaN(v) ? 0 : v;
-    } catch (e) {
-      // プライベートモード等で localStorage が例外を投げる場合がある。
-      return 0;
-    }
-  }
-
-  /**
    * @brief どのステージまで開放されているかを読み出す。
    *
    * 一度抜けたステージは、次回以降そこから始められる。長い作品を
@@ -226,18 +209,6 @@
    */
   function unlockedStage() {
     return state.unlocked;
-  }
-
-  /**
-   * @brief ベストスコアを保存する。失敗しても無視する。
-   * @private
-   * @param {number} v 保存するスコア
-   * @returns {void}
-   */
-  function saveBest(v) {
-    try {
-      global.localStorage.setItem('pulsar.best', String(v));
-    } catch (e) { /* 保存できなくても作品の動作には影響しない */ }
   }
 
   /**
@@ -378,7 +349,6 @@
     state.started = false;
     state.finished = false;
     state.timeLeft = CONFIG.sessionSeconds;
-    state.best = loadBest();
 
     state.items = [];
     state.collected = 0;
@@ -523,10 +493,6 @@
     }
 
     state.score = M.scoreFromDistance(state.dist);
-    if (state.score > state.best) {
-      state.best = state.score;
-      saveBest(state.best);
-    }
   }
 
   /**
