@@ -573,17 +573,23 @@
   }
 
   /**
-   * @brief 今、音を出してよい状態か。
+   * @brief 音声を起こしてよい状態か。
    *
-   * 3つの「出さない理由」をここに集める。散らばっていると、どれかを
-   * 見落とした経路が音を起こしてしまい、止めたはずの音が鳴る。
+   * 「起こしてよいか」であって「今そこから音が出るか」ではない。
+   * 作品側の一時停止（`suspended`）はここに入れない。止まっている
+   * 最中でも、音声そのものは用意しておく必要があるためである。
+   *
+   * ブラウザは、利用者の操作を起点にしないと音声を起こさせない。
+   * 一時停止を理由に見送ると、その操作の瞬間を逃してしまい、
+   * 再開したときには起こす機会が残っていない（無音のままになる）。
+   * 止まっている間は音量を 0 にすることで黙らせる。
    *
    * @private
-   * @returns {boolean} 出してよいなら true
+   * @returns {boolean} 起こしてよいなら true
    */
   function canPlay() {
     if (!allowed) return false;
-    if (!wanted || muted || suspended) return false;
+    if (!wanted || muted) return false;
     // 見えていないページで鳴らさない。別のページを開いたつもりでも
     // 裏で鳴り続け、そちらの音と重なって聞こえてしまう。
     if (global.document && global.document.hidden) return false;

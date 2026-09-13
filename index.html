@@ -558,8 +558,7 @@
      * まとめることで、そういう隙間がなくなる。
      */
     function syncOverlayPause() {
-      var open = !menuEl.hidden || !help.hidden ||
-                 !confirmEl.hidden || !testsEl.hidden;
+      var open = !menuEl.hidden || !help.hidden || !confirmEl.hidden;
       var st = PULSAR.game.state;
 
       /*
@@ -568,8 +567,17 @@
        * タイトルで流れているのは自動操縦のデモで、止める理由がない。
        * それどころか、止めてしまうと背景や音の設定を変えても画面が
        * 固まったままで、何が変わったのか分からなくなる。
+       *
+       * ただしテストの結果だけは、タイトルでも止める。画面いっぱいの
+       * 文字を読んでいる最中に、裏でデモが動いて音が鳴り続ける理由がない。
+       *
+       * 音を止めるのも再開するのも、この1か所（と closeDialog）だけが
+       * 行う。あちこちで直接止めると、どれかが解除し忘れて
+       * 「音が戻らない」という形で残る。
        */
-      if (open && st.started && !st.finished) PULSAR.app.setPaused('dialog', true);
+      var pause = !testsEl.hidden || (open && st.started && !st.finished);
+
+      if (pause) PULSAR.app.setPaused('dialog', true);
       else PULSAR.app.closeDialog();   // 閉じたときは合図を挟んでから戻る
     }
 
@@ -756,15 +764,6 @@
       if (open && !testsFrame.getAttribute('src')) {
         testsFrame.setAttribute('src', 'test.html');
       }
-
-      /*
-       * 開いている間は、作品側の音も止める。
-       *
-       * タイトルではデモを流したままにしているので、結果を読んでいる
-       * 最中も曲が鳴り続けてしまう。テストの結果を見に来た画面で
-       * 鳴らす理由はない。
-       */
-      PULSAR.sound.setSuspended(open);
 
       if (open) {
         menuEl.hidden = true;
