@@ -483,6 +483,7 @@
     guideBtn.addEventListener('click', function () {
       PULSAR.game.setGuide(!PULSAR.game.isGuide());
       syncGuideButton();
+      PULSAR.app.requestRender();
     });
 
     syncGuideButton();
@@ -499,6 +500,8 @@
     bgBtn.addEventListener('click', function () {
       PULSAR.scenes.setRaymarch(!PULSAR.scenes.isRaymarch());
       syncBgButton();
+      // 止まっている最中でも、変えた結果をその場で見せる
+      PULSAR.app.requestRender();
     });
     syncBgButton();
 
@@ -514,6 +517,7 @@
     smoothBtn.addEventListener('click', function () {
       PULSAR.scenes.setSmooth(!PULSAR.scenes.isSmooth());
       syncSmoothButton();
+      PULSAR.app.requestRender();
     });
     syncSmoothButton();
 
@@ -536,10 +540,17 @@
      */
     function syncOverlayPause() {
       var open = !menuEl.hidden || !help.hidden || !confirmEl.hidden;
+      var st = PULSAR.game.state;
 
-      // 閉じたときは合図を挟んでから戻る（closeDialog がその面倒を見る）
-      if (open) PULSAR.app.setPaused('dialog', true);
-      else PULSAR.app.closeDialog();
+      /*
+       * 止めるのは走っている最中だけ。
+       *
+       * タイトルで流れているのは自動操縦のデモで、止める理由がない。
+       * それどころか、止めてしまうと背景や音の設定を変えても画面が
+       * 固まったままで、何が変わったのか分からなくなる。
+       */
+      if (open && st.started && !st.finished) PULSAR.app.setPaused('dialog', true);
+      else PULSAR.app.closeDialog();   // 閉じたときは合図を挟んでから戻る
     }
 
     /**
@@ -632,7 +643,13 @@
     // --- 設定を初期化する ---
 
     document.getElementById('resetBtn').addEventListener('click', function () {
-      openConfirm(['初期化後タイトルに戻ります。', '本当によろしいですか？'], function () {
+      // タイトルにいるなら「戻ります」と断る必要がない。
+      // 起きないことを予告されると、かえって身構えてしまう。
+      var lines = title.hidden
+        ? ['初期化後タイトルに戻ります。', '本当によろしいですか？']
+        : ['本当によろしいですか？'];
+
+      openConfirm(lines, function () {
         PULSAR.store.clear();
 
         /*

@@ -558,6 +558,14 @@
       expect(app.isPaused()).toBeFalse();
     });
 
+    it('止まっていても1枚だけ描き直せる', function () {
+      // 止めている最中に見た目の設定を変えたとき、前の絵が残ったままだと
+      // 何も起きていないように見えてしまう。
+      expect(typeof app.requestRender).toBe('function');
+      app.requestRender();
+      expect(app.isPaused()).toBeFalse();   // 描き直しは停止状態を変えない
+    });
+
     it('メニューや説明を開いている間は止まる', function () {
       app.setPaused('dialog', true);
       expect(app.isPaused()).toBeTrue();

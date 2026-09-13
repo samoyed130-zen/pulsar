@@ -1481,6 +1481,18 @@
   }
 
   /**
+   * @brief 止まっていても1枚だけ描き直す。
+   *
+   * 見た目に関わる設定は、止めている最中に変えられる。そのままでは
+   * 前の絵が残り続け、変えたのに何も起きていないように見えてしまう。
+   *
+   * @returns {void}
+   */
+  function requestRender() {
+    needsRender = true;
+  }
+
+  /**
    * @brief 今の描画の状態を返す（調整用）。
    *
    * ブラウザごとの速度差を追うには、実際にかかっている時間を見るのが
@@ -1515,6 +1527,7 @@
     closeDialog: closeDialog,
     isPaused: isPaused,
     isBusy: isBusy,
+    requestRender: requestRender,
     stats: stats,
     onShortcut: null
   };

@@ -604,8 +604,7 @@ body.on-title #panel { display: none; }
 .menuFooter button:not(.primary):hover { background: rgba(223, 229, 247, 0.08); }
 
 /* タイトルでは走行中にしか意味のない項目を隠す */
-body.on-title #titleBtn,
-body.on-title #guideBtn { display: none; }
+body.on-title #titleBtn { display: none; }
 
 /* --- 知らせ（STAGE CLEAR など） ------------------------------------ */
 
