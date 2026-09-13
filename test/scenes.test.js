@@ -159,17 +159,27 @@
       }
     });
 
-    it('ステージが進むほど、うねりが細かくなる', function () {
-      for (var i = 1; i < S.STAGE_LOOK.length; i++) {
-        expect(S.STAGE_LOOK[i].bendFreq > S.STAGE_LOOK[i - 1].bendFreq).toBeTrue();
+    it('うねりの周期は長く保たれている（小刻みに振れると酔う）', function () {
+      for (var i = 0; i < S.STAGE_LOOK.length; i++) {
+        expect(S.STAGE_LOOK[i].bendFreq > 0).toBeTrue();
+        expect(S.STAGE_LOOK[i].bendFreq <= 0.16).toBeTrue();
       }
     });
 
-    it('うねりの大きさは通路に収まる範囲', function () {
+    it('同じ向きどうしで比べると、後のステージほど大きく曲がる', function () {
+      // 左右と上下では収まる幅が違うため、2つ飛ばし（同じ向き）で比べる
+      for (var i = 2; i < S.STAGE_LOOK.length; i++) {
+        expect(S.STAGE_LOOK[i].bendAmp > S.STAGE_LOOK[i - 2].bendAmp).toBeTrue();
+      }
+    });
+
+    it('うねりの大きさは通路の内側に収まる', function () {
       for (var i = 0; i < S.STAGE_LOOK.length; i++) {
-        var amp = S.STAGE_LOOK[i].bendAmp;
-        expect(amp > 0).toBeTrue();
-        expect(amp < S.HALL.halfHeight).toBeTrue();
+        var k = S.STAGE_LOOK[i];
+        var limit = k.vertical ? S.HALL.halfHeight : S.HALL.halfWidth;
+        expect(k.bendAmp > 0).toBeTrue();
+        // 壁に貼り付かないよう、余裕を残す
+        expect(k.bendAmp < limit * 0.8).toBeTrue();
       }
     });
 

@@ -339,12 +339,16 @@
     //
     // `vertical` が立つステージでは、通路が左右ではなく上下へうねる。
     // 同じ道でも進む向きの感覚が変わる。
-    { hue:   0, sat: 30, light: 190, bendAmp: 0.55, bendFreq: 0.22, vertical: false },
-    { hue:  52, sat: 44, light: 142, bendAmp: 0.50, bendFreq: 0.26, vertical: true },
-    { hue: 108, sat: 52, light:  86, bendAmp: 0.80, bendFreq: 0.30, vertical: false },
-    { hue: 168, sat: 46, light:  36, bendAmp: 0.70, bendFreq: 0.34, vertical: true },
-    { hue: 232, sat: 58, light:   6, bendAmp: 1.05, bendFreq: 0.40, vertical: false },
-    { hue: 292, sat: 64, light: 318, bendAmp: 0.95, bendFreq: 0.46, vertical: true }
+    //
+    // 周期は長く取る。短い周期で揺らすと、画面が小刻みに振れて酔いやすい。
+    // 違いは「ゆっくり、大きく」曲がることで出す。
+    // 上下方向は天井と床が近いぶん、振幅を控えめにする。
+    { hue:   0, sat: 30, light: 190, bendAmp: 0.90, bendFreq: 0.10, vertical: false },
+    { hue:  52, sat: 44, light: 142, bendAmp: 0.58, bendFreq: 0.09, vertical: true },
+    { hue: 108, sat: 52, light:  86, bendAmp: 1.25, bendFreq: 0.12, vertical: false },
+    { hue: 168, sat: 46, light:  36, bendAmp: 0.76, bendFreq: 0.11, vertical: true },
+    { hue: 232, sat: 58, light:   6, bendAmp: 1.60, bendFreq: 0.13, vertical: false },
+    { hue: 292, sat: 64, light: 318, bendAmp: 0.94, bendFreq: 0.12, vertical: true }
   ];
 
   /**
