@@ -715,11 +715,17 @@
       ctx.fillRect(0, 0, W, H);
     }
 
+    // 取得の反応はトンネル区間でしか意味を持たない。
+    // その区間の外では消しておく。減衰はトンネルの更新処理の中でしか
+    // 進まないため、抜けた瞬間の値のまま固まり、以降の場面すべてに
+    // 同じ輪が描かれ続けてしまう。
+    if (!playable) game.state.collectFlash = 0;
+
     // 立体を取ったときの反応。衝突の赤に対して、こちらは暖色で「良いこと」を示す。
     //
     // 画面全体に広がる輪にすると、取るたびに視界を覆って鬱陶しい。
     // 自機のいる場所で小さく弾けさせ、「拾ったのは自分」と分かるようにする。
-    if (game.state.collectFlash > 0.01) {
+    if (playable && game.state.collectFlash > 0.01) {
       var cf = game.state.collectFlash;
       var g = game.CONFIG;
       var shipR = Math.min(W, H) * g.focal / g.shipZ * g.shipRadiusRatio;

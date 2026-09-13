@@ -141,7 +141,8 @@
 
       // 手前の星だけを明るくする。全部を明るくすると画面が白く埋まる。
       var bright = near * near;
-      c.strokeStyle = M.hsl(f.hue + 200 + near * 60, 80, 34 + bright * 44, 0.16 + bright * 0.7);
+      c.strokeStyle = M.hsl(f.hue * 0.25 + 205 + near * 55, 80, 34 + bright * 44,
+                            0.16 + bright * 0.7);
       c.lineWidth = 0.5 + bright * 2.2;
       c.beginPath();
       c.moveTo(px, py);
@@ -180,9 +181,9 @@
         // -4..4 を 0..1 へ写す
         var n = (v + 4) / 8;
 
-        // 色相の幅を狭く取る。虹色に一周させると原色が並んで安っぽくなり、
-        // 他の場面とも噛み合わない。青から紫の範囲に収める。
-        var hue = (f.hue + 190 + n * 110) % 360;
+        // 共通色相はゆっくり一周するため、そのまま使うと黄や緑にも回ってしまう。
+        // 4分の1に縮めて青紫の周辺に留め、他の場面と地続きに見せる。
+        var hue = (f.hue * 0.25 + 215 + n * 90) % 360;
         var rgb = hslToRgb(hue / 360, 0.72, 0.10 + n * n * 0.42);
 
         var o = (y * bw + x) * 4;
@@ -638,8 +639,8 @@
         // しきい値の前後で色を切り替え、輪郭を帯として見せる。
         var v = M.clamp(field * 0.55, 0, 1.6);
 
-        // こちらも色相の幅を絞り、他の場面と地続きに見せる。
-        var hue = (f.hue + 200 + v * 70) % 360;
+        // こちらも共通色相を縮めて使い、青紫の範囲に留める。
+        var hue = (f.hue * 0.25 + 228 + v * 55) % 360;
         var light = v < 0.85 ? v * 0.14 : 0.24 + (v - 0.85) * 0.5;
         var rgb = hslToRgb(hue / 360, 0.8, M.clamp(light, 0, 0.7));
 
@@ -685,7 +686,8 @@
       var cy = f.H * (slot + wobble);
 
       // 色相の幅を狭く保つ。広く散らすと重なった部分が白へ寄る。
-      var hue = f.hue + (i - bars * 0.5) * 9;
+      // 共通色相も縮めて使い、他の場面と同じ色の家族に収める。
+      var hue = f.hue * 0.25 + 212 + (i - bars * 0.5) * 9;
 
       // 中心が明るく端が暗い帯。縦方向のグラデーションで厚みを出す。
       var grad = c.createLinearGradient(0, cy - h, 0, cy + h);
