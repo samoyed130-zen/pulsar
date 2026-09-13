@@ -25,7 +25,7 @@
     <h1 class="titleLogo">PULSAR</h1>
     <!-- 開放済みのステージぶんだけボタンが並ぶ（起動時に組み立てる） -->
     <div class="stageSelect" id="stageSelect"></div>
-    <p class="titleHint" id="titleHint">抜けたステージは次から選べます</p>
+    <p class="titleHint" id="titleHint"></p>
   </div>
 
   <!-- テストページへの入口。タイトル画面にだけ置く -->
@@ -280,14 +280,13 @@
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'startBtn' + (s === 1 ? ' primary' : '');
-        btn.textContent = 'ステージ ' + s + ' から';
+        // 選べるのが1つだけなら、選択肢ではなく単なる開始ボタンとして見せる。
+        btn.textContent = unlocked === 1 ? 'スタート' : 'ステージ ' + s + ' から';
         btn.setAttribute('data-stage', String(s));
         stageSelect.appendChild(btn);
       }
 
-      titleHint.textContent = unlocked > 1
-        ? '抜けたステージから始められます'
-        : 'ステージを抜けると、次から選べるようになります';
+      titleHint.textContent = '';
     }
 
     stageSelect.addEventListener('click', function (e) {

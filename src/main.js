@@ -743,18 +743,20 @@
     var pick = M.pickScene(timeline, sceneTime);
     var scene = timeline[pick.index];
 
-    // 操作中に区間が終わってしまうと「遊べていたのに取り上げられた」と感じる。
-    // 直近に操作があるあいだは、終わり際で少し巻き戻して操作区間に留める。
-    var engaged = (clock - lastInput) < CONFIG.holdSeconds;
+    var game = global.PULSAR.game;
+    var playing = game.state.started && !game.state.finished;
+
+    // 挑戦中は、手を止めていても操作区間から出さない。
+    // 考えている最中に場面が切り替わって遊べなくなるのは事故でしかない。
+    // 遊び終えたあとは、直近に操作があるあいだだけ引き留める。
+    var engaged = playing || (clock - lastInput) < CONFIG.holdSeconds;
+
     if (engaged && scene.name === CONFIG.playableScene &&
         pick.local > scene.duration - CONFIG.fade) {
       sceneTime -= scene.duration * 0.5;
       pick = M.pickScene(timeline, sceneTime);
       scene = timeline[pick.index];
     }
-
-    var game = global.PULSAR.game;
-    var playing = game.state.started && !game.state.finished;
 
     // 走行速度をテンポに写す。速く走るほど曲も前のめりになる。
     var speedRatio = (game.state.speed - game.CONFIG.baseSpeed) /

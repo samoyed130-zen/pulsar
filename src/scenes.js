@@ -332,12 +332,12 @@
    * `width`/`height` は通路の大きさの倍率、`period` は柱の間隔の倍率。
    */
   var STAGE_LOOK = [
-    { hue:   0, light: 188, width: 1.00, height: 1.00, period: 1.00 },
-    { hue:  38, light: 150, width: 1.12, height: 0.92, period: 1.15 },
-    { hue:  86, light: 100, width: 0.92, height: 1.14, period: 0.86 },
-    { hue: 138, light:  52, width: 1.18, height: 1.06, period: 1.30 },
-    { hue: 196, light:  16, width: 0.88, height: 0.90, period: 0.78 },
-    { hue: 262, light: 322, width: 1.06, height: 1.20, period: 1.05 }
+    { hue:   0, sat: 30, light: 190, width: 1.00, height: 1.00, period: 1.00 },
+    { hue:  52, sat: 44, light: 142, width: 1.20, height: 0.86, period: 1.25 },
+    { hue: 108, sat: 52, light:  86, width: 0.84, height: 1.22, period: 0.78 },
+    { hue: 168, sat: 46, light:  36, width: 1.28, height: 1.10, period: 1.45 },
+    { hue: 232, sat: 58, light:   6, width: 0.80, height: 0.84, period: 0.70 },
+    { hue: 292, sat: 64, light: 318, width: 1.10, height: 1.30, period: 1.10 }
   ];
 
   /**
@@ -443,6 +443,10 @@
     var hw = HALL.halfWidth * look.width;
     var hh = HALL.halfHeight * look.height;
 
+    // 映り込む照明の本数もステージで変える。金属面に映る景色が変われば、
+    // 同じ形の通路でも別の場所に見える。
+    mesh3d.ENV.streaks = 4 + (global.PULSAR.game.state.stage % 4) * 2;
+
     for (var i = 0; i < cells; i++) {
       var z = HALL.nearZ + i * period - offset + period;
       if (z < HALL.nearZ * 0.5) continue;
@@ -506,7 +510,9 @@
         cx: cx,
         cy: cy,
         hue: (f.hue * 0.25 + p.hue + (p.emissive ? 0 : look.hue)) % 360,
-        sat: p.emissive ? 90 : 34,
+        // 彩度もステージごとに変える。色相だけ動かしても、金属の映り込みで
+        // 色が抜けてしまい、違う場所へ来た感じが出ないため。
+        sat: p.emissive ? 92 : look.sat,
         metal: p.metal,
         emissive: p.emissive,
         // 映り込む照明の位置を走行に合わせて流す
@@ -816,7 +822,7 @@
     { name: 'starfield', duration: 9,  transition: 'flash',  glare: 0.45, draw: drawStarfield },
     { name: 'plasma',    duration: 8,  transition: 'wipe',   glare: 0.35, draw: drawPlasma },
     { name: 'tunnel',    duration: 16, transition: 'flash',  glare: 1,    draw: drawTunnel },
-    { name: 'metaballs', duration: 8,  transition: 'blinds', glare: 0.4,  draw: drawMetaballs },
+    { name: 'metaballs', duration: 8,  transition: 'blinds', glare: 0.4, draw: drawMetaballs },
     { name: 'copper',    duration: 12, transition: 'wipe',   glare: 0.5,  draw: drawCopper }
   ];
 
