@@ -507,11 +507,12 @@
     c.save();
     c.globalCompositeOperation = 'lighter';
 
-    // 自機の軌跡。円周上をどう動いたかが残り、自分が動かしている実感を与える。
-    c.strokeStyle = M.hsl(hue, 100, 65, 0.28);
-    c.lineWidth = 3;
+    // 自機の軌跡。円周上をどう動いたかが短く残り、動かしている実感を与える。
+    // 長く引くと円周をなぞる輪に見えてしまい、操作の案内と紛らわしい。
+    c.strokeStyle = M.hsl(hue, 100, 65, 0.16);
+    c.lineWidth = 2;
     c.beginPath();
-    c.arc(cx, cy, radius, state.angle - 0.45, state.angle);
+    c.arc(cx, cy, radius, state.angle - 0.2, state.angle);
     c.stroke();
 
     // 後光。小さな三角形だけだと背景のリングに埋もれるため。
