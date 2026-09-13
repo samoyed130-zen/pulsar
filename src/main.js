@@ -112,6 +112,15 @@
   var countdownTimer = 0;
 
   /**
+   * @brief 止まっていても1枚だけ描き直したいときに立てる。
+   *
+   * 合図のあいだに映るのは「止まる直前の絵」なので、これが無いと
+   * 選んだステージの景色ではなく、直前の場面が残ってしまう。
+   * @private
+   */
+  var needsRender = false;
+
+  /**
    * @brief カウントダウンの並びと、それぞれを見せる時間 [ms]。
    *
    * 「READY」で構えさせ、数字で間合いを取らせ、「START」で走り出す。
@@ -712,6 +721,9 @@
     lastInput = clock;
     startedAt = clock;
     jumpToPlayable();
+
+    // 合図の裏に、これから走るステージの景色を描いておく。
+    needsRender = true;
     startCountdown();
   }
 
@@ -759,17 +771,29 @@
    * @returns {void}
    */
   function frame(ms) {
+    var paused = isPaused();
+
     // 止まっている間は何も進めず、何も描かない。
     // Canvas は前の絵を保ったままなので、その瞬間で固まって見える。
-    if (isPaused()) {
+    //
+    // ただし1枚だけ描き直したい場合がある。合図のあいだに映るのは
+    // 止まる直前の絵なので、ステージを選んで始めたときに前の場面が
+    // 残ってしまう。そのときだけ時間を進めずに1枚描く。
+    if (paused && !needsRender) {
       prevMs = 0;
       global.requestAnimationFrame(frame);
       return;
     }
 
     // 初回とタブ復帰時に巨大な dt が入らないよう上限を設ける。
-    var dt = prevMs ? Math.min((ms - prevMs) / 1000, 0.05) : 0;
-    prevMs = ms;
+    var dt = paused ? 0 : (prevMs ? Math.min((ms - prevMs) / 1000, 0.05) : 0);
+
+    if (paused) {
+      needsRender = false;
+      prevMs = 0;
+    } else {
+      prevMs = ms;
+    }
     clock += dt;
     sceneTime += dt;
 
