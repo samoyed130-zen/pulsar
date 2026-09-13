@@ -262,6 +262,16 @@
    */
   var quality = 1;
 
+  /**
+   * @brief タイトル（デモ）を映しているか。
+   *
+   * 遊んでいるのかデモなのかは、走行状態だけでは見分けられない。
+   * 画面に触れた時点で走行の印は立ってしまうためで、どちらの画面に
+   * いるかはこちらで覚えておく。
+   * @private
+   */
+  var onTitle = true;
+
   /** @brief 段階を切り替えるまでの連続フレーム数。 @private */
   var slowFrames = 0;
 
@@ -1117,6 +1127,7 @@
    * @returns {void}
    */
   function startGame(stage) {
+    onTitle = false;
     global.PULSAR.game.reset(stage);
     lastStage = global.PULSAR.game.state.stage;
     pointer.everTouched = true;
@@ -1144,6 +1155,8 @@
    * @returns {void}
    */
   function showAutoplay() {
+    onTitle = true;
+
     // すでに自動操縦を映しているなら何もしない。
     // 押すたびに走行が巻き戻ると、反応だけあって進まない画面に見える。
     var tl = global.PULSAR.scenes.timeline;
@@ -1205,7 +1218,8 @@
     var scene = timeline[pick.index];
 
     var game = global.PULSAR.game;
-    var playing = game.state.started && !game.state.finished;
+
+    var playing = isPlaying();
 
     // 挑戦中は、手を止めていても操作区間から出さない。
     // 考えている最中に場面が切り替わって遊べなくなるのは事故でしかない。
@@ -1315,11 +1329,16 @@
     // 操作区間にいる間と、遊んだ直後だけ出す。他の場面では絵を優先する。
     updateScore(playable || engaged);
 
-    // 曲の厚み。遊んでいる間はコンボゲージ、デモとして流れている間は
-    // 場面の進行に合わせて自動でうねらせる（無人でも音が育って聞こえる）。
-    global.PULSAR.sound.setIntensity(
-      playing ? game.gauge() : 0.35 + 0.35 * Math.sin(clock * 0.12)
-    );
+    /*
+     * 曲の厚み。
+     *
+     * 遊んでいる間はコンボゲージがそのまま入り、溜めた分だけ層が増える。
+     *
+     * デモとして流れている間は最大にする。初めて開いた人が耳にするのは
+     * ここなので、層を削って聞かせる理由がない。作品の音として
+     * いちばん厚いところを、最初から出しておく。
+     */
+    global.PULSAR.sound.setIntensity(playing ? game.gauge() : 1);
 
     // ステージに応じて曲そのものを差し替える。
     global.PULSAR.sound.setStage(game.state.stage);
@@ -1481,6 +1500,19 @@
   }
 
   /**
+   * @brief 挑戦として走っている最中か。
+   *
+   * タイトルのデモと区別する。画面側もこの判断を使い、止めるかどうかや
+   * ボタンの表記を決める。同じことを別々に数えると必ずずれる。
+   *
+   * @returns {boolean} 走行中なら true
+   */
+  function isPlaying() {
+    var st = global.PULSAR.game.state;
+    return !onTitle && st.started && !st.finished;
+  }
+
+  /**
    * @brief 止まっていても1枚だけ描き直す。
    *
    * 見た目に関わる設定は、止めている最中に変えられる。そのままでは
@@ -1526,6 +1558,7 @@
     setPaused: setPaused,
     closeDialog: closeDialog,
     isPaused: isPaused,
+    isPlaying: isPlaying,
     isBusy: isBusy,
     requestRender: requestRender,
     stats: stats,

@@ -587,6 +587,16 @@
       expect(app.isPaused()).toBeFalse();
     });
 
+    it('タイトルのデモは走行中として扱わない', function () {
+      // 画面に触れると走行の印は立つが、それはタイトルでも同じ。
+      // これを走行中と見なすと、タイトルでメニューを開いただけで
+      // デモが止まり、曲の厚みもゲージ（0）に引きずられる。
+      // 起動直後はタイトルにいる（走り始めていない）
+      window.PULSAR.game.state.started = true;
+      expect(app.isPlaying()).toBeFalse();
+      window.PULSAR.game.state.started = false;
+    });
+
     it('止まっていても1枚だけ描き直せる', function () {
       // 止めている最中に見た目の設定を変えたとき、前の絵が残ったままだと
       // 何も起きていないように見えてしまう。
