@@ -69,11 +69,11 @@
     <h2 id="menuTitle">メニュー</h2>
 
     <div class="menuList">
-      <button id="sensBtn" type="button">感度 ×1</button>
+      <button id="sensBtn" type="button">操作感度 ×1</button>
       <button id="guideBtn" type="button">ガイド あり</button>
-      <button id="bgBtn" type="button">背景 3D</button>
+      <button id="bgBtn" type="button">背景 あり</button>
       <button id="smoothBtn" type="button">なめらか あり</button>
-      <button id="soundBtn" type="button">♪ 音を出す</button>
+      <button id="soundBtn" type="button">♪ 音 あり</button>
       <button id="helpBtn" type="button">あそびかた</button>
     </div>
 
@@ -242,11 +242,11 @@
         走行中に開くと一時停止になり、閉じると数えてから走り出します。
       </li>
       <li>
-        <strong>♪ 音</strong>。音源ファイルは使わず、その場で合成しています。
+        <strong>♪ 音</strong> のあり・なし。音源ファイルは使わず、その場で合成しています。
         鳴らない場合は端末がマナーモードになっていないかご確認ください。
       </li>
       <li>
-        <strong>感度</strong> で、指の動きに対する自機の機敏さを
+        <strong>操作感度</strong> で、指の動きに対する自機の機敏さを
         5段階（×1/4 〜 ×4）から選べます。細かく狙うなら遅く、素早く振るなら速く。
       </li>
       <li>
@@ -254,7 +254,7 @@
         消していても、走り始めの数秒だけは出て静かに消えます。
       </li>
       <li>
-        <strong>背景 3D</strong> で、トンネルの立体背景を切り替えられます。
+        <strong>背景</strong> で、トンネルの立体背景を切り替えられます。
         面の数だけ描画に時間がかかるため、動きが重い端末では切ってください。
       </li>
       <li>
@@ -295,7 +295,10 @@
      */
     function syncSoundButton() {
       var on = PULSAR.sound.isOn();
-      soundBtn.textContent = on ? '♪ 音を止める' : '♪ 音を出す';
+      // 他の項目と同じく「今どうなっているか」を出す。
+      // 「音を止める」のように押したあとの結果を書くと、他の項目と
+      // 読み方が逆になり、どちらの意味なのか分からなくなる。
+      soundBtn.textContent = on ? '♪ 音 あり' : '♪ 音 なし';
       soundBtn.classList.toggle('on', on);
     }
 
@@ -453,7 +456,7 @@
     /** ボタンの表示を今の段階に合わせる。 */
     function syncSensButton() {
       var now = PULSAR.game.getSensitivity();
-      sensBtn.textContent = '感度 ' + (SENS_LABELS[now] || ('×' + now));
+      sensBtn.textContent = '操作感度 ' + (SENS_LABELS[now] || ('×' + now));
       // 等倍から外れているときだけ、設定を変えていることが分かるようにする
       sensBtn.classList.toggle('on', now !== 1);
     }
@@ -491,7 +494,7 @@
     /** 背景ボタンの見た目を現在の設定に合わせる。 */
     function syncBgButton() {
       var on = PULSAR.scenes.isRaymarch();
-      bgBtn.textContent = on ? '背景 3D' : '背景 なし';
+      bgBtn.textContent = on ? '背景 あり' : '背景 なし';
       bgBtn.classList.toggle('on', on);
     }
 
@@ -626,10 +629,17 @@
       help.hidden = !open;
       helpBtn.classList.toggle('on', open);
 
-      // 説明はメニューから開くので、開くときはメニューを畳む。
+      // 説明はメニューから開くので、開いている間はメニューを畳む。
       // 二重に重なると、どちらを閉じれば戻れるのか分からなくなる。
-      if (open) menuEl.hidden = true;
-      syncOverlayPause();
+      //
+      // 閉じたら、そのまま走り出さずにメニューへ戻す。開いた場所へ
+      // 帰るのが素直で、読み終えた直後にリングが迫るのも避けられる。
+      if (open) {
+        menuEl.hidden = true;
+        syncOverlayPause();
+      } else {
+        setMenu(true);   // ボタンの表記もここで整う
+      }
     }
 
     helpBtn.addEventListener('click', function () { setHelp(help.hidden); });
