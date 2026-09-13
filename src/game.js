@@ -58,6 +58,13 @@
     shipRadiusRatio: 0.5,
     /** @brief リングの線の太さの倍率。避ける対象として目立たせる。 */
     ringThickness: 3,
+    /**
+     * @brief 手前のリングをどれだけ余分に広げるか。
+     *
+     * 透視投影だけでも手前は大きくなるが、くぐる瞬間に視界の外まで
+     * 開いた方が「通り抜けた」感じが出る。0 で透視投影どおり。
+     */
+    ringNearBoost: 1.2,
     /** @brief コンボゲージが満タンになる連続通過数。 */
     comboForMax: 20,
     /** @brief 1つのステージの持ち時間 [s]。 */
@@ -611,14 +618,17 @@
       var r = sorted[i];
       if (r.z <= 0.05) continue;
 
-      var radius = focal / r.z;
-      if (radius > Math.max(f.W, f.H) * 1.6) continue;
+      var near = M.clamp(1 - r.z / CONFIG.farZ, 0, 1);
+
+      // 透視投影だけでも手前ほど大きくなるが、それに加えて近いリングを
+      // 広げる。くぐる瞬間に視界の外まで開くことで、通り抜けた感じが出る。
+      var radius = focal / r.z * (1 + CONFIG.ringNearBoost * near * near);
+      if (radius > Math.max(f.W, f.H) * 2.4) continue;
 
       // 奥行きに応じてトンネル全体をねじる。直線的に見せないための細工。
       var twist = Math.sin(r.z * 0.22 + f.t * 0.6) * focal * 0.10;
       var sway = Math.cos(r.z * 0.18 + f.t * 0.45) * focal * 0.08;
 
-      var near = M.clamp(1 - r.z / CONFIG.farZ, 0, 1);
       var alpha = 0.15 + near * 0.8;
       var hue = f.hue + r.z * 9 + near * 40;
 

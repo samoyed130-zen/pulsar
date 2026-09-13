@@ -449,6 +449,23 @@ body {
   color: var(--fg);
   font-variant-numeric: tabular-nums;
   line-height: 1.15;
+  white-space: nowrap;
+}
+
+/* 距離は「現在 / 最長」で並べる。比べる相手を同じ場所に置くため */
+.stat.wide { flex: 1.6 1 0; }
+
+.statSep {
+  margin: 0 4px;
+  font-size: 15px;
+  font-weight: 400;
+  color: rgba(223, 229, 247, 0.3);
+}
+
+.statSub {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(223, 229, 247, 0.5);
 }
 
 /* --- 一時停止 ------------------------------------------------------ */
