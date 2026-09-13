@@ -179,14 +179,14 @@
   /**
    * @brief 一時停止の理由ごとの状態。
    *
-   * 「ボタンで止めた」「説明を開いた」「タブが隠れた」は別々に立つ。
+   * 「何かを開いた」「タブが隠れた」「合図を出している」は別々に立つ。
    * ひとつでも立っていれば止まり、すべて解除されたときだけ再開する。
-   * 1つの真偽値で管理すると、説明を閉じた拍子にボタンでの停止まで
+   * 1つの真偽値で管理すると、説明を閉じた拍子にタブが隠れている分まで
    * 解除されてしまう。
    * @private
    */
   var pauseReasons = {
-    manual: false, dialog: false, hidden: false, countdown: false, banner: false
+    dialog: false, hidden: false, countdown: false, banner: false
   };
 
   /** @brief 大きく出す知らせを消すタイマー。 @private */
@@ -823,7 +823,7 @@
 
   /** @brief 走行パネルとリザルトの DOM 参照。 @private */
   var panelEl = null, distEl = null, goalEl = null, timeEl = null;
-  var pausedEl = null, countdownEl = null, countdownNumEl = null, bannerEl = null;
+  var countdownEl = null, countdownNumEl = null, bannerEl = null;
   var comboValueEl = null, gaugeFillEl = null, layerEls = null;
   var stageValueEl = null, stageFillEl = null;
   var resultEl = null;
@@ -973,8 +973,8 @@
    * @returns {boolean} 止まっていれば true
    */
   function isPaused() {
-    return pauseReasons.manual || pauseReasons.dialog ||
-           pauseReasons.hidden || pauseReasons.countdown || pauseReasons.banner;
+    return pauseReasons.dialog || pauseReasons.hidden ||
+           pauseReasons.countdown || pauseReasons.banner;
   }
 
   /**
@@ -983,7 +983,7 @@
    * 止まっている間は時計を進めず、描画もしない。Canvas は前の絵を
    * 保持するため、画面はその瞬間で固まったように見える。
    *
-   * @param {string} reason 理由 'manual' | 'dialog' | 'hidden'
+   * @param {string} reason 理由 'dialog' | 'hidden' | 'countdown' | 'banner'
    * @param {boolean} on 止めるなら true
    * @returns {void}
    */
@@ -1000,13 +1000,6 @@
     if (!after) {
       // 止まっていた時間を経過時間として数えないよう、時計を取り直す。
       prevMs = 0;
-    }
-
-    // 説明を開いているときとカウントダウン中は、それぞれの画面が前に出るため
-    // 「PAUSED」は出さない。
-    if (pausedEl) {
-      pausedEl.hidden = !(after && !pauseReasons.dialog &&
-                          !pauseReasons.countdown && !pauseReasons.banner);
     }
   }
 
@@ -1102,10 +1095,13 @@
   }
 
   /**
-   * @brief ダイアログを閉じて再開する。
+   * @brief 開いていたものを閉じて再開する。
    *
-   * 走っている最中に開いた説明などを閉じたときは、いきなり動き出さず
-   * 合図を挟む。ボタンでの一時停止と扱いを揃える。
+   * 走行中の一時停止は、すべて「何かを開いている」状態として扱う。
+   * メニュー・説明・確認のどれであっても、閉じたらここを通る。
+   *
+   * 閉じた瞬間にいきなり動き出すと、身構える間もなくリングが来る。
+   * 走行中なら合図を挟んでから戻す。
    *
    * @returns {void}
    */
@@ -1114,22 +1110,6 @@
 
     var st = global.PULSAR.game.state;
     if (st.started && !st.finished) startCountdown();
-  }
-
-  /**
-   * @brief ボタンによる一時停止を切り替える。
-   * @returns {boolean} 切り替え後に止まっているか
-   */
-  function togglePause() {
-    var next = !pauseReasons.manual;
-    setPaused('manual', next);
-
-    // 解除するときは、いきなり動き出さずに数えてから戻す。
-    if (!next && global.PULSAR.game.state.started &&
-        !global.PULSAR.game.state.finished) {
-      startCountdown();
-    }
-    return next;
   }
 
   /**
@@ -1468,7 +1448,6 @@
     layerEls = document.getElementById('comboLayers').querySelectorAll('.layer');
 
     resultEl = document.getElementById('result');
-    pausedEl = document.getElementById('paused');
     countdownEl = document.getElementById('countdown');
     countdownNumEl = document.getElementById('countdownNum');
     bannerEl = document.getElementById('banner');
@@ -1488,18 +1467,6 @@
     sceneTime = sceneStartOf(CONFIG.playableScene) + CONFIG.fade;
 
     global.requestAnimationFrame(frame);
-  }
-
-  /**
-   * @brief 利用者の操作で止めているか。
-   *
-   * 合図や知らせの表示による停止と区別する。ボタンの表示は
-   * こちらに従わせないと、合図のあいだだけ「再開」と出てしまう。
-   *
-   * @returns {boolean} ボタンで止めているなら true
-   */
-  function isManualPaused() {
-    return pauseReasons.manual;
   }
 
   /**
@@ -1546,9 +1513,7 @@
     startCountdown: startCountdown,
     setPaused: setPaused,
     closeDialog: closeDialog,
-    togglePause: togglePause,
     isPaused: isPaused,
-    isManualPaused: isManualPaused,
     isBusy: isBusy,
     stats: stats,
     onShortcut: null

@@ -479,28 +479,27 @@
       expect(app.isPaused()).toBeFalse();
     });
 
-    it('ボタンで止めて、もう一度押すと再開する', function () {
-      expect(app.togglePause()).toBeTrue();
-      expect(app.isPaused()).toBeTrue();
-      expect(app.togglePause()).toBeFalse();
-      expect(app.isPaused()).toBeFalse();
-    });
-
-    it('説明を開いている間は止まる', function () {
+    it('メニューや説明を開いている間は止まる', function () {
       app.setPaused('dialog', true);
       expect(app.isPaused()).toBeTrue();
       app.setPaused('dialog', false);
+      expect(app.isPaused()).toBeFalse();
+    });
+
+    it('閉じると再開する（走行中でなければ合図は挟まない）', function () {
+      app.setPaused('dialog', true);
+      app.closeDialog();
       expect(app.isPaused()).toBeFalse();
     });
 
     it('理由が複数あるとき、片方を解除しても止まったまま', function () {
-      // 説明を閉じた拍子にボタンでの停止まで解除されてはいけない
-      app.setPaused('manual', true);
+      // メニューを閉じた拍子に、タブが隠れている分まで解除されてはいけない
+      app.setPaused('hidden', true);
       app.setPaused('dialog', true);
       app.setPaused('dialog', false);
       expect(app.isPaused()).toBeTrue();
 
-      app.setPaused('manual', false);
+      app.setPaused('hidden', false);
       expect(app.isPaused()).toBeFalse();
     });
 
@@ -519,8 +518,8 @@
     });
 
     it('同じ理由を重ねて解除しても壊れない', function () {
-      app.setPaused('manual', false);
-      app.setPaused('manual', false);
+      app.setPaused('dialog', false);
+      app.setPaused('dialog', false);
       expect(app.isPaused()).toBeFalse();
     });
   });

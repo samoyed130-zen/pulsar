@@ -102,10 +102,6 @@ body {
   pointer-events: none;
 }
 
-/* タイトル画面では、走行中にしか意味のないボタンを隠す */
-body.on-title #pauseBtn,
-body.on-title #titleBtn { display: none; }
-
 /*
  * タイトルでは数値も隠す。
  *
@@ -506,55 +502,111 @@ body.on-title #panel { display: none; }
   color: rgba(223, 229, 247, 0.5);
 }
 
-/* --- 一時停止 ------------------------------------------------------ */
+/* --- メニュー（走行中は一時停止を兼ねる） -------------------------- */
 
-#paused[hidden] { display: none; }
+#menu[hidden] { display: none; }
 
-#paused {
+#menu {
   position: fixed;
   inset: 0;
-  z-index: 9;
+  /* 説明や確認より奥、HUD より手前 */
+  z-index: 14;
   display: grid;
   place-items: center;
-  background: rgba(4, 5, 10, 0.55);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  padding: 24px;
+  background: rgba(4, 5, 10, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
-.pausedInner {
+.menuPanel {
+  width: min(340px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
+  gap: 14px;
+  padding: 22px 22px 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(9, 11, 20, 0.94);
 }
 
-.pausedMark {
-  font-size: 34px;
-  letter-spacing: 0.1em;
-  color: var(--accent);
-}
-
-.pausedText {
+.menuPanel h2 {
+  margin: 0;
   font-family: "Consolas", monospace;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.4em;
-  color: rgba(223, 229, 247, 0.6);
+  letter-spacing: 0.34em;
+  color: rgba(223, 229, 247, 0.55);
+  text-align: center;
 }
 
-#resumeBtn {
-  margin-top: 16px;
-  padding: 12px 28px;
+/*
+ * 設定は縦一列に積む。横に並べると、名前が長いものだけ折り返して
+ * 行の高さが揃わず、読み取りにくくなる。
+ */
+.menuList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.menuList button {
+  width: 100%;
+  padding: 13px 16px;
+  font-family: inherit;
   font-size: 13px;
-  letter-spacing: 0.12em;
-  color: #04121c;
-  background: var(--accent);
-  border: none;
+  letter-spacing: 0.06em;
+  text-align: left;
+  color: var(--fg);
+  background: rgba(223, 229, 247, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  cursor: pointer;
+}
+
+.menuList button:hover { background: rgba(223, 229, 247, 0.1); }
+
+/* 設定を変えていることが一目で分かるようにする */
+.menuList button.on {
+  color: var(--accent);
+  border-color: rgba(122, 214, 255, 0.55);
+}
+
+.menuFooter {
+  display: flex;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.menuFooter button {
+  flex: 1;
+  padding: 13px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--line);
   border-radius: 999px;
   cursor: pointer;
 }
 
-#resumeBtn:hover { background: #9ce2ff; }
+.menuFooter button.primary {
+  color: #04121c;
+  background: var(--accent);
+  border-color: transparent;
+  font-weight: 700;
+}
+
+.menuFooter button.primary:hover { background: #9ce2ff; }
+.menuFooter button:not(.primary):hover { background: rgba(223, 229, 247, 0.08); }
+
+/* タイトルでは走行中にしか意味のない項目を隠す */
+body.on-title #titleBtn,
+body.on-title #guideBtn { display: none; }
 
 /* --- 知らせ（STAGE CLEAR など） ------------------------------------ */
 

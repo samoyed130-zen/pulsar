@@ -49,24 +49,38 @@
   </div>
 </div>
 
+<!--
+  画面に出すのはメニューだけにする。
+  設定はどれも遊びながら触るものではないので、常に並べておく必要がない。
+  絵を覆う面積が減り、スマートフォンでは特に効く。
+-->
 <div id="hud">
   <span class="brand">PULSAR</span>
-  <button id="titleBtn" type="button">タイトルへ</button>
-  <button id="pauseBtn" type="button">❙❙ 一時停止</button>
-  <button id="sensBtn" type="button">感度 ×1</button>
-  <button id="guideBtn" type="button">ガイド あり</button>
-  <button id="helpBtn" type="button">あそびかた</button>
-  <button id="bgBtn" type="button">背景 3D</button>
-  <button id="smoothBtn" type="button">なめらか あり</button>
-  <button id="soundBtn" type="button">♪ 音を出す</button>
+  <button id="menuBtn" type="button">☰ メニュー</button>
 </div>
 
-<!-- 一時停止中の表示。説明を開いているときは、その画面が兼ねるので出さない -->
-<div id="paused" hidden>
-  <div class="pausedInner">
-    <span class="pausedMark">❙❙</span>
-    <span class="pausedText">PAUSED</span>
-    <button id="resumeBtn" type="button">再開する</button>
+<!--
+  メニュー。走行中に開くと一時停止を兼ねる。
+  「止める」「設定する」「やめる」は同じ場面で使うものなので、
+  入口を1つにまとめたほうが迷わない。
+-->
+<div id="menu" hidden>
+  <div class="menuPanel" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
+    <h2 id="menuTitle">メニュー</h2>
+
+    <div class="menuList">
+      <button id="sensBtn" type="button">感度 ×1</button>
+      <button id="guideBtn" type="button">ガイド あり</button>
+      <button id="bgBtn" type="button">背景 3D</button>
+      <button id="smoothBtn" type="button">なめらか あり</button>
+      <button id="soundBtn" type="button">♪ 音を出す</button>
+      <button id="helpBtn" type="button">あそびかた</button>
+    </div>
+
+    <div class="menuFooter">
+      <button id="menuClose" type="button" class="primary">もどる</button>
+      <button id="titleBtn" type="button">タイトルへ</button>
+    </div>
   </div>
 </div>
 
@@ -189,10 +203,11 @@
             もう一度マウスを動かすと、そちらへ主導権が戻ります。
           </td>
         </tr>
-        <tr><th>P / Space</th><td>一時停止・再開</td></tr>
+        <tr><th>P / Space</th><td>メニューの開閉（走行中は一時停止）</td></tr>
         <tr><th>H / ?</th><td>この説明を開閉</td></tr>
         <tr><th>M</th><td>音のオン・オフ</td></tr>
         <tr><th>B</th><td>立体背景のオン・オフ</td></tr>
+        <tr><th>R</th><td>なめらかな塗りのオン・オフ</td></tr>
         <tr><th>S</th><td>感度を次の段階へ</td></tr>
         <tr><th>T</th><td>タイトルへ戻る（確認あり）</td></tr>
         <tr><th>1〜6</th><td>タイトルで、そのステージから開始</td></tr>
@@ -223,20 +238,28 @@
     <ul class="helpList">
       <li>5つの場面が約53秒で一周します。タイトルで画面を押すと、いつでもトンネルの場面へ戻せます。</li>
       <li>
-        音は右上のボタンから。音源ファイルは使わず、その場で合成しています。
+        設定は右上の <strong>メニュー</strong> にまとめてあります。
+        走行中に開くと一時停止になり、閉じると数えてから走り出します。
+      </li>
+      <li>
+        <strong>♪ 音</strong>。音源ファイルは使わず、その場で合成しています。
         鳴らない場合は端末がマナーモードになっていないかご確認ください。
       </li>
       <li>
-        <strong>感度</strong> ボタンで、指の動きに対する自機の機敏さを
+        <strong>感度</strong> で、指の動きに対する自機の機敏さを
         5段階（×1/4 〜 ×4）から選べます。細かく狙うなら遅く、素早く振るなら速く。
       </li>
       <li>
-        <strong>ガイド</strong> ボタンで、自機が動く円の表示を切り替えられます。
+        <strong>ガイド</strong> で、自機が動く円の表示を切り替えられます。
         消していても、走り始めの数秒だけは出て静かに消えます。
       </li>
       <li>
-        <strong>背景 3D</strong> ボタンで、トンネルの立体背景を切り替えられます。
+        <strong>背景 3D</strong> で、トンネルの立体背景を切り替えられます。
         面の数だけ描画に時間がかかるため、動きが重い端末では切ってください。
+      </li>
+      <li>
+        <strong>なめらか</strong> で、立体背景の塗り方を切り替えられます。
+        入れているときは、三角形を1画素ずつ塗る自前の描画を使います。
       </li>
       <li>外部ライブラリは一切使っていません。Canvas 2D と Web Audio のみです。</li>
     </ul>
@@ -290,7 +313,8 @@
     // ボタン側から起きた変化ではないため、定期的に実状態へ合わせる。
     window.setInterval(function () {
       syncSoundButton();
-      syncPauseButton();
+      // 合図や知らせの最中は開けない。押せないことを見た目でも示す。
+      menuBtn.disabled = PULSAR.app.isBusy();
     }, 700);
 
     var title = document.getElementById('title');
@@ -362,6 +386,12 @@
     //
     // 押せるボタンはすべてキーからも触れるようにする。
     // 戻り値が true なら、ブラウザ側の既定の動作を止める。
+    /** ボタンに焦点が当たっているか（スペースの扱いを分けるため）。 */
+    function onButton() {
+      var el = document.activeElement;
+      return !!el && el.tagName === 'BUTTON';
+    }
+
     PULSAR.app.onShortcut = function (key) {
       var k = key.length === 1 ? key.toLowerCase() : key;
 
@@ -369,6 +399,7 @@
       if (k === 'Escape') {
         if (!confirmEl.hidden) { setConfirm(false); return true; }
         if (!help.hidden) { setHelp(false); return true; }
+        if (!menuEl.hidden) { setMenu(false); return true; }
         return false;
       }
 
@@ -400,9 +431,12 @@
       if (k === 'r') { smoothBtn.click(); return true; }
       if (k === 's') { sensBtn.click(); return true; }
 
-      // 一時停止とタイトルへ戻るは、走っている間だけ
-      if ((k === 'p' || k === ' ') && !onTitle) {
-        if (!PULSAR.app.isBusy()) pauseBtn.click();
+      // メニューの開閉。走行中はこれが一時停止を兼ねる。
+      //
+      // スペースはボタンを押すキーでもあるため、ボタンに焦点があるときは
+      // そちらへ譲る。でないと、押したボタンとメニューが同時に反応する。
+      if (k === 'p' || (k === ' ' && !onButton())) {
+        setMenu(menuEl.hidden);
         return true;   // 合図の最中でも、画面が動かないよう受け取っておく
       }
 
@@ -410,33 +444,6 @@
 
       return false;
     };
-
-    var pauseBtn = document.getElementById('pauseBtn');
-
-    /**
-     * 一時停止ボタンの表示を状態に合わせる。
-     * 合図や知らせの最中は押せなくする。そこでの停止は演出であって、
-     * 利用者が解除するものではないため。
-     */
-    function syncPauseButton() {
-      var busy = PULSAR.app.isBusy();
-      var on = PULSAR.app.isManualPaused();
-
-      pauseBtn.disabled = busy;
-      pauseBtn.textContent = on ? '▶ 再開' : '❙❙ 一時停止';
-      pauseBtn.classList.toggle('on', on);
-    }
-
-    pauseBtn.addEventListener('click', function () {
-      PULSAR.app.togglePause();
-      syncPauseButton();
-    });
-
-    // HUD のボタンと同じ経路を通す。直接解除すると合図が省かれてしまう。
-    document.getElementById('resumeBtn').addEventListener('click', function () {
-      PULSAR.app.togglePause();
-      syncPauseButton();
-    });
 
     // --- 操作の速さ（押すたびに段階が進む） ---
 
@@ -513,6 +520,54 @@
       PULSAR.app.retry();
     });
 
+    // --- メニュー（走行中は一時停止を兼ねる） ---
+
+    var menuEl = document.getElementById('menu');
+    var menuBtn = document.getElementById('menuBtn');
+    var menuCloseBtn = document.getElementById('menuClose');
+
+    /**
+     * 開いているものが1つでもあれば止め、すべて閉じたときだけ再開する。
+     *
+     * 止める理由を画面ごとに分けると、メニューから説明へ移る一瞬だけ
+     * 走り出してしまう。「何かが開いているか」という1つの問いに
+     * まとめることで、そういう隙間がなくなる。
+     */
+    function syncOverlayPause() {
+      var open = !menuEl.hidden || !help.hidden || !confirmEl.hidden;
+
+      // 閉じたときは合図を挟んでから戻る（closeDialog がその面倒を見る）
+      if (open) PULSAR.app.setPaused('dialog', true);
+      else PULSAR.app.closeDialog();
+    }
+
+    /**
+     * メニューの開閉。
+     * @param {boolean} open 開くなら true
+     */
+    function setMenu(open) {
+      // 合図や知らせの最中は開かせない。そこでの停止は演出であって、
+      // 利用者が触れるものではない。
+      if (open && PULSAR.app.isBusy()) return;
+
+      menuEl.hidden = !open;
+      menuBtn.classList.toggle('on', open);
+
+      // 走行中に開いたときだけ、戻るボタンが「再開」の意味になる。
+      var st = PULSAR.game.state;
+      menuCloseBtn.textContent = (st.started && !st.finished) ? '再開する' : 'もどる';
+
+      syncOverlayPause();
+    }
+
+    menuBtn.addEventListener('click', function () { setMenu(menuEl.hidden); });
+    menuCloseBtn.addEventListener('click', function () { setMenu(false); });
+
+    // 枠の外を押しても閉じる。片手で持っているときに戻りやすい。
+    menuEl.addEventListener('click', function (e) {
+      if (e.target === menuEl) setMenu(false);
+    });
+
     // --- タイトルへ戻る（確認してから） ---
 
     var confirmEl = document.getElementById('confirm');
@@ -527,8 +582,9 @@
     function setConfirm(open) {
       confirmEl.hidden = !open;
 
-      if (open) PULSAR.app.setPaused('dialog', true);
-      else PULSAR.app.closeDialog();
+      // 確認はメニューから開くので、開くときはメニューを畳む
+      if (open) menuEl.hidden = true;
+      syncOverlayPause();
     }
 
     titleBtn.addEventListener('click', function () {
@@ -561,26 +617,25 @@
     var helpBtn = document.getElementById('helpBtn');
 
     /**
-     * 説明の表示を切り替える。開いている間はゲームを止める。
-     * 読んでいるあいだに持ち時間が減り続けるのは理不尽なため。
+     * 説明の表示を切り替える。
+     * 読んでいるあいだに持ち時間が減り続けるのは理不尽なので、
+     * 開いている間は止める（止める判断は syncOverlayPause に任せる）。
      * @param {boolean} open 開くなら true
      */
     function setHelp(open) {
       help.hidden = !open;
       helpBtn.classList.toggle('on', open);
 
-      // 閉じるときは合図を挟んでから再開する（一時停止と扱いを揃える）
-      if (open) PULSAR.app.setPaused('dialog', true);
-      else PULSAR.app.closeDialog();
+      // 説明はメニューから開くので、開くときはメニューを畳む。
+      // 二重に重なると、どちらを閉じれば戻れるのか分からなくなる。
+      if (open) menuEl.hidden = true;
+      syncOverlayPause();
     }
 
     helpBtn.addEventListener('click', function () { setHelp(help.hidden); });
     document.getElementById('helpClose').addEventListener('click', function () { setHelp(false); });
     help.addEventListener('click', function (e) {
       if (e.target === help) setHelp(false);
-    });
-    window.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') setHelp(false);
     });
   })();
 </script>
