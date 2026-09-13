@@ -176,7 +176,9 @@
    * @returns {boolean} カメラの前にあり、投影できたなら true
    */
   function project(x, y, z, focal, cx, cy, out) {
-    if (z <= 0.05) return false; // カメラの後ろ、または近すぎる点は描けない
+    // カメラの後ろ、または近すぎる点は描けない。
+    // ここを大きくすると、近づいた面が消えたように見える。
+    if (z <= 0.02) return false;
     out[0] = cx + x * focal / z;
     out[1] = cy + y * focal / z;
     return true;

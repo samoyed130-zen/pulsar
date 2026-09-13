@@ -522,19 +522,31 @@ body {
 
 #countdown[hidden] { display: none; }
 
+/*
+ * 暗幕は画面いっぱいに固定し、拡大アニメーションは中の数字だけに掛ける。
+ * 外枠ごと拡大すると、暗幕の縁が画面内に見切れてしまう。
+ */
 #countdown {
   position: fixed;
   inset: 0;
   z-index: 13;
   display: grid;
   place-items: center;
+  pointer-events: none;
+  background: rgba(4, 5, 10, 0.45);
+  /* 文字として選択できると、カーソルや選択範囲が見えてしまう */
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+#countdownNum {
   font-family: "Consolas", monospace;
   font-size: clamp(90px, 22vw, 190px);
   font-weight: 800;
+  line-height: 1;
   color: var(--accent);
   text-shadow: 0 0 60px rgba(122, 215, 255, 0.6), 0 6px 30px rgba(0, 0, 0, 0.8);
-  pointer-events: none;
-  background: rgba(4, 5, 10, 0.35);
 }
 
 /* 数字が変わるたびに一度だけ弾ませる */
@@ -544,7 +556,7 @@ body {
   100% { transform: scale(0.94); opacity: 0.75; }
 }
 
-#countdown.tick { animation: countTick 0.7s ease-out; }
+#countdownNum.tick { animation: countTick 0.7s ease-out; }
 
 /* --- 確認ダイアログ ------------------------------------------------ */
 

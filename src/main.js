@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file main.js
  * @brief 描画ループ、シーン管理、入力、遷移演出をまとめた実行の中心。
  *
@@ -419,7 +419,7 @@
 
   /** @brief 走行パネルとリザルトの DOM 参照。 @private */
   var panelEl = null, distEl = null, goalEl = null, timeEl = null;
-  var pausedEl = null, countdownEl = null;
+  var pausedEl = null, countdownEl = null, countdownNumEl = null;
   var comboValueEl = null, gaugeFillEl = null, layerEls = null;
   var stageValueEl = null, stageFillEl = null;
   var resultEl = null;
@@ -617,28 +617,30 @@
   function startCountdown(from) {
     var left = from || 3;
 
+    /**
+     * @brief 数字を出し、弾むアニメーションを掛け直す。
+     * @param {number} n 表示する数
+     * @returns {void}
+     */
+    var showCount = function (n) {
+      if (!countdownEl || !countdownNumEl) return;
+      countdownEl.hidden = false;
+      countdownNumEl.textContent = String(n);
+      countdownNumEl.classList.remove('tick');
+      void countdownNumEl.offsetWidth;   // 再フローさせてアニメーションを作り直す
+      countdownNumEl.classList.add('tick');
+    };
+
     global.clearTimeout(countdownTimer);
     setPaused('countdown', true);
 
-    if (countdownEl) {
-      countdownEl.hidden = false;
-      countdownEl.textContent = String(left);
-      // 数字が変わるたびにアニメーションを掛け直す
-      countdownEl.classList.remove('tick');
-      void countdownEl.offsetWidth;
-      countdownEl.classList.add('tick');
-    }
+    showCount(left);
 
     var step = function () {
       left--;
 
       if (left > 0) {
-        if (countdownEl) {
-          countdownEl.textContent = String(left);
-          countdownEl.classList.remove('tick');
-          void countdownEl.offsetWidth;
-          countdownEl.classList.add('tick');
-        }
+        showCount(left);
         countdownTimer = global.setTimeout(step, 700);
         return;
       }
@@ -706,6 +708,15 @@
    * @returns {void}
    */
   function showAutoplay() {
+    // すでに自動操縦を映しているなら何もしない。
+    // 押すたびに走行が巻き戻ると、反応だけあって進まない画面に見える。
+    var tl = global.PULSAR.scenes.timeline;
+    var current = tl[M.pickScene(tl, sceneTime).index];
+    if (current.name === CONFIG.playableScene &&
+        !global.PULSAR.game.state.started) {
+      return;
+    }
+
     cancelCountdown();
     resultEl.hidden = true;
     resultShown = false;
@@ -913,6 +924,7 @@
     resultEl = document.getElementById('result');
     pausedEl = document.getElementById('paused');
     countdownEl = document.getElementById('countdown');
+    countdownNumEl = document.getElementById('countdownNum');
 
     // タブが隠れている間は止める。戻ったときに時間だけ進んでいる事故を防ぐ。
     document.addEventListener('visibilitychange', function () {

@@ -304,11 +304,12 @@
      */
     segments: 3,
     /**
-     * @brief この位置より手前に掛かる部材は描かない。
+     * @brief カメラの手前でこの位置を切る面（ニアクリップ）。
      *
-     * カメラを跨ぐ面は正しく投影できないため、跨ぐ前に取り除く。
+     * これより手前に掛かった部材は、捨てずにここで切り詰めて描く。
+     * 値を大きくすると、近づいた部材が早々に消えたように見える。
      */
-    clipZ: 0.42
+    clipZ: 0.16
   };
 
   /**
@@ -381,8 +382,21 @@
    * @returns {void}
    */
   function addPart(x, y, z, sx, sy, sz, hue, metal, emissive) {
-    // カメラを跨ぐ部材は投影できず、面ごと消えて黒い穴になる。手前で切る。
-    if (z - sz < HALL.clipZ) return;
+    var nearEdge = z - sz;
+
+    if (nearEdge < HALL.clipZ) {
+      var farEdge = z + sz;
+
+      // 完全にカメラの後ろへ行ったものだけ捨てる。
+      if (farEdge <= HALL.clipZ) return;
+
+      // カメラを跨ぐ部材は投影できず、面ごと消えて黒い穴になる。
+      // 捨てるのではなく、カメラの手前で切り詰めて描く。
+      // 箱は奥行き方向に軸が揃っているので、z の範囲を詰めるだけで
+      // 正しく「途中で切った」形になる。
+      z = (HALL.clipZ + farEdge) * 0.5;
+      sz = (farEdge - HALL.clipZ) * 0.5;
+    }
 
     var p = partPool[partCount];
     if (!p) {
