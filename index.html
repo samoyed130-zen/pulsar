@@ -57,6 +57,7 @@
   <button id="guideBtn" type="button">ガイド あり</button>
   <button id="helpBtn" type="button">あそびかた</button>
   <button id="bgBtn" type="button">背景 3D</button>
+  <button id="smoothBtn" type="button">なめらか あり</button>
   <button id="soundBtn" type="button">♪ 音を出す</button>
 </div>
 
@@ -249,6 +250,7 @@
 </noscript>
 
 <script src="src/mathx.js"></script>
+<script src="src/raster.js"></script>
 <script src="src/mesh3d.js"></script>
 <script src="src/sound.js"></script>
 <script src="src/game.js"></script>
@@ -395,6 +397,7 @@
       if (k === 'h' || k === '?') { setHelp(help.hidden); return true; }
       if (k === 'm') { soundBtn.click(); return true; }
       if (k === 'b') { bgBtn.click(); return true; }
+      if (k === 'r') { smoothBtn.click(); return true; }
       if (k === 's') { sensBtn.click(); return true; }
 
       // 一時停止とタイトルへ戻るは、走っている間だけ
@@ -490,6 +493,21 @@
       syncBgButton();
     });
     syncBgButton();
+
+    var smoothBtn = document.getElementById('smoothBtn');
+
+    /** なめらか塗りボタンの見た目を現在の設定に合わせる。 */
+    function syncSmoothButton() {
+      var on = PULSAR.scenes.isSmooth();
+      smoothBtn.textContent = on ? 'なめらか あり' : 'なめらか なし';
+      smoothBtn.classList.toggle('on', on);
+    }
+
+    smoothBtn.addEventListener('click', function () {
+      PULSAR.scenes.setSmooth(!PULSAR.scenes.isSmooth());
+      syncSmoothButton();
+    });
+    syncSmoothButton();
 
     document.getElementById('retryBtn').addEventListener('click', function () {
       PULSAR.app.retry();

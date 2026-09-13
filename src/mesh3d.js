@@ -469,15 +469,21 @@
   }
 
   /**
-   * @brief 立体を1つ描く。
+   * @brief 立体を頂点変換し、見える面だけを明るさ付きで集める。
    *
    * 手順は次のとおり:
    * 1. 頂点を回転・移動して、カメラを原点とする座標へ移す
    * 2. 画面へ投影する
    * 3. 裏を向いた面を捨てる
-   * 4. 残った面を奥から手前の順に並べ替えて塗る（画家のアルゴリズム）
+   * 4. 残った面の明るさ（拡散光・映り込み・鏡面反射）を求める
    *
-   * @param {CanvasRenderingContext2D} ctx 描画先
+   * 塗り方（Canvas の塗りつぶし / 自前のラスタライザ）に関わらず、
+   * ここまでの計算は共通なので切り出してある。
+   *
+   * 結果は共有の作業領域 `visible` / `vbuf` / `sbuf` に入る。毎フレーム
+   * 何百回も呼ばれるため、呼ぶたびに配列を作らない。
+   *
+   * @private
    * @param {{verts: Array, faces: Array}} mesh 立体データ
    * @param {Object} o 配置と見た目
    * @param {Array<number>} o.pos 位置 [x, y, z]
@@ -487,16 +493,12 @@
    * @param {number} o.focal 焦点距離 [px]
    * @param {number} o.cx 画面中心 x [px]
    * @param {number} o.cy 画面中心 y [px]
-   * @param {number} o.hue 色相 [deg]
-   * @param {number} o.alpha 不透明度 [0..1]
-   * @param {number} [o.satBoost] 彩度の倍率。グレアが弱い環境で色を補うのに使う
-   * @param {number} [o.lightLift] 明るさを上限へ向けて引き上げる割合 [0..1)
-   * @returns {number} 実際に描いた面の数
+   * @returns {void}
    */
-  function drawMesh(ctx, mesh, o) {
+  function collectFaces(mesh, o) {
     var verts = mesh.verts;
     var faces = mesh.faces;
-    var i, v;
+    var i;
 
     for (i = 0; i < verts.length; i++) {
       if (!vbuf[i]) { vbuf[i] = [0, 0, 0]; sbuf[i] = [0, 0]; }
@@ -564,61 +566,113 @@
         e0: e0, e1: e1, e2: e2
       });
     }
+  }
+
+  /**
+   * @brief 集めた面から、実際に塗る明るさと彩度を決める。
+   *
+   * 面ごとに1つの明るさ（`l`）と、頂点ごとの明るさ（`vl0`〜`vl2`）を返す。
+   * 単色で塗るなら前者を、面の中で変化させるなら後者を使う。
+   *
+   * @private
+   * @param {Object} v `collectFaces` が集めた面
+   * @param {Object} o 見た目の指定
+   * @param {Object} out 書き込み先。`l` `vl0` `vl1` `vl2` `sat` を持つ
+   * @returns {void}
+   */
+  function faceColors(v, o, out) {
+    var sat = (o.sat === undefined ? 92 : o.sat);
+    var metal = (o.metal === undefined ? 0 : o.metal);
+    var l, vl0 = 0, vl1 = 0, vl2 = 0;
+
+    if (o.emissive) {
+      // 自ら光る部材は面の向きで暗くしない
+      l = 62 + v.light * 8;
+    } else {
+      // 拡散光（素材そのものの色）
+      var diffuse = 8 + v.light * 38;
+
+      // 映り込み。金属ほど拡散光より映り込みが支配的になる。
+      // 浅い角度（フレネル）ではどんな素材でも映り込みが強くなる。
+      var reflectivity = metal * 0.55 + (1 - metal) * 0.10 + v.rim * (0.25 + metal * 0.55);
+      if (reflectivity > 1) reflectivity = 1;
+
+      l = diffuse * (1 - reflectivity * 0.65) + v.env * reflectivity;
+
+      // 光源そのものの映り込み。金属の硬さはここで決まる。
+      l += v.spec * (18 + metal * 52);
+
+      // 映り込みが強いところほど素材の色は失われ、白く飛ぶ。
+      sat = sat * (1 - reflectivity * 0.72);
+
+      // 頂点ごとの映り込みの差を、面の中の明るさの差として反映する。
+      vl0 = l + (v.e0 - v.env) * reflectivity;
+      vl1 = l + (v.e1 - v.env) * reflectivity;
+      vl2 = l + (v.e2 - v.env) * reflectivity;
+    }
+
+    // 彩度だけは掛けて持ち上げてよい。明るさと違って面の向きによる差を
+    // 作っていないので、上限で頭打ちになっても面の境目は生まれない。
+    if (o.satBoost !== undefined) {
+      sat = sat * o.satBoost;
+      if (sat > 100) sat = 100;
+    }
+
+    // 明るさの底上げ。倍率ではなく上限までの割合で足すので、
+    // 面が上限に張り付いて境目が段差になることはない。
+    if (o.lightLift) {
+      l = liftLight(l, o.lightLift);
+      vl0 = liftLight(vl0, o.lightLift);
+      vl1 = liftLight(vl1, o.lightLift);
+      vl2 = liftLight(vl2, o.lightLift);
+    }
+
+    var dim = (o.dim === undefined ? 1 : o.dim);
+
+    out.sat = sat;
+    out.l = clampLight(l * dim);
+    out.vl0 = clampLight(vl0 * dim);
+    out.vl1 = clampLight(vl1 * dim);
+    out.vl2 = clampLight(vl2 * dim);
+  }
+
+  /** @brief `faceColors` の書き込み先。呼ぶたびに作らないよう使い回す。 @private */
+  var shade = { l: 0, vl0: 0, vl1: 0, vl2: 0, sat: 0 };
+
+  /**
+   * @brief 立体を Canvas の塗りつぶしで描く。
+   *
+   * 面は奥から手前の順に塗る（画家のアルゴリズム）。Canvas には奥行きの
+   * 概念がないため、重なりは描く順序でしか表せない。
+   *
+   * @param {CanvasRenderingContext2D} ctx 描画先
+   * @param {{verts: Array, faces: Array}} mesh 立体データ
+   * @param {Object} o 配置と見た目（`collectFaces` の項目に加えて）
+   * @param {number} o.hue 色相 [deg]
+   * @param {number} o.alpha 不透明度 [0..1]
+   * @param {number} [o.sat] 彩度 [%]
+   * @param {number} [o.metal] 金属らしさ [0..1]
+   * @param {boolean} [o.emissive] 自ら光るか
+   * @param {number} [o.dim] 明るさの倍率（奥ほど霞ませる用途）
+   * @param {string} [o.shade] `'pieces'` なら三角形を割って塗り分ける
+   * @param {boolean} [o.edges] 稜線を描くか（既定は描く）
+   * @param {number} [o.satBoost] 彩度の倍率。グレアが弱い環境で色を補うのに使う
+   * @param {number} [o.lightLift] 明るさを上限へ向けて引き上げる割合 [0..1)
+   * @returns {number} 実際に描いた面の数
+   */
+  function drawMesh(ctx, mesh, o) {
+    collectFaces(mesh, o);
 
     // 奥の面から塗る。面どうしが重なっても正しい前後関係になる。
     visible.sort(function (p, q) { return q.depth - p.depth; });
 
-    for (i = 0; i < visible.length; i++) {
-      v = visible[i];
+    for (var i = 0; i < visible.length; i++) {
+      var v = visible[i];
       var s0 = sbuf[v.f[0]], s1 = sbuf[v.f[1]], s2 = sbuf[v.f[2]];
-      var sat = (o.sat === undefined ? 92 : o.sat);
-      var metal = (o.metal === undefined ? 0 : o.metal);
-      var l, vl0 = 0, vl1 = 0, vl2 = 0;
 
-      if (o.emissive) {
-        // 自ら光る部材は面の向きで暗くしない
-        l = 62 + v.light * 8;
-      } else {
-        // 拡散光（素材そのものの色）
-        var diffuse = 8 + v.light * 38;
-
-        // 映り込み。金属ほど拡散光より映り込みが支配的になる。
-        // 浅い角度（フレネル）ではどんな素材でも映り込みが強くなる。
-        var reflectivity = metal * 0.55 + (1 - metal) * 0.10 + v.rim * (0.25 + metal * 0.55);
-        if (reflectivity > 1) reflectivity = 1;
-
-        l = diffuse * (1 - reflectivity * 0.65) + v.env * reflectivity;
-
-        // 光源そのものの映り込み。金属の硬さはここで決まる。
-        l += v.spec * (18 + metal * 52);
-
-        // 映り込みが強いところほど素材の色は失われ、白く飛ぶ。
-        sat = sat * (1 - reflectivity * 0.72);
-
-        // 頂点ごとの映り込みの差を、面の中の明るさの差として反映する。
-        vl0 = l + (v.e0 - v.env) * reflectivity;
-        vl1 = l + (v.e1 - v.env) * reflectivity;
-        vl2 = l + (v.e2 - v.env) * reflectivity;
-      }
-
-      // 彩度だけは掛けて持ち上げてよい。明るさと違って面の向きによる差を
-      // 作っていないので、上限で頭打ちになっても面の境目は生まれない。
-      if (o.satBoost !== undefined) {
-        sat = sat * o.satBoost;
-        if (sat > 100) sat = 100;
-      }
-
-      // 明るさの底上げ。倍率ではなく上限までの割合で足すので、
-      // 面が上限に張り付いて境目が段差になることはない。
-      if (o.lightLift) {
-        l = liftLight(l, o.lightLift);
-        vl0 = liftLight(vl0, o.lightLift);
-        vl1 = liftLight(vl1, o.lightLift);
-        vl2 = liftLight(vl2, o.lightLift);
-      }
-
-      var dim = (o.dim === undefined ? 1 : o.dim);
-      l = clampLight(l * dim);
+      faceColors(v, o, shade);
+      var sat = shade.sat;
+      var l = shade.l;
 
       // 明暗の付け方を2通り用意している。
       //
@@ -628,7 +682,7 @@
       // 滑らかさは落ちるが、単色に潰すよりは面の表情が残る。
       if (!o.emissive && o.shade === 'pieces') {
         fillShaded(ctx, s0, s1, s2,
-                   clampLight(vl0 * dim), clampLight(vl1 * dim), clampLight(vl2 * dim),
+                   shade.vl0, shade.vl1, shade.vl2,
                    o.hue, sat, o.alpha);
         strokeEdges(ctx, s0, s1, s2, o);
         continue;
@@ -645,9 +699,7 @@
                         l.toFixed(1) + '%,' + o.alpha.toFixed(3) + ')';
       } else {
         ctx.fillStyle = faceGradient(ctx, s0, s1, s2,
-                                     clampLight(vl0 * dim),
-                                     clampLight(vl1 * dim),
-                                     clampLight(vl2 * dim),
+                                     shade.vl0, shade.vl1, shade.vl2,
                                      o.hue, sat, o.alpha);
       }
       ctx.fill();
@@ -665,6 +717,65 @@
     return visible.length;
   }
 
+  /** @brief ラスタライザへ渡す頂点。呼ぶたびに作らないよう使い回す。 @private */
+  var rv0 = [0, 0, 0, 0, 0, 0];
+  var rv1 = [0, 0, 0, 0, 0, 0];
+  var rv2 = [0, 0, 0, 0, 0, 0];
+  var rgb = [0, 0, 0];
+
+  /**
+   * @brief 立体を、自前のラスタライザで1画素ずつ描く。
+   *
+   * `drawMesh` との違いは塗り方だけで、頂点変換も陰影の計算も共通である。
+   *
+   * 得られるもの:
+   * - 頂点の色が面の中で本当に混ざる（グーローシェーディング）。
+   *   Canvas の塗りでは直線状のグラデーションで近似するしかなかった
+   * - Z バッファで前後関係が決まるので、面を並べ替えなくてよい。
+   *   立体どうしが食い込んでいても正しく見える
+   *
+   * 稜線は描かない。面の中が滑らかに変わるようになれば、形を読み取らせる
+   * ために線を足す必要がないため。
+   *
+   * @param {Object} buf `raster.createBuffer` が返したバッファ
+   * @param {{verts: Array, faces: Array}} mesh 立体データ
+   * @param {Object} o 配置と見た目（`drawMesh` と同じ）
+   * @returns {number} 実際に描いた面の数
+   */
+  function rasterMesh(buf, mesh, o) {
+    var R = global.PULSAR.raster;
+    collectFaces(mesh, o);
+
+    for (var i = 0; i < visible.length; i++) {
+      var v = visible[i];
+      var f = v.f;
+      var s0 = sbuf[f[0]], s1 = sbuf[f[1]], s2 = sbuf[f[2]];
+      var a = vbuf[f[0]], b = vbuf[f[1]], c = vbuf[f[2]];
+
+      faceColors(v, o, shade);
+
+      // 自ら光る面は面の中で変えない。頂点ごとの映り込みを持たないため。
+      var l0 = o.emissive ? shade.l : shade.vl0;
+      var l1 = o.emissive ? shade.l : shade.vl1;
+      var l2 = o.emissive ? shade.l : shade.vl2;
+
+      rv0[0] = s0[0]; rv0[1] = s0[1]; rv0[2] = a[2];
+      rv1[0] = s1[0]; rv1[1] = s1[1]; rv1[2] = b[2];
+      rv2[0] = s2[0]; rv2[1] = s2[1]; rv2[2] = c[2];
+
+      R.hslToRgb(o.hue, shade.sat, l0, rgb);
+      rv0[3] = rgb[0]; rv0[4] = rgb[1]; rv0[5] = rgb[2];
+      R.hslToRgb(o.hue, shade.sat, l1, rgb);
+      rv1[3] = rgb[0]; rv1[4] = rgb[1]; rv1[5] = rgb[2];
+      R.hslToRgb(o.hue, shade.sat, l2, rgb);
+      rv2[3] = rgb[0]; rv2[4] = rgb[1]; rv2[5] = rgb[2];
+
+      R.triangle(buf, rv0, rv1, rv2, o.alpha === undefined ? 1 : o.alpha);
+    }
+
+    return visible.length;
+  }
+
   global.PULSAR = global.PULSAR || {};
   global.PULSAR.mesh3d = {
     OCTAHEDRON: OCTAHEDRON,
@@ -677,6 +788,7 @@
     project: project,
     faceNormal: faceNormal,
     isBackFace: isBackFace,
-    drawMesh: drawMesh
+    drawMesh: drawMesh,
+    rasterMesh: rasterMesh
   };
 })(typeof window !== 'undefined' ? window : this);

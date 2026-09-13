@@ -216,6 +216,96 @@
       S.setRaymarch(true);
       expect(typeof S.isRaymarch()).toBe('boolean');
     });
+
+    it('なめらかな塗りの有無を切り替えられる', function () {
+      var before = S.isSmooth();
+      S.setSmooth(false);
+      expect(S.isSmooth()).toBeFalse();
+      S.setSmooth(true);
+      expect(S.isSmooth()).toBeTrue();
+      S.setSmooth(before);
+    });
+  });
+
+  describe('ソフトウェアラスタライザ', function () {
+    var R = window.PULSAR.raster;
+
+    /** 単色の三角形を描いたバッファを作る補助。 */
+    function fill(w, h, color) {
+      var buf = R.createBuffer(w, h);
+      R.clear(buf);
+      R.triangle(buf,
+                 [0, 0, 1, color[0], color[1], color[2]],
+                 [w, 0, 1, color[0], color[1], color[2]],
+                 [0, h, 1, color[0], color[1], color[2]], 1);
+      return buf;
+    }
+
+    it('空のバッファは透明', function () {
+      var buf = R.createBuffer(4, 4);
+      R.clear(buf);
+      expect(buf.color[0]).toBe(0);
+    });
+
+    it('三角形の内側は塗られ、外側は塗られない', function () {
+      var buf = fill(8, 8, [255, 0, 0]);
+      // 左上は三角形の中、右下は外
+      expect(buf.color[0] >>> 24).toBe(255);
+      expect(buf.color[8 * 8 - 1]).toBe(0);
+    });
+
+    it('頂点の色が面の中で混ざる', function () {
+      var buf = R.createBuffer(16, 1);
+      R.clear(buf);
+      // 横一列を、左端が黒、右端が白の三角形で覆う
+      R.triangle(buf,
+                 [0, -8, 1, 0, 0, 0],
+                 [16, -8, 1, 255, 255, 255],
+                 [8, 8, 1, 128, 128, 128], 1);
+
+      // 三角形が覆っているのは中ほどだけなので、その内側で比べる
+      var left = buf.color[5] & 255;
+      var right = buf.color[11] & 255;
+      expect(left < right).toBeTrue();
+    });
+
+    it('手前の面が奥の面を隠す（Zバッファ）', function () {
+      var buf = R.createBuffer(4, 4);
+      R.clear(buf);
+
+      // 奥に赤、手前に緑。描く順は奥が先でも後でも結果が変わらないこと。
+      function draw(z, r, g) {
+        R.triangle(buf,
+                   [0, 0, z, r, g, 0],
+                   [4, 0, z, r, g, 0],
+                   [0, 4, z, r, g, 0], 1);
+      }
+
+      draw(1, 0, 255);   // 手前（緑）
+      draw(5, 255, 0);   // 奥（赤）。あとから描いても隠れるはず
+
+      expect(buf.color[0] & 255).toBe(0);
+      expect((buf.color[0] >> 8) & 255).toBe(255);
+    });
+
+    it('潰れた三角形は何も描かない', function () {
+      var buf = R.createBuffer(4, 4);
+      R.clear(buf);
+      R.triangle(buf,
+                 [0, 0, 1, 255, 255, 255],
+                 [4, 0, 1, 255, 255, 255],
+                 [2, 0, 1, 255, 255, 255], 1);
+      expect(buf.color[0]).toBe(0);
+    });
+
+    it('HSL の変換が既存の実装と一致する', function () {
+      // scenes 側は 0..1、ラスタライザは度と % で受け取る
+      var a = S.hslToRgb(0.5, 0.8, 0.4);
+      var b = R.hslToRgb(180, 80, 40, [0, 0, 0]);
+      expect(Math.round(b[0])).toBe(a[0]);
+      expect(Math.round(b[1])).toBe(a[1]);
+      expect(Math.round(b[2])).toBe(a[2]);
+    });
   });
 
   describe('sound の層', function () {

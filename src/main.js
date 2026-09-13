@@ -25,6 +25,13 @@
     beatZoom: 0.016,
     /** @brief 低解像度バッファの横幅 [px]。プラズマ等はここへ描いて拡大する。 */
     bufferWidth: 160,
+    /**
+     * @brief 自前ラスタライザで描くときの横幅 [px]。
+     *
+     * 1画素ずつ塗るので、この値の2乗で処理時間が効いてくる。
+     * 直線の階段が目立たない下限を探した結果の値。
+     */
+    rasterWidth: 560,
     /** @brief 画面の対角がこれ未満なら描画量を落とす（スマートフォン想定）。 */
     lightModeDiagonal: 900,
     /** @brief 触れたときに飛ぶ先のシーン名。作品の主張そのもの。 */
@@ -189,6 +196,15 @@
     { text: '1', ms: 600 },
     { text: 'START', ms: 450 }
   ];
+
+  /**
+   * @brief 自前ラスタライザの描画先。
+   *
+   * `ImageData` の中身をそのまま画素配列として扱い、描き終えてから
+   * 画面へ引き伸ばす。画素数が処理時間そのものなので、画面より粗くする。
+   * @private
+   */
+  var rasterCanvas = null, rasterCtx = null, rasterImg = null, rasterBuf = null;
 
   /** @brief グレア用の縮小バッファ。 @private */
   var glareBuf = null, glareCtx = null;
@@ -440,8 +456,49 @@
     buf.width = CONFIG.bufferWidth;
     buf.height = Math.max(1, Math.round(CONFIG.bufferWidth * H / Math.max(1, W)));
 
+    resizeRaster();
+
     ctx.fillStyle = '#04050a';
     ctx.fillRect(0, 0, W, H);
+  }
+
+  /**
+   * @brief 自前ラスタライザ用のバッファを画面の縦横比に合わせて作り直す。
+   *
+   * 幅は固定で、高さだけを比率から決める。画素数が処理時間に直結するので、
+   * 画面が大きくなっても描く量が増えないようにするためで、拡大したときに
+   * 縦横が歪まないようにするためでもある。
+   *
+   * @private
+   * @returns {void}
+   */
+  function resizeRaster() {
+    if (!rasterCtx) return;
+
+    var rw = CONFIG.rasterWidth;
+    var rh = Math.max(1, Math.round(rw * H / Math.max(1, W)));
+    if (rasterBuf && rasterBuf.w === rw && rasterBuf.h === rh) return;
+
+    rasterCanvas.width = rw;
+    rasterCanvas.height = rh;
+    rasterImg = rasterCtx.createImageData(rw, rh);
+    rasterBuf = global.PULSAR.raster.createBuffer(rw, rh, rasterImg);
+  }
+
+  /**
+   * @brief ラスタライザのバッファを画面いっぱいに引き伸ばして重ねる。
+   *
+   * 描かれなかった画素は透明なので、背景の残像はそのまま残る。
+   *
+   * @private
+   * @returns {void}
+   */
+  function blitRaster() {
+    if (!rasterBuf) return;
+
+    rasterCtx.putImageData(rasterImg, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(rasterCanvas, 0, 0, W, H);
   }
 
   /**
@@ -1156,6 +1213,9 @@
       guideIntro: fadeOutHint(),
       // 描画が追いついていないときは、シーン側も手を抜く
       quality: quality,
+      // 自前ラスタライザの描画先と、それを画面へ出す手段
+      rasterBuf: rasterBuf,
+      rasterBlit: blitRaster,
       // 疑似グレアでは色も明るさも沈むので、塗る側で補う
       satBoost: slowFilter ? CONFIG.softGlareSat : 1,
       lightLift: slowFilter ? CONFIG.softGlareLift : 0,
@@ -1303,6 +1363,9 @@
 
     buf = document.createElement('canvas');
     bufCtx = buf.getContext('2d', { willReadFrequently: true });
+
+    rasterCanvas = document.createElement('canvas');
+    rasterCtx = rasterCanvas.getContext('2d');
 
     glareBuf = document.createElement('canvas');
     glareCtx = glareBuf.getContext('2d');

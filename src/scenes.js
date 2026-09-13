@@ -208,35 +208,13 @@
    * @returns {Array<number>} [r, g, b] 各 0..255
    */
   function hslToRgb(h, s, l) {
-    if (s === 0) {
-      var g = Math.round(l * 255);
-      return [g, g, g];
-    }
-    var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    var p = 2 * l - q;
-    return [
-      Math.round(hueToChannel(p, q, h + 1 / 3) * 255),
-      Math.round(hueToChannel(p, q, h) * 255),
-      Math.round(hueToChannel(p, q, h - 1 / 3) * 255)
-    ];
-  }
-
-  /**
-   * @brief HSL→RGB 変換の1チャンネル分を求める補助関数。
-   * @private
-   * @param {number} p 補間下限
-   * @param {number} q 補間上限
-   * @param {number} t 色相位置
-   * @returns {number} チャンネル値 [0..1]
-   */
-  function hueToChannel(p, q, t) {
-    var x = t;
-    if (x < 0) x += 1;
-    if (x > 1) x -= 1;
-    if (x < 1 / 6) return p + (q - p) * 6 * x;
-    if (x < 1 / 2) return q;
-    if (x < 2 / 3) return p + (q - p) * (2 / 3 - x) * 6;
-    return p;
+    // 変換そのものはラスタライザ側に1つだけ持つ。あちらは画素へ書くために
+    // 度と % で受け取るので、ここで単位を合わせて渡す。
+    var out = global.PULSAR.raster.hslToRgb(h * 360, s * 100, l * 100, [0, 0, 0]);
+    out[0] = Math.round(out[0]);
+    out[1] = Math.round(out[1]);
+    out[2] = Math.round(out[2]);
+    return out;
   }
 
   // -----------------------------------------------------------------
@@ -274,6 +252,39 @@
   // 前回の選択を復元する。設定が読めない環境では既定（描く）のままにする。
   try {
     if (global.localStorage.getItem('pulsar.bg') === '0') backgroundOn = false;
+  } catch (e) { /* 既定のまま */ }
+
+  /**
+   * @brief 建造物を自前のラスタライザで描くかどうか。
+   *
+   * 面の中を1画素ずつ塗るため、頂点の色が本当に混ざり、面の境目が消える。
+   * 代わりに画素数がそのまま処理時間になるので、切れるようにしてある。
+   * @private
+   */
+  var smoothOn = true;
+
+  /**
+   * @brief なめらかな塗り（自前ラスタライザ）の有無を設定する。
+   * @param {boolean} on 使うなら true
+   * @returns {void}
+   */
+  function setSmooth(on) {
+    smoothOn = !!on;
+    try {
+      global.localStorage.setItem('pulsar.smooth', smoothOn ? '1' : '0');
+    } catch (e) { /* 保存できなくても動作には影響しない */ }
+  }
+
+  /**
+   * @brief なめらかな塗りを使う設定になっているか。
+   * @returns {boolean} 使うなら true
+   */
+  function isSmooth() {
+    return smoothOn;
+  }
+
+  try {
+    if (global.localStorage.getItem('pulsar.smooth') === '0') smoothOn = false;
   } catch (e) { /* 既定のまま */ }
 
   /**
@@ -559,6 +570,20 @@
     // 奥の部材から描く。これで前後関係が正しくなる。
     parts.sort(function (a, b) { return b.depth - a.depth; });
 
+    // 塗り方を選ぶ。自前のラスタライザが使えるなら、そちらは低い解像度の
+    // バッファへ描いて最後に引き伸ばすので、画面座標の基準も変わる。
+    // 描画が追いついていない環境では使わない。1画素ずつ塗る方式は、
+    // 面の数ではなく画素数で効くので、軽くする手立てが乏しい。
+    var rb = (smoothOn && f.rasterBuf && f.quality !== 0) ? f.rasterBuf : null;
+
+    if (rb) {
+      global.PULSAR.raster.clear(rb);
+      // 焦点距離は画素で測る量なので、解像度に合わせて縮める。
+      focal = focal * (rb.w / f.W);
+      cx = rb.w / 2;
+      cy = rb.h / 2;
+    }
+
     c.save();
     c.lineJoin = 'round';
 
@@ -568,7 +593,7 @@
       // 奥ほど霞ませる。距離が伝わり、遠くの面のちらつきも抑えられる。
       var fade = M.clamp(1.35 - p.depth / (period * cells), 0.06, 1);
 
-      mesh3d.drawMesh(c, mesh3d.CUBE, {
+      var opt = {
         pos: p.pos,
         scale: p.size,
         rx: p.rx,
@@ -594,8 +619,17 @@
         // 照明帯は光の面として見せたいので、輪郭線を描かない。
         // 線が入ると板を貼ったように見え、光っている感じが消える。
         edges: false
-      });
+      };
+
+      if (rb) {
+        mesh3d.rasterMesh(rb, mesh3d.CUBE, opt);
+      } else {
+        mesh3d.drawMesh(c, mesh3d.CUBE, opt);
+      }
     }
+
+    // 描き終えたバッファを画面いっぱいに引き伸ばす。
+    if (rb) f.rasterBlit();
 
     c.restore();
   }
@@ -919,6 +953,8 @@
     STAGE_LOOK: STAGE_LOOK,
     setRaymarch: setRaymarch,
     isRaymarch: isRaymarch,
+    setSmooth: setSmooth,
+    isSmooth: isSmooth,
     SCROLL_TEXT: SCROLL_TEXT,
     hslToRgb: hslToRgb,
     drawHall: drawHall
