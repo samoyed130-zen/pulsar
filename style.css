@@ -151,21 +151,24 @@ body.on-title #panel { display: none; }
  * 「どこを押せばいいのか」で迷わせてしまう。
  */
 #menuBtn {
-  font-size: 13px;
+  /* タイトルのスタートと同じ大きさ・同じ書体にする。
+     どちらも「ここを押す」場所なので、見た目を揃える */
+  font-family: "Consolas", "Hiragino Sans", system-ui, sans-serif;
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.14em;
-  padding: 10px 20px;
+  padding: 14px 28px;
   color: var(--accent);
-  background: rgba(122, 214, 255, 0.12);
-  border-color: rgba(122, 214, 255, 0.55);
+  background: rgba(10, 14, 26, 0.72);
+  border-color: rgba(122, 215, 255, 0.45);
   /* ほのかに光らせて、絵の上でも沈まないようにする */
   box-shadow: 0 0 18px rgba(122, 214, 255, 0.22);
 }
 
 #menuBtn:hover {
   color: #04121c;
-  background: var(--accent);
-  border-color: var(--accent);
+  background: #9ce2ff;
+  border-color: #9ce2ff;
 }
 
 /* 開いている間は、押すと閉じる側であることを見た目でも示す */
@@ -1101,7 +1104,7 @@ body.on-title #titleBtn { display: none; }
   #hud { gap: 6px; }
   #hud button { padding: 6px 9px; font-size: 10px; }
   /* 狭い画面でも、唯一の入口だけは指で押せる大きさを保つ */
-  #menuBtn { padding: 9px 16px; font-size: 12px; }
+  #menuBtn { padding: 11px 20px; font-size: 13px; }
 
   #panel {
     padding: 8px 10px 9px;
@@ -1154,5 +1157,5 @@ body.on-title #titleBtn { display: none; }
   }
   #hud { justify-content: flex-end; }
   #hud button { padding: 6px 8px; font-size: 9px; letter-spacing: 0.04em; }
-  #menuBtn { padding: 9px 15px; font-size: 12px; letter-spacing: 0.1em; }
+  #menuBtn { padding: 11px 18px; font-size: 13px; letter-spacing: 0.1em; }
 }
