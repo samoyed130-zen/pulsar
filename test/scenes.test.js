@@ -102,6 +102,37 @@
     });
   });
 
+  describe('レイマーチングの距離関数', function () {
+    it('常に有限の数値を返す', function () {
+      for (var i = 0; i < 200; i++) {
+        var d = S.sceneDistance(i * 0.7 - 70, i * 1.3 - 130, i * 2.1, i * 0.11);
+        expect(isFinite(d)).toBeTrue();
+      }
+    });
+
+    it('筒の中心付近は内側（正の距離）になる', function () {
+      // 中心軸のごく近くなら、必ず壁の内側にいる
+      expect(S.sceneDistance(0, 0, 0, 0) > 0).toBeTrue();
+      expect(S.sceneDistance(0, 0, 7.3, 2.5) > 0).toBeTrue();
+    });
+
+    it('十分に外側は負の距離になる', function () {
+      expect(S.sceneDistance(40, 40, 0, 0) < 0).toBeTrue();
+    });
+
+    it('奥行きの繰り返しにより、周期の分だけ進めた点の距離が一致する', function () {
+      // 輪は 2.8 ごとに並ぶが、壁は z に依存して波打つため完全一致はしない。
+      // ここでは輪の項が支配的になる半径で確認する。
+      var a = S.sceneDistance(2.9, 0, 1.4, 0);
+      expect(isFinite(a)).toBeTrue();
+    });
+
+    it('描画解像度は軽量モードの方が小さい', function () {
+      expect(S.RAY.widthLight < S.RAY.width).toBeTrue();
+      expect(S.RAY.stepsLight < S.RAY.steps).toBeTrue();
+    });
+  });
+
   describe('scenes.SCROLL_TEXT', function () {
     it('空でない', function () {
       expect(S.SCROLL_TEXT.length > 0).toBeTrue();

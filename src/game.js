@@ -65,6 +65,8 @@
     manualRate: 14.0,
     /** @brief 自機を置く円の半径（リング半径に対する比率）。 */
     shipRadiusRatio: 0.5,
+    /** @brief リングの線の太さの倍率。避ける対象として目立たせる。 */
+    ringThickness: 3,
     /** @brief コンボゲージが満タンになる連続通過数。 */
     comboForMax: 20,
     /** @brief 1回の挑戦の持ち時間 [s]。 */
@@ -341,13 +343,21 @@
       var alpha = 0.15 + near * 0.8;
       var hue = f.hue + r.z * 9 + near * 40;
 
-      c.strokeStyle = M.hsl(hue, 90, 55 + near * 18, alpha);
-      c.lineWidth = 1.5 + near * 3.5;
+      var start = r.gap + CONFIG.gapWidth * 0.5;
+      var end = r.gap - CONFIG.gapWidth * 0.5 + TAU;
+      var width = (1.5 + near * 3.5) * CONFIG.ringThickness;
 
+      // 太い線の下に、さらに広がる淡い線を敷いて厚みを出す。
+      c.strokeStyle = M.hsl(hue, 90, 50, alpha * 0.35);
+      c.lineWidth = width * 1.9;
       c.beginPath();
-      c.arc(cx + twist, cy + sway, radius,
-            r.gap + CONFIG.gapWidth * 0.5,
-            r.gap - CONFIG.gapWidth * 0.5 + TAU);
+      c.arc(cx + twist, cy + sway, radius, start, end);
+      c.stroke();
+
+      c.strokeStyle = M.hsl(hue, 90, 55 + near * 18, alpha);
+      c.lineWidth = width;
+      c.beginPath();
+      c.arc(cx + twist, cy + sway, radius, start, end);
       c.stroke();
     }
 

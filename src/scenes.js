@@ -172,7 +172,7 @@
   function drawPlasma(f) {
     var bw = f.buf.width;
     var bh = f.buf.height;
-    var img = f.bufCtx.createImageData(bw, bh);
+    var img = getImage(f.bufCtx, bw, bh);
     var data = img.data;
     var t = f.t;
 
@@ -243,6 +243,196 @@
   }
 
   // -----------------------------------------------------------------
+  // レイマーチングによる立体背景
+  // -----------------------------------------------------------------
+
+  /**
+   * @brief レイマーチングの調整値。
+   *
+   * 1ピクセルごとに光線を進めるため、解像度と歩数がそのまま負荷になる。
+   * 低解像度で描いて拡大し、にじみを味として使う。
+   */
+  var RAY = {
+    /** @brief 光線を進める回数。多いほど精細で重い。 */
+    steps: 18,
+    /** @brief 描画量を落とすときの歩数。 */
+    stepsLight: 12,
+    /** @brief 描画に使う横幅 [px]。拡大前提なので粗くてよい。 */
+    width: 112,
+    /** @brief 描画量を落とすときの横幅 [px]。 */
+    widthLight: 84,
+    /** @brief 光線を打ち切る距離。 */
+    far: 26,
+    /** @brief 1歩の最小距離。小さすぎると進まず、歩数を無駄にする。 */
+    minStep: 0.16
+  };
+
+  /**
+   * @brief レイマーチング専用のバッファ。
+   *
+   * 他のエフェクトより粗い解像度で描くため、共有バッファとは別に持つ。
+   * @private
+   */
+  var rayBuf = null, rayCtx = null;
+
+  /**
+   * @brief レイマーチング用バッファを、必要な大きさで用意する。
+   * @private
+   * @param {number} w 幅 [px]
+   * @param {number} h 高さ [px]
+   * @returns {void}
+   */
+  function ensureRayBuffer(w, h) {
+    if (!rayBuf) {
+      rayBuf = document.createElement('canvas');
+      rayCtx = rayBuf.getContext('2d', { willReadFrequently: true });
+    }
+    if (rayBuf.width !== w || rayBuf.height !== h) {
+      rayBuf.width = w;
+      rayBuf.height = h;
+    }
+  }
+
+  /**
+   * @brief `ImageData` の使い回し置き場。毎フレーム作ると確保が負荷になる。
+   * @private
+   */
+  var imageCache = { w: 0, h: 0, img: null };
+
+  /**
+   * @brief バッファと同じ大きさの `ImageData` を返す（使い回す）。
+   * @private
+   * @param {CanvasRenderingContext2D} bctx バッファの文脈
+   * @param {number} w 幅
+   * @param {number} h 高さ
+   * @returns {ImageData} 書き込み先
+   */
+  function getImage(bctx, w, h) {
+    if (!imageCache.img || imageCache.w !== w || imageCache.h !== h) {
+      imageCache.img = bctx.createImageData(w, h);
+      imageCache.w = w;
+      imageCache.h = h;
+    }
+    return imageCache.img;
+  }
+
+  /**
+   * @brief 空間上の点から、最も近い物体までのおおよその距離を返す（距離関数）。
+   *
+   * 形は2つだけ:
+   * - ねじれながら続く筒の内壁（波打たせて、のっぺりした面に見せない）
+   * - 一定間隔で並ぶ細い輪
+   *
+   * この2つを `min` で合成するだけで、奥へ続く構造物になる。
+   *
+   * @private
+   * @param {number} x 座標 x
+   * @param {number} y 座標 y
+   * @param {number} z 座標 z（奥行き）
+   * @param {number} t 時刻 [s]
+   * @returns {number} 距離（正なら物体の外側）
+   */
+  function sceneDistance(x, y, z, t) {
+    // 空間を回転させても中心軸からの距離は変わらないため、回転の計算は要らない。
+    // 代わりに筒の中心を奥行きに応じてずらすことで、曲がりくねった通路にする。
+    // 三角関数の呼び出しはここの2回だけ。1ピクセルあたり何十回も通るため効く。
+    var s1 = Math.sin(z * 0.55 + t * 1.2);
+    var c1 = Math.cos(z * 0.23 - t * 0.7);
+
+    var dx = x - s1 * 1.15;
+    var dy = y - c1 * 1.15;
+    var rad = Math.sqrt(dx * dx + dy * dy);
+
+    // 内壁までの距離。半径も波打たせて、脈打つ洞窟のようにする。
+    var wall = 3.5 + s1 * 0.3 + c1 * 0.25 - rad;
+
+    // 一定間隔で並ぶ輪。繰り返しで表現するので、何個置いても計算量は変わらない。
+    var period = 2.8;
+    var zz = z - Math.floor(z / period) * period - period * 0.5;
+    var qx = rad - 2.9;
+    var ring = Math.sqrt(qx * qx + zz * zz) - 0.13;
+
+    return wall < ring ? wall : ring;
+  }
+
+  /**
+   * @brief レイマーチングで立体的な背景を描く。
+   *
+   * 法線も陰影も計算しない。光線を進めながら物体への近さを足し込むだけの
+   * 「グロー蓄積」方式にしている。計算が軽いうえ、デモらしい発光した見た目になる。
+   *
+   * @param {Object} f フレーム文脈
+   * @param {number} camZ カメラの奥行き位置（進むほど増える）
+   * @param {number} brightness 明るさの倍率 [0..1]
+   * @returns {void}
+   */
+  function drawRaymarch(f, camZ, brightness) {
+    var bw = f.light ? RAY.widthLight : RAY.width;
+    var bh = Math.max(1, Math.round(bw * f.H / Math.max(1, f.W)));
+    ensureRayBuffer(bw, bh);
+
+    var img = getImage(rayCtx, bw, bh);
+    var data = img.data;
+
+    var steps = f.light ? RAY.stepsLight : RAY.steps;
+    var t = f.t;
+    var aspect = bw / bh;
+    var hueBase = f.hue;
+
+    for (var py = 0; py < bh; py++) {
+      // 画面座標を -1..1 に写す
+      var sy = (py / bh) * 2 - 1;
+
+      for (var px = 0; px < bw; px++) {
+        var sx = ((px / bw) * 2 - 1) * aspect;
+
+        // 光線の向き（正規化は省き、z を 1 に固定して近似する）
+        var len = Math.sqrt(sx * sx + sy * sy + 1);
+        var dx = sx / len, dy = sy / len, dz = 1 / len;
+
+        var dist = 0.4;
+        var glow = 0;
+
+        for (var i = 0; i < steps; i++) {
+          var d = sceneDistance(dx * dist, dy * dist, camZ + dz * dist, t);
+          var ad = d < 0 ? -d : d;
+
+          // 物体に近いほど強く光る。表面に触れなくても輪郭が浮かび上がる。
+          glow += 0.09 / (0.06 + ad * ad);
+
+          dist += ad * 0.75 + RAY.minStep;
+          if (dist > RAY.far) break;
+        }
+
+        // 奥ほど暗く落として、距離を感じさせる
+        var v = glow / steps * brightness;
+        v = v > 1.4 ? 1.4 : v;
+
+        var hue = (hueBase + v * 150 + 200) % 360;
+        var rgb = hslToRgb(hue / 360, 0.85, v * 0.42);
+
+        var o = (py * bw + px) * 4;
+        data[o] = rgb[0];
+        data[o + 1] = rgb[1];
+        data[o + 2] = rgb[2];
+        data[o + 3] = 255;
+      }
+    }
+
+    rayCtx.putImageData(img, 0, 0);
+
+    var c = f.ctx;
+    c.globalCompositeOperation = 'source-over';
+    c.fillStyle = '#04050a';
+    c.fillRect(0, 0, f.W, f.H);
+
+    c.save();
+    c.imageSmoothingEnabled = true;
+    c.drawImage(rayBuf, 0, 0, f.W, f.H);
+    c.restore();
+  }
+
+  // -----------------------------------------------------------------
   // S3 トンネル（触れる区間）
   // -----------------------------------------------------------------
 
@@ -252,10 +442,13 @@
    * @returns {void}
    */
   function drawTunnel(f) {
-    fadeCanvas(f, 0.26);
-
     var game = global.PULSAR.game;
     game.update(f);
+
+    // 背景はレイマーチングで描く。走った距離をそのままカメラの位置にするため、
+    // 手前のリングと奥の構造物が同じ速さで流れ、立体感が一致する。
+    drawRaymarch(f, game.state.dist * 0.55, 0.75 + game.gauge() * 0.5);
+
     game.draw(f);
     // スコア表示と操作案内は main.js が DOM 側でまとめて担当する。
   }
@@ -272,7 +465,7 @@
   function drawMetaballs(f) {
     var bw = f.buf.width;
     var bh = f.buf.height;
-    var img = f.bufCtx.createImageData(bw, bh);
+    var img = getImage(f.bufCtx, bw, bh);
     var data = img.data;
     var t = f.t;
 
@@ -418,7 +611,9 @@
 
   global.PULSAR.scenes = {
     timeline: timeline,
+    RAY: RAY,
     SCROLL_TEXT: SCROLL_TEXT,
-    hslToRgb: hslToRgb
+    hslToRgb: hslToRgb,
+    sceneDistance: sceneDistance
   };
 })(typeof window !== 'undefined' ? window : this);
