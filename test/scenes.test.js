@@ -488,6 +488,31 @@
       expect(app.CONFIG.softGlareSqueeze >= 2).toBeTrue();
     });
 
+    it('疑似グレアの固定は、既定では切', function () {
+      // 速い環境まで簡素な絵にしてしまわないこと。
+      // 見比べたい人だけが入れる。
+      expect(app.isSoftGlare()).toBeFalse();
+    });
+
+    it('疑似グレアの固定を切り替えられる', function () {
+      app.setSoftGlare(true);
+      expect(app.isSoftGlare()).toBeTrue();
+      app.setSoftGlare(false);
+      expect(app.isSoftGlare()).toBeFalse();
+    });
+
+    it('FPS 表示は、既定では切', function () {
+      // 調整のための数字であって、作品の一部ではない。
+      expect(app.isFps()).toBeFalse();
+    });
+
+    it('FPS 表示を切り替えられる', function () {
+      app.setFps(true);
+      expect(app.isFps()).toBeTrue();
+      app.setFps(false);
+      expect(app.isFps()).toBeFalse();
+    });
+
     it('ずらし加算のずれ幅は 0 より大きい', function () {
       expect(app.CONFIG.softGlareSpread > 0).toBeTrue();
     });

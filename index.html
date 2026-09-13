@@ -72,6 +72,8 @@
       <button id="smoothBtn" type="button">なめらか あり</button>
       <button id="soundBtn" type="button">♪ 音 あり</button>
       <button id="helpBtn" type="button">あそびかた</button>
+      <button id="softGlareBtn" type="button">疑似グレア固定 なし</button>
+      <button id="fpsBtn" type="button">FPS表示 なし</button>
       <button id="testsBtn" type="button">APIテスト</button>
       <button id="resetBtn" type="button">設定初期化</button>
     </div>
@@ -542,6 +544,40 @@
       PULSAR.app.requestRender();
     });
     syncSmoothButton();
+
+    // --- 疑似グレアの固定（ぼかしを使わない経路を見比べるため） ---
+
+    var softGlareBtn = document.getElementById('softGlareBtn');
+
+    /** 疑似グレアのボタンの見た目を現在の設定に合わせる。 */
+    function syncSoftGlareButton() {
+      var on = PULSAR.app.isSoftGlare();
+      softGlareBtn.textContent = on ? '疑似グレア固定 あり' : '疑似グレア固定 なし';
+      softGlareBtn.classList.toggle('on', on);
+    }
+
+    softGlareBtn.addEventListener('click', function () {
+      PULSAR.app.setSoftGlare(!PULSAR.app.isSoftGlare());
+      syncSoftGlareButton();
+    });
+    syncSoftGlareButton();
+
+    // --- FPS 表示 ---
+
+    var fpsBtn = document.getElementById('fpsBtn');
+
+    /** FPS ボタンの見た目を現在の設定に合わせる。 */
+    function syncFpsButton() {
+      var on = PULSAR.app.isFps();
+      fpsBtn.textContent = on ? 'FPS表示 あり' : 'FPS表示 なし';
+      fpsBtn.classList.toggle('on', on);
+    }
+
+    fpsBtn.addEventListener('click', function () {
+      PULSAR.app.setFps(!PULSAR.app.isFps());
+      syncFpsButton();
+    });
+    syncFpsButton();
 
     document.getElementById('retryBtn').addEventListener('click', function () {
       PULSAR.app.retry();

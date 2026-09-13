@@ -305,6 +305,74 @@
   );
 
   /**
+   * @brief ぼかしを使わないグレアを、判定によらず使うか。
+   *
+   * 上の見分けは名乗り（ユーザーエージェント）頼みなので、外れることがある。
+   * また、どちらの絵になるのかを見比べたいこともある。既定は切で、
+   * 入れると Firefox 以外でも合成だけで組んだグレアになる。
+   * @private
+   */
+  var forceSoftGlare = global.PULSAR.store.get('pulsar.softglare') === '1';
+
+  /**
+   * @brief 今の環境で、ぼかしを使わないグレアを使うか。
+   * @private
+   * @returns {boolean} 使うなら true
+   */
+  function useSoftGlare() {
+    return slowFilter || forceSoftGlare;
+  }
+
+  /**
+   * @brief 疑似グレアを固定するかを設定する。
+   * @param {boolean} on 固定するなら true
+   * @returns {void}
+   */
+  function setSoftGlare(on) {
+    forceSoftGlare = !!on;
+    global.PULSAR.store.set('pulsar.softglare', forceSoftGlare ? '1' : '0');
+    // 縮小バッファの大きさが経路で違うので、作り直す
+    resizeGlare();
+    needsRender = true;
+  }
+
+  /**
+   * @brief 疑似グレアを固定する設定か。
+   * @returns {boolean} 固定するなら true
+   */
+  function isSoftGlare() {
+    return forceSoftGlare;
+  }
+
+  /**
+   * @brief 毎秒の枚数（FPS）を出すか。
+   *
+   * 調整のための表示なので既定は切。動作が重いという相談を受けたときに、
+   * 出してもらえば数字で話せる。
+   * @private
+   */
+  var showFps = global.PULSAR.store.get('pulsar.fps') === '1';
+
+  /**
+   * @brief FPS 表示の有無を設定する。
+   * @param {boolean} on 出すなら true
+   * @returns {void}
+   */
+  function setFps(on) {
+    showFps = !!on;
+    global.PULSAR.store.set('pulsar.fps', showFps ? '1' : '0');
+    needsRender = true;
+  }
+
+  /**
+   * @brief FPS を出す設定か。
+   * @returns {boolean} 出すなら true
+   */
+  function isFps() {
+    return showFps;
+  }
+
+  /**
    * @brief 実測に基づいて描画の重さを上下させる。
    *
    * すぐ切り替えると行ったり来たりするので、一定数続いたときだけ動かす。
@@ -380,7 +448,7 @@
     glareCtx.globalCompositeOperation = 'source-over';
     glareCtx.globalAlpha = 1;
 
-    if (slowFilter) {
+    if (useSoftGlare()) {
       buildSoftGlare(gw, gh);
     } else {
       // 暗部を切り落として明るい部分だけを残す。
@@ -511,17 +579,7 @@
 
     lightMode = Math.sqrt(W * W + H * H) < CONFIG.lightModeDiagonal;
 
-    if (glareBuf) {
-      // ぼかしを使えない環境では、縮小そのものがぼかしの代わりになる。
-      var gs = slowFilter ? CONFIG.softGlareScale : CONFIG.glareScale;
-      glareBuf.width = Math.max(1, Math.round(W * gs));
-      glareBuf.height = Math.max(1, Math.round(H * gs));
-
-      if (glareTmp) {
-        glareTmp.width = glareBuf.width;
-        glareTmp.height = glareBuf.height;
-      }
-    }
+    resizeGlare();
 
     // バッファは画面比を保ったまま固定幅にする（拡大時に歪ませないため）。
     buf.width = CONFIG.bufferWidth;
@@ -531,6 +589,28 @@
 
     ctx.fillStyle = '#04050a';
     ctx.fillRect(0, 0, W, H);
+  }
+
+  /**
+   * @brief グレア用の縮小バッファを、今の経路に合わせて作り直す。
+   *
+   * ぼかしを使わない経路のほうが粗く縮める。縮小そのものがぼかしの
+   * 代わりになるためで、経路を切り替えたら大きさも作り直す必要がある。
+   *
+   * @private
+   * @returns {void}
+   */
+  function resizeGlare() {
+    if (!glareBuf) return;
+
+    var gs = useSoftGlare() ? CONFIG.softGlareScale : CONFIG.glareScale;
+    glareBuf.width = Math.max(1, Math.round(W * gs));
+    glareBuf.height = Math.max(1, Math.round(H * gs));
+
+    if (glareTmp) {
+      glareTmp.width = glareBuf.width;
+      glareTmp.height = glareBuf.height;
+    }
   }
 
   /**
@@ -1286,8 +1366,8 @@
       rasterBuf: rasterBuf,
       rasterBlit: blitRaster,
       // 疑似グレアでは色も明るさも沈むので、塗る側で補う
-      satBoost: slowFilter ? CONFIG.softGlareSat : 1,
-      lightLift: slowFilter ? CONFIG.softGlareLift : 0,
+      satBoost: useSoftGlare() ? CONFIG.softGlareSat : 1,
+      lightLift: useSoftGlare() ? CONFIG.softGlareLift : 0,
       impact: impact
     };
 
@@ -1321,7 +1401,7 @@
     var glareScale = (global.PULSAR.scenes.isRaymarch() && quality > 0)
       ? ((scene.glare === undefined) ? 1 : scene.glare)
       : 0;
-    var glareBase = slowFilter ? CONFIG.softGlare : CONFIG.glare;
+    var glareBase = useSoftGlare() ? CONFIG.softGlare : CONFIG.glare;
     drawGlare(glareBase * glareScale * (0.75 + kick * 0.45));
 
     var playable = scene.name === CONFIG.playableScene;
@@ -1418,6 +1498,8 @@
 
     drawTransition(ctx, scene.transition, M.edgeFade(pick.local, scene.duration, CONFIG.fade));
 
+    if (showFps) drawFps();
+
     shake = M.approach(shake, 0, 7, dt);
     hitFlash = M.approach(hitFlash, 0, 6, dt);
 
@@ -1425,6 +1507,40 @@
     if (t0) tuneQuality(global.performance.now() - t0);
 
     global.requestAnimationFrame(frame);
+  }
+
+  /**
+   * @brief 毎秒の枚数と、今の描画の状態を隅に出す。
+   *
+   * 数字は移動平均から求める。1フレームごとの生の値は上下に大きく振れ、
+   * 読めないうえに「重い」と誤解させる。
+   *
+   * 絵の邪魔をしないよう、左下に小さく置く。
+   *
+   * @private
+   * @returns {void}
+   */
+  function drawFps() {
+    var fps = frameMs > 0 ? (1000 / frameMs) : 0;
+    // 60 を少し超える値が出ても意味はないので、そこで止める
+    if (fps > 999) fps = 999;
+
+    var text = fps.toFixed(0) + ' fps  ' + frameMs.toFixed(1) + ' ms' +
+               (quality === 0 ? '  [軽量]' : '');
+
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.font = '11px Consolas, "SF Mono", monospace';
+    ctx.textBaseline = 'bottom';
+
+    // 明るい場面でも読めるよう、暗い下敷きを敷く
+    var w = ctx.measureText(text).width;
+    ctx.fillStyle = 'rgba(4, 5, 10, 0.55)';
+    ctx.fillRect(10, H - 30, w + 16, 20);
+
+    ctx.fillStyle = 'rgba(223, 229, 247, 0.75)';
+    ctx.fillText(text, 18, H - 14);
+    ctx.restore();
   }
 
   /**
@@ -1449,7 +1565,7 @@
     // ぼかしを自前で組む経路は filter を使わないので、
     // filter への対応を求めるのは本来のグレアを使う環境だけでよい。
     glareOk = !!glareCtx && !!glareTmpCtx &&
-              (slowFilter || ('filter' in glareCtx));
+              (useSoftGlare() || ('filter' in glareCtx));
 
     panelEl = document.getElementById('panel');
     distEl = document.getElementById('scoreDist');
@@ -1560,6 +1676,10 @@
     isPaused: isPaused,
     isPlaying: isPlaying,
     isBusy: isBusy,
+    setSoftGlare: setSoftGlare,
+    isSoftGlare: isSoftGlare,
+    setFps: setFps,
+    isFps: isFps,
     requestRender: requestRender,
     stats: stats,
     onShortcut: null
