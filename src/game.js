@@ -64,7 +64,7 @@
      * 透視投影だけでも手前は大きくなるが、くぐる瞬間に視界の外まで
      * 開いた方が「通り抜けた」感じが出る。0 で透視投影どおり。
      */
-    ringNearBoost: 1.2,
+    ringNearBoost: 2.6,
     /**
      * @brief 手前のリングをどれだけ余分に太くするか。
      *
@@ -601,7 +601,9 @@
       var twist = Math.sin(r.z * 0.22 + f.t * 0.6) * focal * 0.10;
       var sway = Math.cos(r.z * 0.18 + f.t * 0.45) * focal * 0.08;
 
-      var alpha = 0.15 + near * 0.8;
+      // 奥ほど薄く。2乗で効かせることで、奥のリングが線の重なりとして
+      // 溜まらず、いま抜けるべき手前のリングが自然と目に入る。
+      var alpha = 0.04 + near * near * 0.92;
       var hue = f.hue + r.z * 9 + near * 40;
 
       var start = r.gap + state.params.gapWidth * 0.5;
