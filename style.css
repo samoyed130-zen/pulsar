@@ -32,6 +32,15 @@
 
   --gap-ui: clamp(7px, calc(0.5vw + 0.5vh), 14px);
   --pad-ui: clamp(10px, calc(0.62vw + 0.62vh), 18px);
+
+  /*
+   * 走行中の数値は別枠で、他の文字の倍近くまで大きくする。
+   *
+   * 遊んでいる最中は画面の中心を見ているので、視界の端で読むことになる。
+   * 設定の文字と同じ大きさでは、目を向け直さないと読み取れない。
+   */
+  --fs-hud-label: clamp(11px, calc(0.7vw + 0.7vh), 20px);
+  --fs-hud-value: clamp(26px, calc(1.5vw + 1.5vh), 44px);
 }
 
 * { box-sizing: border-box; }
@@ -347,10 +356,17 @@ body.on-title #panel { display: none; }
   max-width: calc(100% - 2 * var(--pad));
   display: flex;
   align-items: center;
-  gap: calc(var(--gap-ui) * 1.8);
+  justify-content: center;
+  /*
+   * 一列に収まらない画面では折り返す。数字を小さくして無理に1行へ
+   * 詰めるより、2行になっても大きいまま読めた方がよい。
+   */
+  flex-wrap: wrap;
+  gap: calc(var(--gap-ui) * 0.6) calc(var(--gap-ui) * 1.8);
   padding: calc(var(--gap-ui) * 0.8) calc(var(--gap-ui) * 1.8);
   border: 1px solid var(--line);
-  border-radius: 999px;
+  /* 2行になったときは、丸すぎると間が抜けて見える */
+  border-radius: calc(var(--pad-ui) * 1.6);
   background: rgba(4, 5, 10, 0.52);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -375,32 +391,40 @@ body.on-title #panel { display: none; }
 }
 
 .statLabel {
-  font-size: var(--fs-label);
+  font-size: var(--fs-hud-label);
   font-weight: 600;
   letter-spacing: 0.18em;
-  color: rgba(223, 229, 247, 0.45);
+  color: rgba(223, 229, 247, 0.55);
 }
 
+/*
+ * 数値は等幅の書体で出す（#panel で指定済み）。
+ *
+ * 加えて桁数そのものを固定している（`000 / 800` のように 0 で埋める）。
+ * 等幅でも桁が増えれば幅は変わるので、書体だけでは足りない。
+ * 走っている最中に数字が横へずれると、視界の端では読み取れなくなる。
+ */
 .statValue {
-  font-size: var(--fs-value);
+  font-size: var(--fs-hud-value);
   font-weight: 700;
   color: var(--fg);
-  /* 数字の幅を揃える。桁が変わるたびに並びが動くと読みにくい */
   font-variant-numeric: tabular-nums;
-  line-height: 1.15;
+  line-height: 1.1;
 }
 
+/* 区切りと目標も同じ白さ・同じ大きさで出す。薄くすると読み取れない */
 .statSep {
-  margin: 0 3px;
-  font-size: var(--fs-ui);
+  margin: 0 0.15em;
+  font-size: var(--fs-hud-value);
   font-weight: 400;
-  color: rgba(223, 229, 247, 0.3);
+  color: var(--fg);
 }
 
 .statSub {
-  font-size: var(--fs-ui);
-  font-weight: 600;
-  color: rgba(223, 229, 247, 0.5);
+  font-size: var(--fs-hud-value);
+  font-weight: 700;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
 }
 
 /* 立体を取って時間が延びた瞬間の反応 */
@@ -414,7 +438,6 @@ body.on-title #panel { display: none; }
 
 /* コンボだけは勢いを示す役なので、色を持たせてゲージを添える */
 .comboStat .statValue {
-  min-width: 2.2em;
   text-align: right;
   color: var(--accent);
   text-shadow: 0 0 18px rgba(122, 215, 255, 0.45);
@@ -426,8 +449,8 @@ body.on-title #panel { display: none; }
 
 .gauge {
   position: relative;
-  width: clamp(56px, calc(4vw + 4vh), 150px);
-  height: clamp(5px, calc(0.2vw + 0.2vh), 10px);
+  width: clamp(70px, calc(5vw + 5vh), 190px);
+  height: clamp(7px, calc(0.3vw + 0.3vh), 14px);
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.09);
   overflow: hidden;

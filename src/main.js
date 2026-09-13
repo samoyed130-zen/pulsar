@@ -943,6 +943,9 @@
 
   /** @brief 走行パネルとリザルトの DOM 参照。 @private */
   var panelEl = null, distEl = null, goalEl = null, timeEl = null;
+
+  /** @brief 目標距離の桁数。走行距離もこの桁に揃える。 @private */
+  var goalDigits = 3;
   var countdownEl = null, countdownNumEl = null, bannerEl = null;
 
   /** @brief FPS を出す要素。 @private */
@@ -984,6 +987,24 @@
   }
 
   /**
+   * @brief 数を、頭に 0 を足して決まった桁数にする。
+   *
+   * 桁が変わるたびに文字数が増えると、その場で表示の幅も変わる。
+   * 走っている最中に数字の位置が動くと、目で追えなくなってしまう。
+   * 桁数を固定すれば、等幅の書体と合わせて位置が動かなくなる。
+   *
+   * @private
+   * @param {number} value 値（0 以上）
+   * @param {number} digits 桁数
+   * @returns {string} 頭を 0 で埋めた文字列
+   */
+  function padNumber(value, digits) {
+    var s = String(value);
+    while (s.length < digits) s = '0' + s;
+    return s;
+  }
+
+  /**
    * @brief スコア表示を更新する。
    *
    * Canvas ではなく DOM で出す理由: 数字は等幅で安定して読めた方がよく、
@@ -1006,7 +1027,9 @@
     var run = Math.floor(st.dist - st.stageStartDist);
     if (run < 0) run = 0;
     if (run !== shownDist) {
-      distEl.textContent = String(run);
+      // 目標と同じ桁数に揃える。桁が増えるたびに幅が変わると、
+      // 走っている最中に数字が横へずれて読み取れない。
+      distEl.textContent = padNumber(run, goalDigits);
       shownDist = run;
     }
 
@@ -1025,7 +1048,7 @@
     }
 
     if (st.combo !== shownCombo) {
-      comboValueEl.textContent = String(st.combo);
+      comboValueEl.textContent = padNumber(st.combo, 3);
       // 伸びた瞬間だけ弾ませる。次のフレームでクラスを外して再生し直せるようにする。
       if (st.combo > shownCombo) {
         comboValueEl.classList.remove('bump');
@@ -1618,7 +1641,10 @@
     timeEl = document.getElementById('scoreTime');
 
     // 目標の距離は変わらないので、一度だけ入れておく。
-    goalEl.textContent = String(global.PULSAR.game.CONFIG.stageDistance);
+    // その桁数が、走行距離を 0 で埋めるときの基準になる。
+    var goal = global.PULSAR.game.CONFIG.stageDistance;
+    goalEl.textContent = String(goal);
+    goalDigits = String(goal).length;
 
     stageValueEl = document.getElementById('stageValue');
     comboValueEl = document.getElementById('comboValue');
