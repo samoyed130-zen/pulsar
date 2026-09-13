@@ -339,8 +339,9 @@
       syncPauseButton();
     });
 
+    // HUD のボタンと同じ経路を通す。直接解除すると合図が省かれてしまう。
     document.getElementById('resumeBtn').addEventListener('click', function () {
-      PULSAR.app.setPaused('manual', false);
+      PULSAR.app.togglePause();
       syncPauseButton();
     });
 
