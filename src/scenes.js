@@ -286,7 +286,21 @@
     /** @brief 柱の位置（中心からの距離）。 */
     columnX: 1.78,
     /** @brief 描き始める手前の位置。これより近い部材は描かない。 */
-    nearZ: 0.6
+    nearZ: 0.6,
+    /**
+     * @brief 壁・床・天井を奥行き方向に何分割するか。
+     *
+     * 長い板のままだと、カメラに近づいたとき一部が背後へ回り込む。
+     * 頂点が1つでもカメラの後ろにあると面ごと描けず、そこが黒く抜ける。
+     * 短く割っておけば、抜けるのはカメラを通り過ぎた区画だけで済む。
+     */
+    segments: 3,
+    /**
+     * @brief この位置より手前に掛かる部材は描かない。
+     *
+     * カメラを跨ぐ面は正しく投影できないため、跨ぐ前に取り除く。
+     */
+    clipZ: 0.42
   };
 
   /**
@@ -328,6 +342,9 @@
    * @returns {void}
    */
   function addPart(x, y, z, sx, sy, sz, hue, metal, emissive) {
+    // カメラを跨ぐ部材は投影できず、面ごと消えて黒い穴になる。手前で切る。
+    if (z - sz < HALL.clipZ) return;
+
     var p = partPool[partCount];
     if (!p) {
       p = { pos: [0, 0, 0], size: [0, 0, 0] };
@@ -391,13 +408,23 @@
       var bend = hallBend(z, f.t);
       var half = HALL.period * 0.5;
 
-      // 左右の壁（区画ごとの板）
-      addPart(bend - hw, 0, z, 0.12, hh, half, HALL_HUE.wall, 0.35, false);
-      addPart(bend + hw, 0, z, 0.12, hh, half, HALL_HUE.wall, 0.35, false);
+      // 壁・床・天井は奥行きに長いので、短く割って並べる。
+      // カメラに掛かった区画だけが消えるようになり、黒い抜けが出にくい。
+      var segLen = HALL.period / HALL.segments;
+      var segHalf = segLen * 0.5;
 
-      // 床と天井
-      addPart(bend, hh, z, hw, 0.1, half, HALL_HUE.floor, 0.3, false);
-      addPart(bend, -hh, z, hw, 0.1, half, HALL_HUE.wall, 0.25, false);
+      for (var s = 0; s < HALL.segments; s++) {
+        var zs = z + (s - (HALL.segments - 1) * 0.5) * segLen;
+        var bs = hallBend(zs, f.t);
+
+        // 左右の壁
+        addPart(bs - hw, 0, zs, 0.12, hh, segHalf, HALL_HUE.wall, 0.35, false);
+        addPart(bs + hw, 0, zs, 0.12, hh, segHalf, HALL_HUE.wall, 0.35, false);
+
+        // 床と天井
+        addPart(bs, hh, zs, hw, 0.1, segHalf, HALL_HUE.floor, 0.3, false);
+        addPart(bs, -hh, zs, hw, 0.1, segHalf, HALL_HUE.wall, 0.25, false);
+      }
 
       // 柱。床から天井まで通す。金属らしさを最も強くする。
       addPart(bend - HALL.columnX, 0, z, 0.14, hh, 0.14, HALL_HUE.column, 0.95, false);
