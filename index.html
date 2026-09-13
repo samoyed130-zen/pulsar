@@ -31,10 +31,20 @@
 
 <div id="hud">
   <span class="brand">PULSAR</span>
+  <button id="pauseBtn" type="button">❙❙ 一時停止</button>
   <button id="helpBtn" type="button">あそびかた</button>
   <button id="bgBtn" type="button">背景 3D</button>
   <button id="soundBtn" type="button">♪ 音を出す</button>
-  <a class="link" href="test.html">TESTS</a>
+  <a class="link" href="test.html" target="_blank" rel="noopener">TESTS</a>
+</div>
+
+<!-- 一時停止中の表示。説明を開いているときは、その画面が兼ねるので出さない -->
+<div id="paused" hidden>
+  <div class="pausedInner">
+    <span class="pausedMark">❙❙</span>
+    <span class="pausedText">PAUSED</span>
+    <button id="resumeBtn" type="button">再開する</button>
+  </div>
 </div>
 
 <!--
@@ -207,8 +217,12 @@
       setTimeout(syncSoundButton, 60);
     });
 
-    // 画面に触れた時点でも音は起動する。その状態をボタンにも反映させる。
-    window.setInterval(syncSoundButton, 700);
+    // 画面に触れた時点でも音は起動し、タブを離れると自動で止まる。
+    // ボタン側から起きた変化ではないため、定期的に実状態へ合わせる。
+    window.setInterval(function () {
+      syncSoundButton();
+      syncPauseButton();
+    }, 700);
 
     var title = document.getElementById('title');
 
@@ -225,6 +239,25 @@
       startPlaying();
     });
     document.getElementById('startBtn').addEventListener('click', startPlaying);
+
+    var pauseBtn = document.getElementById('pauseBtn');
+
+    /** 一時停止ボタンの表示を状態に合わせる。 */
+    function syncPauseButton() {
+      var on = PULSAR.app.isPaused();
+      pauseBtn.textContent = on ? '▶ 再開' : '❙❙ 一時停止';
+      pauseBtn.classList.toggle('on', on);
+    }
+
+    pauseBtn.addEventListener('click', function () {
+      PULSAR.app.togglePause();
+      syncPauseButton();
+    });
+
+    document.getElementById('resumeBtn').addEventListener('click', function () {
+      PULSAR.app.setPaused('manual', false);
+      syncPauseButton();
+    });
 
     var bgBtn = document.getElementById('bgBtn');
 
@@ -249,12 +282,14 @@
     var helpBtn = document.getElementById('helpBtn');
 
     /**
-     * 説明の表示を切り替える。開いている間はデモを止めず、背後で流し続ける。
+     * 説明の表示を切り替える。開いている間はゲームを止める。
+     * 読んでいるあいだに持ち時間が減り続けるのは理不尽なため。
      * @param {boolean} open 開くなら true
      */
     function setHelp(open) {
       help.hidden = !open;
       helpBtn.classList.toggle('on', open);
+      PULSAR.app.setPaused('dialog', open);
     }
 
     helpBtn.addEventListener('click', function () { setHelp(help.hidden); });

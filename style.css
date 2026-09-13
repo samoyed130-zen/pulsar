@@ -365,6 +365,56 @@ body {
   line-height: 1.15;
 }
 
+/* --- 一時停止 ------------------------------------------------------ */
+
+#paused[hidden] { display: none; }
+
+#paused {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  display: grid;
+  place-items: center;
+  background: rgba(4, 5, 10, 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.pausedInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.pausedMark {
+  font-size: 34px;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+}
+
+.pausedText {
+  font-family: "Consolas", monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.4em;
+  color: rgba(223, 229, 247, 0.6);
+}
+
+#resumeBtn {
+  margin-top: 16px;
+  padding: 12px 28px;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  color: #04121c;
+  background: var(--accent);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+#resumeBtn:hover { background: #9ce2ff; }
+
 /* --- リザルト ------------------------------------------------------ */
 
 #result[hidden] { display: none; }

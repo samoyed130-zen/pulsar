@@ -94,6 +94,20 @@
   /** @brief 遊び始めた時刻 [s]（`clock` 基準）。操作案内の表示に使う。 @private */
   var startedAt = -999;
 
+  /**
+   * @brief 一時停止の理由ごとの状態。
+   *
+   * 「ボタンで止めた」「説明を開いた」「タブが隠れた」は別々に立つ。
+   * ひとつでも立っていれば止まり、すべて解除されたときだけ再開する。
+   * 1つの真偽値で管理すると、説明を閉じた拍子にボタンでの停止まで
+   * 解除されてしまう。
+   * @private
+   */
+  var pauseReasons = { manual: false, dialog: false, hidden: false };
+
+  /** @brief 一時停止に入る前、音が鳴っていたか。再開時に戻すため。 @private */
+  var soundWasOn = false;
+
   /** @brief グレア用の縮小バッファ。 @private */
   var glareBuf = null, glareCtx = null;
 
@@ -398,7 +412,7 @@
   var TAU_LOCAL = M.TAU;
 
   /** @brief 走行パネルとリザルトの DOM 参照。 @private */
-  var panelEl = null, distEl = null, bestEl = null, timeEl = null;
+  var panelEl = null, distEl = null, bestEl = null, timeEl = null, pausedEl = null;
   var comboValueEl = null, gaugeFillEl = null, layerEls = null;
   var resultEl = null;
 
@@ -512,6 +526,52 @@
   }
 
   /**
+   * @brief 今なにかの理由で止まっているか。
+   * @returns {boolean} 止まっていれば true
+   */
+  function isPaused() {
+    return pauseReasons.manual || pauseReasons.dialog || pauseReasons.hidden;
+  }
+
+  /**
+   * @brief 一時停止の状態を切り替える。
+   *
+   * 止まっている間は時計を進めず、描画もしない。Canvas は前の絵を
+   * 保持するため、画面はその瞬間で固まったように見える。
+   *
+   * @param {string} reason 理由 'manual' | 'dialog' | 'hidden'
+   * @param {boolean} on 止めるなら true
+   * @returns {void}
+   */
+  function setPaused(reason, on) {
+    var before = isPaused();
+    pauseReasons[reason] = !!on;
+    var after = isPaused();
+    if (before === after) return;
+
+    if (after) {
+      // 止めている間は音も止める。鳴り続けると止まった感じがしない。
+      soundWasOn = global.PULSAR.sound.isOn();
+      if (soundWasOn) global.PULSAR.sound.setMuted(true);
+    } else {
+      if (soundWasOn) global.PULSAR.sound.turnOn();
+      // 止まっていた時間を経過時間として数えないよう、時計を取り直す。
+      prevMs = 0;
+    }
+
+    if (pausedEl) pausedEl.hidden = !(after && !pauseReasons.dialog);
+  }
+
+  /**
+   * @brief ボタンによる一時停止を切り替える。
+   * @returns {boolean} 切り替え後に止まっているか
+   */
+  function togglePause() {
+    setPaused('manual', !pauseReasons.manual);
+    return pauseReasons.manual;
+  }
+
+  /**
    * @brief 遊び始める。タイトル画面から呼ばれる。
    * @returns {void}
    */
@@ -541,6 +601,14 @@
    * @returns {void}
    */
   function frame(ms) {
+    // 止まっている間は何も進めず、何も描かない。
+    // Canvas は前の絵を保ったままなので、その瞬間で固まって見える。
+    if (isPaused()) {
+      prevMs = 0;
+      global.requestAnimationFrame(frame);
+      return;
+    }
+
     // 初回とタブ復帰時に巨大な dt が入らないよう上限を設ける。
     var dt = prevMs ? Math.min((ms - prevMs) / 1000, 0.05) : 0;
     prevMs = ms;
@@ -694,6 +762,12 @@
     layerEls = document.getElementById('comboLayers').querySelectorAll('.layer');
 
     resultEl = document.getElementById('result');
+    pausedEl = document.getElementById('paused');
+
+    // タブが隠れている間は止める。戻ったときに時間だけ進んでいる事故を防ぐ。
+    document.addEventListener('visibilitychange', function () {
+      setPaused('hidden', document.hidden);
+    });
 
     resize();
     bindInput();
@@ -709,6 +783,9 @@
     boot: boot,
     impact: impact,
     startGame: startGame,
-    retry: retry
+    retry: retry,
+    setPaused: setPaused,
+    togglePause: togglePause,
+    isPaused: isPaused
   };
 })(typeof window !== 'undefined' ? window : this);
