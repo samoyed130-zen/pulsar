@@ -569,6 +569,58 @@
     });
   });
 
+  describe('操作の速さ', function () {
+    it('5段階が用意されている', function () {
+      expect(G.SENSITIVITY_STEPS.length).toBe(5);
+    });
+
+    it('段階は小さい順に並び、等倍を含む', function () {
+      var steps = G.SENSITIVITY_STEPS;
+      var hasOne = false;
+      for (var i = 0; i < steps.length; i++) {
+        if (steps[i] === 1) hasOne = true;
+        if (i > 0) expect(steps[i] > steps[i - 1]).toBeTrue();
+      }
+      expect(hasOne).toBeTrue();
+    });
+
+    it('選んだ段階が保たれる', function () {
+      G.setSensitivity(2);
+      expect(G.getSensitivity()).toBe(2);
+      G.setSensitivity(0.25);
+      expect(G.getSensitivity()).toBe(0.25);
+      G.setSensitivity(1);
+    });
+
+    it('範囲外を指定しても、最も近い段階に収まる', function () {
+      G.setSensitivity(99);
+      expect(G.getSensitivity()).toBe(4);
+      G.setSensitivity(-3);
+      expect(G.getSensitivity()).toBe(0.25);
+      G.setSensitivity(1);
+      expect(G.getSensitivity()).toBe(1);
+    });
+
+    it('速い段階ほど、同じ時間で目標へ近づく', function () {
+      var run = function (mult) {
+        G.reset();
+        G.setSensitivity(mult);
+        var f = makeFrame({ dt: 1 / 60 });
+        f.pointer.everTouched = true;
+        f.pointer.x = 400;
+        f.pointer.y = 100;          // 画面中心より上 = 目標角は上方向
+        G.state.angle = Math.PI / 2; // わざと反対側から始める
+        for (var i = 0; i < 20; i++) G.update(f);
+        return M.angleDist(G.state.angle, -Math.PI / 2);
+      };
+
+      var slow = run(0.25);
+      var fast = run(4);
+      expect(fast < slow).toBeTrue();
+      G.setSensitivity(1);
+    });
+  });
+
   describe('遊びやすさの条件', function () {
     it('どのステージでも、リングの間隔が 0.3 秒以上ある（反応する時間を残す）', function () {
       for (var s = 1; s <= G.CONFIG.stageCount; s++) {

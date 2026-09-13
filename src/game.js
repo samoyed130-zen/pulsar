@@ -97,6 +97,51 @@
   };
 
   /**
+   * @brief 自機の追従速度の倍率。遊ぶ人の好みで選べるようにする。
+   *
+   * 指を動かした量に対して自機がどれだけ機敏に追うか。
+   * 細かく狙いたい人は遅く、素早く振りたい人は速くする。
+   */
+  var SENSITIVITY_STEPS = [0.25, 0.5, 1, 2, 4];
+
+  /** @brief 現在の倍率。既定は等倍。 @private */
+  var sensitivity = 1;
+
+  /**
+   * @brief 追従速度の倍率を設定し、端末に覚えさせる。
+   * @param {number} v 倍率。用意した段階のいずれか
+   * @returns {void}
+   */
+  function setSensitivity(v) {
+    var best = SENSITIVITY_STEPS[0];
+    for (var i = 0; i < SENSITIVITY_STEPS.length; i++) {
+      // 指定された値に最も近い段階を選ぶ（範囲外でも壊れない）
+      if (Math.abs(SENSITIVITY_STEPS[i] - v) < Math.abs(best - v)) {
+        best = SENSITIVITY_STEPS[i];
+      }
+    }
+    sensitivity = best;
+
+    try {
+      global.localStorage.setItem('pulsar.sens', String(best));
+    } catch (e) { /* 保存できなくても遊べる */ }
+  }
+
+  /**
+   * @brief 現在の追従速度の倍率。
+   * @returns {number} 倍率
+   */
+  function getSensitivity() {
+    return sensitivity;
+  }
+
+  // 前回の選択を復元する。
+  try {
+    var saved = parseFloat(global.localStorage.getItem('pulsar.sens'));
+    if (!isNaN(saved)) setSensitivity(saved);
+  } catch (e) { /* 既定のまま */ }
+
+  /**
    * @brief ステージごとの難しさ。
    *
    * 段階を追って次のように変える:
@@ -426,8 +471,8 @@
   function decideTarget(f) {
     if (f.steer !== 0) {
       return {
-        target: M.wrapAngle(state.angle + f.steer * CONFIG.keyTurnRate * 0.25),
-        rate: CONFIG.manualRate
+        target: M.wrapAngle(state.angle + f.steer * CONFIG.keyTurnRate * 0.25 * sensitivity),
+        rate: CONFIG.manualRate * sensitivity
       };
     }
 
@@ -435,7 +480,10 @@
       var dx = f.pointer.x - f.W / 2;
       var dy = f.pointer.y - f.H / 2;
       if (dx * dx + dy * dy > 64) {
-        return { target: M.wrapAngle(Math.atan2(dy, dx)), rate: CONFIG.manualRate };
+        return {
+          target: M.wrapAngle(Math.atan2(dy, dx)),
+          rate: CONFIG.manualRate * sensitivity
+        };
       }
     }
 
@@ -723,6 +771,9 @@
     stageParams: stageParams,
     stageProgress: stageProgress,
     unlockedStage: unlockedStage,
+    SENSITIVITY_STEPS: SENSITIVITY_STEPS,
+    setSensitivity: setSensitivity,
+    getSensitivity: getSensitivity,
     advanceStage: advanceStage,
     completeGame: completeGame,
     goalReached: goalReached,

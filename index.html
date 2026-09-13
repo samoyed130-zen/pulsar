@@ -53,6 +53,7 @@
   <span class="brand">PULSAR</span>
   <button id="titleBtn" type="button">タイトルへ</button>
   <button id="pauseBtn" type="button">❙❙ 一時停止</button>
+  <button id="sensBtn" type="button">感度 ×1</button>
   <button id="helpBtn" type="button">あそびかた</button>
   <button id="bgBtn" type="button">背景 3D</button>
   <button id="soundBtn" type="button">♪ 音を出す</button>
@@ -199,6 +200,10 @@
         鳴らない場合は端末がマナーモードになっていないかご確認ください。
       </li>
       <li>
+        <strong>感度</strong> ボタンで、指の動きに対する自機の機敏さを
+        5段階（×1/4 〜 ×4）から選べます。細かく狙うなら遅く、素早く振るなら速く。
+      </li>
+      <li>
         <strong>背景 3D</strong> ボタンで、トンネルの立体背景を切り替えられます。
         1ピクセルずつ光線を進めて描いているため、動きが重い端末では切ってください。
       </li>
@@ -327,6 +332,29 @@
       PULSAR.app.setPaused('manual', false);
       syncPauseButton();
     });
+
+    // --- 操作の速さ（押すたびに段階が進む） ---
+
+    var sensBtn = document.getElementById('sensBtn');
+    var SENS_LABELS = { 0.25: '×1/4', 0.5: '×1/2', 1: '×1', 2: '×2', 4: '×4' };
+
+    /** ボタンの表示を今の段階に合わせる。 */
+    function syncSensButton() {
+      var now = PULSAR.game.getSensitivity();
+      sensBtn.textContent = '感度 ' + (SENS_LABELS[now] || ('×' + now));
+      // 等倍から外れているときだけ、設定を変えていることが分かるようにする
+      sensBtn.classList.toggle('on', now !== 1);
+    }
+
+    sensBtn.addEventListener('click', function () {
+      var steps = PULSAR.game.SENSITIVITY_STEPS;
+      var now = PULSAR.game.getSensitivity();
+      var i = steps.indexOf(now);
+      PULSAR.game.setSensitivity(steps[(i + 1) % steps.length]);
+      syncSensButton();
+    });
+
+    syncSensButton();
 
     var bgBtn = document.getElementById('bgBtn');
 
