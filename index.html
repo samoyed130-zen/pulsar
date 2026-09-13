@@ -757,6 +757,15 @@
         testsFrame.setAttribute('src', 'test.html');
       }
 
+      /*
+       * 開いている間は、作品側の音も止める。
+       *
+       * タイトルではデモを流したままにしているので、結果を読んでいる
+       * 最中も曲が鳴り続けてしまう。テストの結果を見に来た画面で
+       * 鳴らす理由はない。
+       */
+      PULSAR.sound.setSuspended(open);
+
       if (open) {
         menuEl.hidden = true;
         syncOverlayPause();

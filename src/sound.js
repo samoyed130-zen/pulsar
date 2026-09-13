@@ -132,6 +132,20 @@
   var muted = false;
 
   /**
+   * @brief そもそも音を出してよい場面か。
+   *
+   * 消音（`muted`）や一時停止（`suspended`）より外側の、最も強い歯止め。
+   * これを落とすと、どの経路から呼ばれても音声そのものを起こさない。
+   *
+   * テストのために用意している。テストは「音を出す」関数もそのまま
+   * 呼ぶため、作品の中にテストを埋め込んで走らせると、曲が二重に
+   * 鳴り出してしまう。消音では足りない（消音を解除する関数まで
+   * 試されるため）ので、起動そのものを禁じる必要がある。
+   * @private
+   */
+  var allowed = true;
+
+  /**
    * @brief 利用者が音を出したいと思っているか。
    *
    * 実際に鳴っているかとは別に持つ。スマートフォンでは、
@@ -568,6 +582,7 @@
    * @returns {boolean} 出してよいなら true
    */
   function canPlay() {
+    if (!allowed) return false;
     if (!wanted || muted || suspended) return false;
     // 見えていないページで鳴らさない。別のページを開いたつもりでも
     // 裏で鳴り続け、そちらの音と重なって聞こえてしまう。
@@ -582,8 +597,10 @@
   function start() {
     wanted = true;
 
-    // 見えていないページでは起こさない。テストのページのように
-    // 音を必要としない画面で、勝手に鳴り始めるのを防ぐ。
+    // 禁じられている場面（テストなど）では、音声そのものを作らない。
+    if (!allowed) return;
+
+    // 見えていないページでも起こさない。
     if (global.document && global.document.hidden) return;
 
     if (ac) {
@@ -636,6 +653,28 @@
     if (!master || !ac) return;
     var target = (muted || suspended) ? 0 : CONFIG.masterGain;
     master.gain.setTargetAtTime(target, ac.currentTime, 0.02);
+  }
+
+  /**
+   * @brief 音を出してよい場面かどうかを設定する。
+   *
+   * 落とすと、鳴っているものを止めたうえで、以後どの経路から呼ばれても
+   * 音声を起こさなくなる。テストを作品の中で走らせるときに使う。
+   *
+   * @param {boolean} v 出してよいなら true
+   * @returns {void}
+   */
+  function setAllowed(v) {
+    allowed = !!v;
+
+    if (!allowed) {
+      // すでに動いていれば、予約も音声も畳む
+      if (timer) { global.clearInterval(timer); timer = 0; }
+      if (ac) {
+        if (master) master.gain.value = 0;
+        if (ac.state === 'running') ac.suspend();
+      }
+    }
   }
 
   /**
@@ -752,6 +791,7 @@
     turnOn: turnOn,
     setMuted: setMuted,
     setSuspended: setSuspended,
+    setAllowed: setAllowed,
     toggleMute: toggleMute,
     keepAlive: keepAlive,
     isPlaying: isPlaying,

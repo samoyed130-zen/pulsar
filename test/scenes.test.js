@@ -320,16 +320,12 @@
       expect(S2.getIntensity()).toBeCloseTo(0.4);
     });
 
-    it('見えていないページでは音を起こさない', function () {
-      // 別のページを開いたのに裏で鳴り続けると、音が重なって聞こえる。
-      var real = window.document;
-      window.document = { hidden: true, addEventListener: function () {} };
-
+    it('禁じられている場面では、音を出す操作をしても鳴らない', function () {
+      // このテスト自体が、作品の中に埋め込まれて走ることがある。
+      // 「音を出す」関数を試した拍子に曲が鳴り出さないこと。
+      S2.setAllowed(false);
       S2.turnOn();
-      var playing = S2.isPlaying();
-
-      window.document = real;
-      expect(playing).toBeFalse();
+      expect(S2.isPlaying()).toBeFalse();
     });
 
     it('遅れの許容は先読みの幅で決まる', function () {
