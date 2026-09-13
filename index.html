@@ -476,7 +476,9 @@
      */
     function setConfirm(open) {
       confirmEl.hidden = !open;
-      PULSAR.app.setPaused('dialog', open);
+
+      if (open) PULSAR.app.setPaused('dialog', true);
+      else PULSAR.app.closeDialog();
     }
 
     titleBtn.addEventListener('click', function () {
@@ -516,7 +518,10 @@
     function setHelp(open) {
       help.hidden = !open;
       helpBtn.classList.toggle('on', open);
-      PULSAR.app.setPaused('dialog', open);
+
+      // 閉じるときは合図を挟んでから再開する（一時停止と扱いを揃える）
+      if (open) PULSAR.app.setPaused('dialog', true);
+      else PULSAR.app.closeDialog();
     }
 
     helpBtn.addEventListener('click', function () { setHelp(help.hidden); });

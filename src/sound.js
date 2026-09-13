@@ -144,6 +144,15 @@
   var wanted = true;
 
   /**
+   * @brief 作品側の都合で一時的に止めているか（一時停止・合図の最中）。
+   *
+   * 利用者の意思とは別に持つ。混ぜると、止まっている最中に
+   * 読み込み直しただけで設定が書き換わってしまう。
+   * @private
+   */
+  var suspended = false;
+
+  /**
    * @brief 音を出したいかどうかを端末に覚えさせる。
    * @private
    * @returns {void}
@@ -428,10 +437,35 @@
   function setMuted(v) {
     muted = !!v;
     if (muted) wanted = false;
-    if (master && ac) {
-      master.gain.setTargetAtTime(muted ? 0 : CONFIG.masterGain, ac.currentTime, 0.02);
-    }
+    applyGain();
     savePreference();
+  }
+
+  /**
+   * @brief 実際の音量を、今の状態に合わせて反映する。
+   * @private
+   * @returns {void}
+   */
+  function applyGain() {
+    if (!master || !ac) return;
+    var target = (muted || suspended) ? 0 : CONFIG.masterGain;
+    master.gain.setTargetAtTime(target, ac.currentTime, 0.02);
+  }
+
+  /**
+   * @brief 一時的に音を止める（一時停止・合図の最中など）。
+   *
+   * 利用者の意思（音を出したいかどうか）には触れない。ここで消音として
+   * 保存してしまうと、止まっている最中に読み込み直しただけで
+   * 「音なし」が既定になってしまう。
+   *
+   * @param {boolean} v 止めるなら true
+   * @returns {void}
+   */
+  function setSuspended(v) {
+    suspended = !!v;
+    applyGain();
+    if (!suspended && ac && ac.state === 'suspended') ac.resume();
   }
 
   /**
@@ -524,6 +558,7 @@
     start: start,
     turnOn: turnOn,
     setMuted: setMuted,
+    setSuspended: setSuspended,
     toggleMute: toggleMute,
     keepAlive: keepAlive,
     isPlaying: isPlaying,

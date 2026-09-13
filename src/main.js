@@ -143,9 +143,6 @@
     { text: 'START', ms: 450 }
   ];
 
-  /** @brief 一時停止に入る前、音が鳴っていたか。再開時に戻すため。 @private */
-  var soundWasOn = false;
-
   /** @brief グレア用の縮小バッファ。 @private */
   var glareBuf = null, glareCtx = null;
 
@@ -646,12 +643,11 @@
     var after = isPaused();
     if (before === after) return;
 
-    if (after) {
-      // 止めている間は音も止める。鳴り続けると止まった感じがしない。
-      soundWasOn = global.PULSAR.sound.isOn();
-      if (soundWasOn) global.PULSAR.sound.setMuted(true);
-    } else {
-      if (soundWasOn) global.PULSAR.sound.turnOn();
+    // 止めている間は音も止める。鳴り続けると止まった感じがしない。
+    // ただし「音を出したいか」という設定そのものは変えない。
+    global.PULSAR.sound.setSuspended(after);
+
+    if (!after) {
       // 止まっていた時間を経過時間として数えないよう、時計を取り直す。
       prevMs = 0;
     }
@@ -753,6 +749,21 @@
     global.clearTimeout(countdownTimer);
     if (countdownEl) countdownEl.hidden = true;
     setPaused('countdown', false);
+  }
+
+  /**
+   * @brief ダイアログを閉じて再開する。
+   *
+   * 走っている最中に開いた説明などを閉じたときは、いきなり動き出さず
+   * 合図を挟む。ボタンでの一時停止と扱いを揃える。
+   *
+   * @returns {void}
+   */
+  function closeDialog() {
+    setPaused('dialog', false);
+
+    var st = global.PULSAR.game.state;
+    if (st.started && !st.finished) startCountdown();
   }
 
   /**
@@ -1130,6 +1141,7 @@
     showAutoplay: showAutoplay,
     startCountdown: startCountdown,
     setPaused: setPaused,
+    closeDialog: closeDialog,
     togglePause: togglePause,
     isPaused: isPaused,
     isManualPaused: isManualPaused,

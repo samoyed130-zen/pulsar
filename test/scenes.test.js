@@ -249,6 +249,16 @@
       expect(S2.isOn()).toBeTrue();
     });
 
+    it('一時的な消音は、音を出したいという設定を変えない', function () {
+      // 一時停止や合図の最中に読み込み直しただけで
+      // 「音なし」が既定になってしまわないようにするため。
+      S2.turnOn();
+      S2.setSuspended(true);
+      expect(S2.isOn()).toBeTrue();
+      S2.setSuspended(false);
+      expect(S2.isOn()).toBeTrue();
+    });
+
     it('未起動の状態は「消音」として扱われる（ボタンが必ず起動側に働く）', function () {
       S2.setMuted(true);
       expect(S2.isMuted()).toBeTrue();
