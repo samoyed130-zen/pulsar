@@ -424,10 +424,20 @@
       expect(app.CONFIG.slowMs > 16.6).toBeTrue();
     });
 
-    it('元に戻す基準は持たない（往復を避けるため）', function () {
-      // 重い処理を止めて速くなった結果「戻せる」と判断すると、
-      // 戻した途端にまた遅くなる往復に陥る。落とすだけにしている。
-      expect(app.CONFIG.fastMs === undefined).toBeTrue();
+    it('戻す基準と落とす基準の間を大きく空ける', function () {
+      // 差が小さいと、落として速くなった結果「戻せる」と判断し、
+      // 戻した途端にまた遅くなる往復に陥る。
+      expect(app.CONFIG.fastMs < app.CONFIG.slowMs * 0.7).toBeTrue();
+    });
+
+    it('戻すほうが、落とすより慎重である', function () {
+      // 一瞬速いだけで戻すと、重い場面へ入るたびに行き来する。
+      expect(app.CONFIG.fastFramesToRestore > app.CONFIG.slowFramesToDrop).toBeTrue();
+    });
+
+    it('開き始めのフレームは判断に使わない', function () {
+      // 立ち上がりのもたつきで「遅い」と決めつけないこと
+      expect(app.CONFIG.warmupFrames > 0).toBeTrue();
     });
 
     it('彩度は持ち上げる（明るさと違い境目を作らないため）', function () {

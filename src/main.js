@@ -100,8 +100,26 @@
      * 明るい面から順に上限へ張り付き、面の境目が段差として見えてしまう。
      */
     softGlareLift: 0.1,
-    /** @brief この時間を超え続けたら描画を軽くする [ms]。戻すことはしない。 */
-    slowMs: 22
+    /** @brief この時間を超え続けたら描画を軽くする [ms]。 */
+    slowMs: 22,
+    /**
+     * @brief この時間を下回り続けたら、一度だけ描画を戻す [ms]。
+     *
+     * 落とす基準との差を大きく取っている。差が小さいと、落として速く
+     * なった結果「戻せる」と判断し、戻した途端にまた遅くなる往復に陥る。
+     */
+    fastMs: 12,
+    /** @brief 落とすまでに必要な、遅いフレームの連続数。 */
+    slowFramesToDrop: 45,
+    /** @brief 戻すまでに必要な、速いフレームの連続数（約5秒ぶん）。 */
+    fastFramesToRestore: 300,
+    /**
+     * @brief 測り始めるまでに見送るフレーム数。
+     *
+     * 開き始めは音声の初期化や各種の作り直しが重なり、本来の速さが
+     * 出ない。ここを数えると、動く端末でも「遅い」と誤判定してしまう。
+     */
+    warmupFrames: 120
   };
 
   /** @brief 表示用のキャンバスと文脈。 @private */
@@ -247,6 +265,21 @@
   /** @brief 段階を切り替えるまでの連続フレーム数。 @private */
   var slowFrames = 0;
 
+  /** @brief 戻す判断のための、速いフレームの連続数。 @private */
+  var fastFrames = 0;
+
+  /** @brief これまでに描いたフレーム数（測り始めの見送りに使う）。 @private */
+  var framesSeen = 0;
+
+  /**
+   * @brief 描画を戻した回数。
+   *
+   * 戻すのは一度だけにしている。落とす・戻すを繰り返せるようにすると、
+   * 境目あたりの端末で画面が行き来してちらついてしまう。
+   * @private
+   */
+  var restores = 0;
+
   /**
    * @brief Canvas のぼかしが極端に遅い環境か。
    *
@@ -273,17 +306,34 @@
   function tuneQuality(ms) {
     frameMs += (ms - frameMs) * 0.1;
 
-    // 落とすだけで、元には戻さない。
-    //
-    // 戻す仕組みを入れると、重い処理を止めて速くなった結果
-    // 「戻せる」と判断し、戻した途端にまた遅くなる往復に陥る。
-    // 一度落としたままの方が、画面がちらつかず快適に遊べる。
-    if (quality === 0) return;
+    // 開き始めの重さで判断しない。ここを数えると、十分に動く端末でも
+    // 立ち上がりのもたつきだけで「遅い」と決めつけてしまう。
+    if (framesSeen++ < CONFIG.warmupFrames) return;
+
+    if (quality === 0) {
+      // 戻すのは一度だけ。落とす・戻すを繰り返せるようにすると、
+      // 境目あたりの端末で画面が行き来してちらつく。
+      if (restores > 0) return;
+
+      if (frameMs < CONFIG.fastMs) {
+        fastFrames++;
+        if (fastFrames > CONFIG.fastFramesToRestore) {
+          quality = 1;
+          restores++;
+          slowFrames = 0;
+          resizeRaster();
+        }
+      } else {
+        fastFrames = 0;
+      }
+      return;
+    }
 
     if (frameMs > CONFIG.slowMs) {
       slowFrames++;
-      if (slowFrames > 45) {
+      if (slowFrames > CONFIG.slowFramesToDrop) {
         quality = 0;
+        fastFrames = 0;
         // 自前の塗りは解像度がそのまま負荷なので、粗いバッファへ作り直す
         resizeRaster();
       }
