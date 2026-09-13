@@ -173,7 +173,10 @@
   <div class="testsPanel" role="dialog" aria-modal="true" aria-labelledby="testsTitle">
     <h2 id="testsTitle">APIテスト</h2>
     <iframe id="testsFrame" title="単体テストの結果"></iframe>
-    <button id="testsClose" type="button">とじる</button>
+    <div class="testsFooter">
+      <button id="testsCopy" type="button">クリップボードにコピー</button>
+      <button id="testsClose" type="button">とじる</button>
+    </div>
   </div>
 </div>
 
@@ -590,6 +593,15 @@
       // 利用者が触れるものではない。
       if (open && PULSAR.app.isBusy()) return;
 
+      /*
+       * ボタンを押すのも利用者の操作なので、ここを音声を起こす機会にする。
+       *
+       * ブラウザは操作を起点にしないと音声を起こさせない。これまでは
+       * 絵に触れたときだけを起点にしていたため、メニューだけを触って
+       * いる間は無音のままだった。
+       */
+      PULSAR.sound.keepAlive();
+
       menuEl.hidden = !open;
       menuBtn.classList.toggle('on', open);
 
@@ -759,6 +771,9 @@
       testsEl.hidden = !open;
       testsBtn.classList.toggle('on', open);
 
+      // 押した操作を、音声を起こす機会として使う（setMenu と同じ理由）
+      PULSAR.sound.keepAlive();
+
       // 読み込むのは初めて開いたときだけ。開くたびに走らせ直すと、
       // 結果を眺めている最中に消えて出直すことになる。
       if (open && !testsFrame.getAttribute('src')) {
@@ -772,6 +787,60 @@
         setMenu(true);
       }
     }
+
+    var testsCopyBtn = document.getElementById('testsCopy');
+
+    /**
+     * 結果の文字を取り出す。
+     *
+     * 枠の中は同じ場所から読み込んだ文書なので、そのまま中身を読める。
+     * 読み込みが終わる前や、まだ開いたことがないときは空になる。
+     *
+     * @returns {string} 結果の文字（取り出せなければ空）
+     */
+    function testsText() {
+      try {
+        var doc = testsFrame.contentDocument;
+        return (doc && doc.body) ? doc.body.innerText : '';
+      } catch (e) {
+        return '';
+      }
+    }
+
+    testsCopyBtn.addEventListener('click', function () {
+      var text = testsText();
+      if (!text) return;
+
+      /** 押した手応えを、ボタンの表記そのもので返す。 */
+      function done(ok) {
+        testsCopyBtn.textContent = ok ? 'コピーしました' : 'コピーできません';
+        window.setTimeout(function () {
+          testsCopyBtn.textContent = 'クリップボードにコピー';
+        }, 1600);
+      }
+
+      // 新しい書き込み方が使えない環境（古い端末や http のページ）もあるため、
+      // 選択して複写する昔ながらの方法を控えに置く。
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done(true); },
+                                                 function () { done(false); });
+        return;
+      }
+
+      var area = document.createElement('textarea');
+      area.value = text;
+      // 画面の外へ置く。見えるところに出すと、一瞬ちらついてしまう。
+      area.style.position = 'fixed';
+      area.style.left = '-9999px';
+      document.body.appendChild(area);
+      area.select();
+
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+
+      document.body.removeChild(area);
+      done(ok);
+    });
 
     testsBtn.addEventListener('click', function () { setTests(true); });
     document.getElementById('testsClose').addEventListener('click', function () { setTests(false); });

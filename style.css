@@ -595,9 +595,15 @@ body.on-title #panel { display: none; }
   background: var(--bg);
 }
 
-#testsClose {
-  align-self: center;
-  padding: 11px 30px;
+.testsFooter {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.testsFooter button {
+  padding: 11px 22px;
   font-family: inherit;
   font-size: 13px;
   letter-spacing: 0.1em;
@@ -608,7 +614,7 @@ body.on-title #panel { display: none; }
   cursor: pointer;
 }
 
-#testsClose:hover { border-color: var(--accent); }
+.testsFooter button:hover { border-color: var(--accent); }
 
 /* 設定を変えていることが一目で分かるようにする */
 .menuList button.on {
