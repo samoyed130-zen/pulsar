@@ -251,6 +251,15 @@
   ];
 
   /**
+   * @brief ステージの頭で READY を見せている時間 [ms]。
+   *
+   * 番号を添えているぶん、読むものが1行増えている。続きに戻るときと
+   * 同じ長さだと、ステージ名を読み終える前に数え始めてしまう。
+   * @private
+   */
+  var READY_STAGE_MS = 2000;
+
+  /**
    * @brief 自前ラスタライザの描画先。
    *
    * `ImageData` の中身をそのまま画素配列として扱い、描き終えてから
@@ -1257,7 +1266,8 @@
       setPaused('countdown', false);
     };
 
-    countdownTimer = global.setTimeout(step, COUNT_STEPS[0].ms);
+    // ステージの頭だけ、最初の一枚を長く見せる（番号を読む間を取る）
+    countdownTimer = global.setTimeout(step, head ? READY_STAGE_MS : COUNT_STEPS[0].ms);
   }
 
   /**
