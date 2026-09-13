@@ -25,6 +25,20 @@
     beatZoom: 0.016,
     /** @brief 低解像度バッファの横幅 [px]。プラズマ等はここへ描いて拡大する。 */
     bufferWidth: 160,
+    /**
+     * @brief 自前ラスタライザで描くときの横幅 [px]。
+     *
+     * 1画素ずつ塗るので、この値の2乗で処理時間が効いてくる。
+     * 直線の階段が目立たない下限を探した結果の値。
+     */
+    rasterWidth: 560,
+    /**
+     * @brief 描画が追いついていないときの、ラスタライザの横幅 [px]。
+     *
+     * 塗りをやめるのではなく粗くする。1画素ずつ塗る方式はブラウザによる
+     * 速度差がほとんどないので、遅い環境でこそ頼りになる経路になる。
+     */
+    rasterWidthLow: 380,
     /** @brief 画面の対角がこれ未満なら描画量を落とす（スマートフォン想定）。 */
     lightModeDiagonal: 900,
     /** @brief 触れたときに飛ぶ先のシーン名。作品の主張そのもの。 */
@@ -86,8 +100,26 @@
      * 明るい面から順に上限へ張り付き、面の境目が段差として見えてしまう。
      */
     softGlareLift: 0.1,
-    /** @brief この時間を超え続けたら描画を軽くする [ms]。戻すことはしない。 */
-    slowMs: 22
+    /** @brief この時間を超え続けたら描画を軽くする [ms]。 */
+    slowMs: 22,
+    /**
+     * @brief この時間を下回り続けたら、一度だけ描画を戻す [ms]。
+     *
+     * 落とす基準との差を大きく取っている。差が小さいと、落として速く
+     * なった結果「戻せる」と判断し、戻した途端にまた遅くなる往復に陥る。
+     */
+    fastMs: 12,
+    /** @brief 落とすまでに必要な、遅いフレームの連続数。 */
+    slowFramesToDrop: 45,
+    /** @brief 戻すまでに必要な、速いフレームの連続数（約5秒ぶん）。 */
+    fastFramesToRestore: 300,
+    /**
+     * @brief 測り始めるまでに見送るフレーム数。
+     *
+     * 開き始めは音声の初期化や各種の作り直しが重なり、本来の速さが
+     * 出ない。ここを数えると、動く端末でも「遅い」と誤判定してしまう。
+     */
+    warmupFrames: 120
   };
 
   /** @brief 表示用のキャンバスと文脈。 @private */
@@ -190,6 +222,15 @@
     { text: 'START', ms: 450 }
   ];
 
+  /**
+   * @brief 自前ラスタライザの描画先。
+   *
+   * `ImageData` の中身をそのまま画素配列として扱い、描き終えてから
+   * 画面へ引き伸ばす。画素数が処理時間そのものなので、画面より粗くする。
+   * @private
+   */
+  var rasterCanvas = null, rasterCtx = null, rasterImg = null, rasterBuf = null;
+
   /** @brief グレア用の縮小バッファ。 @private */
   var glareBuf = null, glareCtx = null;
 
@@ -224,6 +265,21 @@
   /** @brief 段階を切り替えるまでの連続フレーム数。 @private */
   var slowFrames = 0;
 
+  /** @brief 戻す判断のための、速いフレームの連続数。 @private */
+  var fastFrames = 0;
+
+  /** @brief これまでに描いたフレーム数（測り始めの見送りに使う）。 @private */
+  var framesSeen = 0;
+
+  /**
+   * @brief 描画を戻した回数。
+   *
+   * 戻すのは一度だけにしている。落とす・戻すを繰り返せるようにすると、
+   * 境目あたりの端末で画面が行き来してちらついてしまう。
+   * @private
+   */
+  var restores = 0;
+
   /**
    * @brief Canvas のぼかしが極端に遅い環境か。
    *
@@ -250,16 +306,37 @@
   function tuneQuality(ms) {
     frameMs += (ms - frameMs) * 0.1;
 
-    // 落とすだけで、元には戻さない。
-    //
-    // 戻す仕組みを入れると、重い処理を止めて速くなった結果
-    // 「戻せる」と判断し、戻した途端にまた遅くなる往復に陥る。
-    // 一度落としたままの方が、画面がちらつかず快適に遊べる。
-    if (quality === 0) return;
+    // 開き始めの重さで判断しない。ここを数えると、十分に動く端末でも
+    // 立ち上がりのもたつきだけで「遅い」と決めつけてしまう。
+    if (framesSeen++ < CONFIG.warmupFrames) return;
+
+    if (quality === 0) {
+      // 戻すのは一度だけ。落とす・戻すを繰り返せるようにすると、
+      // 境目あたりの端末で画面が行き来してちらつく。
+      if (restores > 0) return;
+
+      if (frameMs < CONFIG.fastMs) {
+        fastFrames++;
+        if (fastFrames > CONFIG.fastFramesToRestore) {
+          quality = 1;
+          restores++;
+          slowFrames = 0;
+          resizeRaster();
+        }
+      } else {
+        fastFrames = 0;
+      }
+      return;
+    }
 
     if (frameMs > CONFIG.slowMs) {
       slowFrames++;
-      if (slowFrames > 45) quality = 0;
+      if (slowFrames > CONFIG.slowFramesToDrop) {
+        quality = 0;
+        fastFrames = 0;
+        // 自前の塗りは解像度がそのまま負荷なので、粗いバッファへ作り直す
+        resizeRaster();
+      }
     } else {
       slowFrames = 0;
     }
@@ -440,8 +517,49 @@
     buf.width = CONFIG.bufferWidth;
     buf.height = Math.max(1, Math.round(CONFIG.bufferWidth * H / Math.max(1, W)));
 
+    resizeRaster();
+
     ctx.fillStyle = '#04050a';
     ctx.fillRect(0, 0, W, H);
+  }
+
+  /**
+   * @brief 自前ラスタライザ用のバッファを画面の縦横比に合わせて作り直す。
+   *
+   * 幅は固定で、高さだけを比率から決める。画素数が処理時間に直結するので、
+   * 画面が大きくなっても描く量が増えないようにするためで、拡大したときに
+   * 縦横が歪まないようにするためでもある。
+   *
+   * @private
+   * @returns {void}
+   */
+  function resizeRaster() {
+    if (!rasterCtx) return;
+
+    var rw = quality === 0 ? CONFIG.rasterWidthLow : CONFIG.rasterWidth;
+    var rh = Math.max(1, Math.round(rw * H / Math.max(1, W)));
+    if (rasterBuf && rasterBuf.w === rw && rasterBuf.h === rh) return;
+
+    rasterCanvas.width = rw;
+    rasterCanvas.height = rh;
+    rasterImg = rasterCtx.createImageData(rw, rh);
+    rasterBuf = global.PULSAR.raster.createBuffer(rw, rh, rasterImg);
+  }
+
+  /**
+   * @brief ラスタライザのバッファを画面いっぱいに引き伸ばして重ねる。
+   *
+   * 描かれなかった画素は透明なので、背景の残像はそのまま残る。
+   *
+   * @private
+   * @returns {void}
+   */
+  function blitRaster() {
+    if (!rasterBuf) return;
+
+    rasterCtx.putImageData(rasterImg, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(rasterCanvas, 0, 0, W, H);
   }
 
   /**
@@ -517,11 +635,25 @@
       if (e.key === 'ArrowRight') keys.right = false;
     });
 
-    var t = null;
-    global.addEventListener('resize', function () {
+    // 画面の大きさが変わったら作り直す。
+    //
+    // 回した直後は、まだ古い大きさを返す端末がある。1回だけだと縦向きの
+    // ままの絵が横向きの画面に残ってしまうため、少し置いてもう一度測る。
+    var t = null, t2 = null;
+    function scheduleResize() {
       clearTimeout(t);
+      clearTimeout(t2);
       t = setTimeout(resize, 150);
-    });
+      t2 = setTimeout(resize, 600);
+    }
+
+    global.addEventListener('resize', scheduleResize);
+    global.addEventListener('orientationchange', scheduleResize);
+
+    // 端末によっては、ブラウザの枠の出入りがこちらにしか通知されない
+    if (global.visualViewport) {
+      global.visualViewport.addEventListener('resize', scheduleResize);
+    }
   }
 
   /**
@@ -1156,6 +1288,9 @@
       guideIntro: fadeOutHint(),
       // 描画が追いついていないときは、シーン側も手を抜く
       quality: quality,
+      // 自前ラスタライザの描画先と、それを画面へ出す手段
+      rasterBuf: rasterBuf,
+      rasterBlit: blitRaster,
       // 疑似グレアでは色も明るさも沈むので、塗る側で補う
       satBoost: slowFilter ? CONFIG.softGlareSat : 1,
       lightLift: slowFilter ? CONFIG.softGlareLift : 0,
@@ -1304,6 +1439,9 @@
     buf = document.createElement('canvas');
     bufCtx = buf.getContext('2d', { willReadFrequently: true });
 
+    rasterCanvas = document.createElement('canvas');
+    rasterCtx = rasterCanvas.getContext('2d');
+
     glareBuf = document.createElement('canvas');
     glareCtx = glareBuf.getContext('2d');
     glareTmp = document.createElement('canvas');
@@ -1376,6 +1514,23 @@
   }
 
   /**
+   * @brief 今の描画の状態を返す（調整用）。
+   *
+   * ブラウザごとの速度差を追うには、実際にかかっている時間を見るのが
+   * いちばん早い。開発者コンソールから `PULSAR.app.stats()` で確認する。
+   *
+   * @returns {Object} フレーム時間 [ms]、品質の段階、ラスタライザの解像度
+   */
+  function stats() {
+    return {
+      frameMs: frameMs,
+      quality: quality,
+      rasterWidth: rasterBuf ? rasterBuf.w : 0,
+      smooth: global.PULSAR.scenes.isSmooth()
+    };
+  }
+
+  /**
    * @brief 外部へ公開する窓口。
    *
    * `onShortcut` はキー入力を受け取る差し込み口で、`index.html` 側が
@@ -1395,6 +1550,7 @@
     isPaused: isPaused,
     isManualPaused: isManualPaused,
     isBusy: isBusy,
+    stats: stats,
     onShortcut: null
   };
 

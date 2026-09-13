@@ -79,7 +79,14 @@
      *
      * 近さの2乗に掛かる。遠くでは細い線のまま、くぐる直前だけ太くなる。
      */
-    ringNearThickness: 6.5,
+    ringNearThickness: 5.2,
+    /**
+     * @brief 線の太さの基準となる画面の短辺 [px]。
+     *
+     * これより小さい画面では、太さもその比で細くする。輪の半径は画面に
+     * 比例するのに太さだけ据え置くと、小さい画面で輪が潰れて見える。
+     */
+    ringRefSize: 800,
     /** @brief コンボゲージが満タンになる連続通過数。 */
     comboForMax: 20,
     /** @brief 1つのステージの持ち時間 [s]。 */
@@ -761,6 +768,34 @@
   }
 
   /**
+   * @brief 線の太さや自機の大きさを、画面の大きさに合わせる倍率。
+   *
+   * リングの半径は画面に比例して小さくなるのに、線の太さを固定にすると
+   * 小さい画面では輪が塗り潰れたように見えてしまう。
+   *
+   * @param {number} minSide 画面の短辺 [px]
+   * @returns {number} 倍率 [0.45..1]
+   */
+  function thinScale(minSide) {
+    return M.clamp(minSide / CONFIG.ringRefSize, 0.45, 1);
+  }
+
+  /**
+   * @brief リングの線の太さを求める。
+   *
+   * 手前ほど太くする。近さの2乗の項を足すことで、遠くでは細い線のまま、
+   * くぐる直前だけ急に太くなる。奥行きが線の太さからも読み取れる。
+   *
+   * @param {number} near 近さ [0..1]。1 がカメラの位置
+   * @param {number} minSide 画面の短辺 [px]
+   * @returns {number} 線の太さ [px]
+   */
+  function ringLineWidth(near, minSide) {
+    return (1.2 + near * 2.8 + near * near * CONFIG.ringNearThickness) *
+           CONFIG.ringThickness * thinScale(minSide);
+  }
+
+  /**
    * @brief トンネルと自機を描く。
    * @param {Object} f フレーム文脈
    * @returns {void}
@@ -770,6 +805,8 @@
     var cx = f.W / 2;
     var cy = f.H / 2;
     var focal = Math.min(f.W, f.H) * CONFIG.focal;
+
+    var thin = thinScale(Math.min(f.W, f.H));
 
     // 奥から手前へ描くことで、近いリングが上に重なる。
     var sorted = state.rings.slice().sort(function (a, b) { return b.z - a.z; });
@@ -795,10 +832,7 @@
 
       var start = r.gap + state.params.gapWidth * 0.5;
       var end = r.gap - state.params.gapWidth * 0.5 + TAU;
-      // 手前ほど太くする。近さの2乗の項を足すことで、遠くでは細い線のまま、
-      // くぐる直前だけ急に太くなる。奥行きが線の太さからも読み取れる。
-      var width = (1.2 + near * 2.8 + near * near * CONFIG.ringNearThickness) *
-                  CONFIG.ringThickness;
+      var width = ringLineWidth(near, Math.min(f.W, f.H));
 
       // 太い線の下に、さらに広がる淡い線を敷いて厚みを出す。
       c.strokeStyle = M.hsl(hue, 90, 50, alpha * 0.35);
@@ -814,8 +848,8 @@
       c.stroke();
     }
 
-    drawGuide(f, cx, cy, focal);
-    drawShip(f, cx, cy, focal);
+    drawGuide(f, cx, cy, focal, thin);
+    drawShip(f, cx, cy, focal, thin);
   }
 
   /**
@@ -829,9 +863,10 @@
    * @param {number} cx 画面中心 x
    * @param {number} cy 画面中心 y
    * @param {number} focal 焦点距離
+   * @param {number} thin 線の太さの倍率（小さい画面ほど細くする）
    * @returns {void}
    */
-  function drawGuide(f, cx, cy, focal) {
+  function drawGuide(f, cx, cy, focal, thin) {
     // 常時表示のときは濃く、切っているときは走り始めの案内だけ。
     // 目標へ滑らかに近づけることで、消えかけている最中に切り替えても
     // そこから自然に濃くなる（跳ねない）。
@@ -850,14 +885,14 @@
     // 下地の太い輪と、その上に破線。太さがあると「この線の上を動く」と
     // 分かりやすく、リングと重なる瞬間も掴みやすい。
     c.strokeStyle = 'rgba(150,200,255,' + (a * 0.10).toFixed(3) + ')';
-    c.lineWidth = 9;
+    c.lineWidth = 9 * thin;
     c.beginPath();
     c.arc(cx, cy, radius, 0, TAU);
     c.stroke();
 
     c.strokeStyle = 'rgba(170,215,255,' + (a * 0.34).toFixed(3) + ')';
-    c.lineWidth = 3.5;
-    c.setLineDash([10, 12]);
+    c.lineWidth = 3.5 * thin;
+    c.setLineDash([10 * thin, 12 * thin]);
     c.beginPath();
     c.arc(cx, cy, radius, 0, TAU);
     c.stroke();
@@ -874,9 +909,10 @@
    * @param {number} cx 画面中心 x
    * @param {number} cy 画面中心 y
    * @param {number} focal 焦点距離
+   * @param {number} thin 大きさの倍率（小さい画面ほど小さくする）
    * @returns {void}
    */
-  function drawShip(f, cx, cy, focal) {
+  function drawShip(f, cx, cy, focal, thin) {
     var c = f.ctx;
     var radius = cursorRadius(focal);
     var x = cx + Math.cos(state.angle) * radius;
@@ -885,7 +921,9 @@
     // 衝突直後は赤く点滅させ、何が起きたかを一目で分かるようにする。
     var hurt = M.clamp(1 - state.sinceHit * 2.2, 0, 1);
     var hue = M.lerp(f.hue + 150, 0, hurt);
-    var size = 14 + f.kick * 6;
+    // 自機も画面の大きさに合わせる。輪だけ細くすると、今度は自機が
+    // 輪からはみ出して見える。
+    var size = (14 + f.kick * 6) * thin;
 
     c.save();
     c.globalCompositeOperation = 'lighter';
@@ -893,7 +931,7 @@
     // 自機の軌跡。円周上をどう動いたかが短く残り、動かしている実感を与える。
     // 長く引くと円周をなぞる輪に見えてしまい、操作の案内と紛らわしい。
     c.strokeStyle = M.hsl(hue, 100, 65, 0.16);
-    c.lineWidth = 2;
+    c.lineWidth = 2 * thin;
     c.beginPath();
     c.arc(cx, cy, radius, state.angle - 0.2, state.angle);
     c.stroke();
@@ -941,6 +979,7 @@
     gauge: gauge,
     ringRadius: ringRadius,
     cursorRadius: cursorRadius,
+    ringLineWidth: ringLineWidth,
     stageParams: stageParams,
     stageProgress: stageProgress,
     unlockedStage: unlockedStage,
