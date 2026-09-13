@@ -689,7 +689,10 @@
 
     // 絵ができた直後にグレアを重ねる。UI の文字までにじませないよう、
     // スコアや案内を描く前にかける。
-    drawGlare(CONFIG.glare * (0.75 + kick * 0.45));
+    // 場面ごとの倍率で調整する。画面全体が明るい場面に同じ強さで掛けると、
+    // 光が全面に回って白く飛び、何が映っているのか分からなくなる。
+    var glareScale = (scene.glare === undefined) ? 1 : scene.glare;
+    drawGlare(CONFIG.glare * glareScale * (0.75 + kick * 0.45));
 
     var playable = scene.name === CONFIG.playableScene;
     drawPrompt(f, playable);

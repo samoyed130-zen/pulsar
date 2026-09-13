@@ -101,7 +101,8 @@
    * @returns {void}
    */
   function drawStarfield(f) {
-    fadeCanvas(f, 0.28);
+    // 残像を短くする。長いと線が重なり続け、加算合成で画面全体が白く飽和する。
+    fadeCanvas(f, 0.42);
 
     var c = f.ctx;
     var cx = f.W / 2;
@@ -128,8 +129,11 @@
       var py = cy + s.y * focal / prevZ;
 
       var near = M.clamp(1 - s.z, 0, 1);
-      c.strokeStyle = M.hsl(f.hue + near * 90, 85, 60 + near * 35, 0.25 + near * 0.75);
-      c.lineWidth = 0.6 + near * 2.4;
+
+      // 手前の星だけを明るくする。全部を明るくすると画面が白く埋まる。
+      var bright = near * near;
+      c.strokeStyle = M.hsl(f.hue + 200 + near * 60, 80, 34 + bright * 44, 0.16 + bright * 0.7);
+      c.lineWidth = 0.5 + bright * 2.2;
       c.beginPath();
       c.moveTo(px, py);
       c.lineTo(x, y);
@@ -648,13 +652,18 @@
 
   /**
    * @brief 再生順。`duration` は秒。合計すると1周の長さになる。
-   * @type {Array<{name: string, duration: number, transition: string, draw: Function}>}
+   *
+   * `glare` はその場面でのグレアの強さの倍率。画面全体が明るい場面では
+   * グレアが乗ると白く飛んでしまうため、場面ごとに抑える。
+   *
+   * @type {Array<{name: string, duration: number, transition: string,
+   *               glare: number, draw: Function}>}
    */
   var timeline = [
-    { name: 'starfield', duration: 9,  transition: 'flash',  draw: drawStarfield },
-    { name: 'plasma',    duration: 8,  transition: 'wipe',   draw: drawPlasma },
-    { name: 'tunnel',    duration: 16, transition: 'flash',  draw: drawTunnel },
-    { name: 'metaballs', duration: 8,  transition: 'blinds', draw: drawMetaballs }
+    { name: 'starfield', duration: 9,  transition: 'flash',  glare: 0.45, draw: drawStarfield },
+    { name: 'plasma',    duration: 8,  transition: 'wipe',   glare: 0.35, draw: drawPlasma },
+    { name: 'tunnel',    duration: 16, transition: 'flash',  glare: 1,    draw: drawTunnel },
+    { name: 'metaballs', duration: 8,  transition: 'blinds', glare: 0.4,  draw: drawMetaballs }
   ];
 
   global.PULSAR.scenes = {

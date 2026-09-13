@@ -42,6 +42,23 @@
       }
     });
 
+    it('全シーンにグレアの倍率があり、0〜1 に収まる', function () {
+      for (var i = 0; i < S.timeline.length; i++) {
+        var g = S.timeline[i].glare;
+        expect(typeof g).toBe('number');
+        expect(g >= 0 && g <= 1).toBeTrue();
+      }
+    });
+
+    it('画面全体が明るい場面ではグレアを抑えている', function () {
+      // 全面に光が回ると白く飛んでしまうため
+      var byName = {};
+      for (var i = 0; i < S.timeline.length; i++) byName[S.timeline[i].name] = S.timeline[i];
+      expect(byName.plasma.glare < byName.tunnel.glare).toBeTrue();
+      expect(byName.starfield.glare < byName.tunnel.glare).toBeTrue();
+      expect(byName.metaballs.glare < byName.tunnel.glare).toBeTrue();
+    });
+
     it('遷移の種類は実装済みのものだけ', function () {
       var known = { flash: true, wipe: true, blinds: true };
       for (var i = 0; i < S.timeline.length; i++) {
