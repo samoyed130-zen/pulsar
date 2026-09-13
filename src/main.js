@@ -41,10 +41,8 @@
     glareBlur: 5,
     /** @brief グレアに使う縮小率。小さいほど軽く、光が大きく広がる。 */
     glareScale: 0.25,
-    /** @brief この時間を超え続けたら描画を軽くする [ms]。 */
-    slowMs: 22,
-    /** @brief この時間を下回り続けたら元に戻す [ms]。 */
-    fastMs: 13
+    /** @brief この時間を超え続けたら描画を軽くする [ms]。戻すことはしない。 */
+    slowMs: 22
   };
 
   /** @brief 表示用のキャンバスと文脈。 @private */
@@ -170,7 +168,21 @@
   var quality = 1;
 
   /** @brief 段階を切り替えるまでの連続フレーム数。 @private */
-  var slowFrames = 0, fastFrames = 0;
+  var slowFrames = 0;
+
+  /**
+   * @brief Canvas のぼかしが極端に遅い環境か。
+   *
+   * Firefox は `filter` の処理が他より桁で遅く、これを使うだけで
+   * 処理落ちする。実測に任せると、止めた途端に速くなって元へ戻し、
+   * また遅くなる……という往復に陥るため、最初から使わない。
+   *
+   * 将来 Firefox が速くなれば、この判定を外せばよい。
+   * @private
+   */
+  var slowFilter = /firefox/i.test(
+    (global.navigator && global.navigator.userAgent) || ''
+  );
 
   /**
    * @brief 実測に基づいて描画の重さを上下させる。
@@ -184,14 +196,18 @@
   function tuneQuality(ms) {
     frameMs += (ms - frameMs) * 0.1;
 
+    // 落とすだけで、元には戻さない。
+    //
+    // 戻す仕組みを入れると、重い処理を止めて速くなった結果
+    // 「戻せる」と判断し、戻した途端にまた遅くなる往復に陥る。
+    // 一度落としたままの方が、画面がちらつかず快適に遊べる。
+    if (quality === 0) return;
+
     if (frameMs > CONFIG.slowMs) {
       slowFrames++;
-      fastFrames = 0;
-      if (slowFrames > 45) { quality = 0; slowFrames = 0; }
-    } else if (frameMs < CONFIG.fastMs) {
-      fastFrames++;
+      if (slowFrames > 45) quality = 0;
+    } else {
       slowFrames = 0;
-      if (fastFrames > 240) { quality = 1; fastFrames = 0; }
     }
   }
 
@@ -1030,7 +1046,7 @@
     //
     // 描画が追いついていないときも止める。画面の縮小コピーとぼかしは
     // この作品でいちばん重く、しかも実装によって速度が桁で違う。
-    var glareScale = (global.PULSAR.scenes.isRaymarch() && quality > 0)
+    var glareScale = (global.PULSAR.scenes.isRaymarch() && quality > 0 && !slowFilter)
       ? ((scene.glare === undefined) ? 1 : scene.glare)
       : 0;
     drawGlare(CONFIG.glare * glareScale * (0.75 + kick * 0.45));

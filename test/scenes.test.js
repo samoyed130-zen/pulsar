@@ -329,17 +329,15 @@
   describe('描画の重さの調整', function () {
     var app = window.PULSAR.app;
 
-    it('落とす基準は、戻す基準より緩い（行き来しないように）', function () {
-      expect(app.CONFIG.slowMs > app.CONFIG.fastMs).toBeTrue();
-    });
-
     it('落とす基準は 60fps の枠より大きい', function () {
       // 16.6ms を少し超えた程度で落とすと、一瞬の重さで画質が変わってしまう
       expect(app.CONFIG.slowMs > 16.6).toBeTrue();
     });
 
-    it('戻す基準は 60fps の枠に収まっている', function () {
-      expect(app.CONFIG.fastMs < 16.6).toBeTrue();
+    it('元に戻す基準は持たない（往復を避けるため）', function () {
+      // 重い処理を止めて速くなった結果「戻せる」と判断すると、
+      // 戻した途端にまた遅くなる往復に陥る。落とすだけにしている。
+      expect(app.CONFIG.fastMs === undefined).toBeTrue();
     });
   });
 
