@@ -436,7 +436,14 @@ body.on-title #panel { display: none; }
 
 .statValue.gain { animation: timeGain 0.6s ease-out; }
 
-/* コンボだけは勢いを示す役なので、色を持たせてゲージを添える */
+/*
+ * コンボだけは勢いを示す役なので、色を持たせてゲージを添える。
+ *
+ * 見出しと数字の間は他より広げる。数字が光っているぶん字面が詰まって
+ * 見え、同じ間隔でも狭く感じるため。
+ */
+.comboStat { gap: calc(var(--gap-ui) * 1.1); }
+
 .comboStat .statValue {
   text-align: right;
   color: var(--accent);

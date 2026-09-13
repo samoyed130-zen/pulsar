@@ -15,7 +15,7 @@
 
   見た目や動きを直したら、この番号を1つ進めること。
 -->
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 
@@ -87,6 +87,8 @@
       <button id="bgBtn" type="button">背景 あり</button>
       <button id="smoothBtn" type="button">なめらか あり</button>
       <button id="soundBtn" type="button">♪ 音 あり</button>
+      <!-- 対応していない端末（iPhone など）では、起動時に隠す -->
+      <button id="fullBtn" type="button" hidden>フルスクリーン なし</button>
       <button id="helpBtn" type="button">あそびかた</button>
       <button id="softGlareBtn" type="button">疑似グレア固定 なし</button>
       <button id="fpsBtn" type="button">FPS表示 なし</button>
@@ -237,6 +239,7 @@
         <tr><th>M</th><td>音のオン・オフ</td></tr>
         <tr><th>B</th><td>立体背景のオン・オフ</td></tr>
         <tr><th>R</th><td>なめらかな塗りのオン・オフ</td></tr>
+        <tr><th>F</th><td>フルスクリーンの切り替え</td></tr>
         <tr><th>S</th><td>感度を次の段階へ</td></tr>
         <tr><th>T</th><td>タイトルへ戻る（確認あり）</td></tr>
         <tr><th>1〜6</th><td>タイトルで、そのステージから開始</td></tr>
@@ -301,14 +304,14 @@
   <p class="noscript">この作品は JavaScript で描画しています。有効にしてご覧ください。</p>
 </noscript>
 
-<script src="src/store.js?v=7"></script>
-<script src="src/mathx.js?v=7"></script>
-<script src="src/raster.js?v=7"></script>
-<script src="src/mesh3d.js?v=7"></script>
-<script src="src/sound.js?v=7"></script>
-<script src="src/game.js?v=7"></script>
-<script src="src/scenes.js?v=7"></script>
-<script src="src/main.js?v=7"></script>
+<script src="src/store.js?v=8"></script>
+<script src="src/mathx.js?v=8"></script>
+<script src="src/raster.js?v=8"></script>
+<script src="src/mesh3d.js?v=8"></script>
+<script src="src/sound.js?v=8"></script>
+<script src="src/game.js?v=8"></script>
+<script src="src/scenes.js?v=8"></script>
+<script src="src/main.js?v=8"></script>
 <script>
   // 読み込み順に依存するため、起動はここで1度だけ行う。
   PULSAR.app.boot();
@@ -460,6 +463,8 @@
       if (k === 'm') { soundBtn.click(); return true; }
       if (k === 'b') { bgBtn.click(); return true; }
       if (k === 'r') { smoothBtn.click(); return true; }
+      // 対応していない端末では、ボタン自体を隠してある
+      if (k === 'f' && !fullBtn.hidden) { fullBtn.click(); return true; }
       if (k === 's') { sensBtn.click(); return true; }
 
       // メニューの開閉。走行中はこれが一時停止を兼ねる。
@@ -550,6 +555,58 @@
       PULSAR.app.requestRender();
     });
     syncSmoothButton();
+
+    // --- フルスクリーン ---
+
+    var fullBtn = document.getElementById('fullBtn');
+
+    /**
+     * この端末でフルスクリーンにできるか。
+     *
+     * iPhone の Safari は動画にしか対応していないため、関数そのものが無い。
+     * 押しても何も起きないボタンは、壊れているようにしか見えないので出さない。
+     */
+    function canFullscreen() {
+      var el = document.documentElement;
+      return !!(el.requestFullscreen || el.webkitRequestFullscreen);
+    }
+
+    /** 今フルスクリーンか。 */
+    function isFullscreen() {
+      return !!(document.fullscreenElement || document.webkitFullscreenElement);
+    }
+
+    /** ボタンの表記を今の状態に合わせる。 */
+    function syncFullButton() {
+      var on = isFullscreen();
+      fullBtn.textContent = on ? 'フルスクリーン あり' : 'フルスクリーン なし';
+      fullBtn.classList.toggle('on', on);
+    }
+
+    if (canFullscreen()) {
+      fullBtn.hidden = false;
+
+      fullBtn.addEventListener('click', function () {
+        var el = document.documentElement;
+
+        if (isFullscreen()) {
+          if (document.exitFullscreen) document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        } else if (el.requestFullscreen) {
+          // 断られることがある（設定で禁じている場合など）。
+          // 受け取らないと「未処理の拒否」として記録が汚れる。
+          var p = el.requestFullscreen();
+          if (p && p.catch) p.catch(function () {});
+        } else {
+          el.webkitRequestFullscreen();
+        }
+      });
+
+      // Esc や F11 でも状態は変わる。ボタンの表記はそちらにも追従させる。
+      document.addEventListener('fullscreenchange', syncFullButton);
+      document.addEventListener('webkitfullscreenchange', syncFullButton);
+      syncFullButton();
+    }
 
     // --- 疑似グレアの固定（ぼかしを使わない経路を見比べるため） ---
 
@@ -810,7 +867,7 @@
       // 結果を眺めている最中に消えて出直すことになる。
       if (open && !testsFrame.getAttribute('src')) {
         // 版番号は作品側と揃える（古いまま読み込まれるのを避ける）
-        testsFrame.setAttribute('src', 'test.html?v=7');
+        testsFrame.setAttribute('src', 'test.html?v=8');
       }
 
       if (open) {
