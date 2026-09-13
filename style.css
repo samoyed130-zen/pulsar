@@ -145,6 +145,36 @@ body.on-title #panel { display: none; }
   border-color: var(--accent);
 }
 
+/*
+ * 画面に出ている唯一の入口なので、他のボタンより強く見せる。
+ * 設定にも一時停止にもここからしか行けないため、控えめだと
+ * 「どこを押せばいいのか」で迷わせてしまう。
+ */
+#menuBtn {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  padding: 10px 20px;
+  color: var(--accent);
+  background: rgba(122, 214, 255, 0.12);
+  border-color: rgba(122, 214, 255, 0.55);
+  /* ほのかに光らせて、絵の上でも沈まないようにする */
+  box-shadow: 0 0 18px rgba(122, 214, 255, 0.22);
+}
+
+#menuBtn:hover {
+  color: #04121c;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* 開いている間は、押すと閉じる側であることを見た目でも示す */
+#menuBtn.on {
+  color: #04121c;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 #hud button.on {
   color: var(--accent);
   border-color: var(--accent);
@@ -1070,6 +1100,8 @@ body.on-title #titleBtn { display: none; }
   }
   #hud { gap: 6px; }
   #hud button { padding: 6px 9px; font-size: 10px; }
+  /* 狭い画面でも、唯一の入口だけは指で押せる大きさを保つ */
+  #menuBtn { padding: 9px 16px; font-size: 12px; }
 
   #panel {
     padding: 8px 10px 9px;
@@ -1122,4 +1154,5 @@ body.on-title #titleBtn { display: none; }
   }
   #hud { justify-content: flex-end; }
   #hud button { padding: 6px 8px; font-size: 9px; letter-spacing: 0.04em; }
+  #menuBtn { padding: 9px 15px; font-size: 12px; letter-spacing: 0.1em; }
 }
