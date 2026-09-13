@@ -227,6 +227,34 @@
     });
   });
 
+  describe('残像の濃さ', function () {
+    /*
+     * 残像は「1秒あたりどれだけ消えるか」で決める。毎フレーム同じ濃さで
+     * 黒を重ねると、更新の速い端末ほど尾が短く（暗く）なってしまう。
+     */
+
+    /** fadeCanvas と同じ式。刻みに応じた実際の濃さを返す。 */
+    function fadeAlpha(amount, dt) {
+      return 1 - Math.pow(1 - amount, dt * 60);
+    }
+
+    it('60回/秒のときは指定した濃さのまま', function () {
+      expect(fadeAlpha(0.42, 1 / 60)).toBeCloseTo(0.42);
+    });
+
+    it('刻みが粗いほど濃く重ねる（尾の長さを保つため）', function () {
+      expect(fadeAlpha(0.42, 1 / 30) > fadeAlpha(0.42, 1 / 60)).toBeTrue();
+      expect(fadeAlpha(0.42, 1 / 120) < fadeAlpha(0.42, 1 / 60)).toBeTrue();
+    });
+
+    it('1秒あたりの残り方が刻みによらない', function () {
+      // 60回と120回で1秒ぶん重ねたとき、残る割合が一致すること
+      var a = Math.pow(1 - fadeAlpha(0.42, 1 / 60), 60);
+      var b = Math.pow(1 - fadeAlpha(0.42, 1 / 120), 120);
+      expect(Math.abs(a - b) < 1e-9).toBeTrue();
+    });
+  });
+
   describe('ソフトウェアラスタライザ', function () {
     var R = window.PULSAR.raster;
 

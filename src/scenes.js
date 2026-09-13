@@ -56,8 +56,21 @@
    * @returns {void}
    */
   function fadeCanvas(f, amount) {
+    /*
+     * 濃さは「60回/秒で重ねたとき」を基準にし、実際の刻みへ合わせ直す。
+     *
+     * 毎フレーム同じ濃さで黒を重ねると、尾の長さが更新の速さで変わる。
+     * 速い端末では重ねる回数が増えて尾が短く（=暗く）なり、遅い端末では
+     * 逆に伸びる。1秒あたりの減り方を揃えれば、どちらでも同じに見える。
+     *
+     * 残る割合は (1 - amount) の掛け算なので、経過時間ぶんの累乗になる。
+     */
+    var steps = (f.dt || 1 / 60) * 60;
+    var keep = Math.pow(1 - amount, steps);
+    var a = M.clamp(1 - keep, 0, 1);
+
     f.ctx.globalCompositeOperation = 'source-over';
-    f.ctx.fillStyle = 'rgba(4,5,10,' + amount.toFixed(3) + ')';
+    f.ctx.fillStyle = 'rgba(4,5,10,' + a.toFixed(3) + ')';
     f.ctx.fillRect(0, 0, f.W, f.H);
   }
 
@@ -139,11 +152,18 @@
 
       var near = M.clamp(1 - s.z, 0, 1);
 
-      // 手前の星だけを明るくする。全部を明るくすると画面が白く埋まる。
-      var bright = near * near;
-      c.strokeStyle = M.hsl(f.hue * 0.25 + 205 + near * 55, 80, 34 + bright * 44,
-                            0.16 + bright * 0.7);
-      c.lineWidth = 0.5 + bright * 2.2;
+      /*
+       * 手前の星ほど明るくする。全部を同じ明るさにすると奥行きが消え、
+       * 画面が白く埋まってしまう。
+       *
+       * ただし落とし方を急にしすぎると、遠い星が沈んで数えるほどしか
+       * 見えなくなる。2乗では強すぎたので、少し緩やかにしたうえで
+       * 底上げしている。
+       */
+      var bright = near * Math.sqrt(near);
+      c.strokeStyle = M.hsl(f.hue * 0.25 + 205 + near * 55, 80, 48 + bright * 38,
+                            0.34 + bright * 0.62);
+      c.lineWidth = 0.9 + bright * 2.4;
       c.beginPath();
       c.moveTo(px, py);
       c.lineTo(x, y);
