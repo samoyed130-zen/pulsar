@@ -333,12 +333,24 @@
    * `width`/`height` は通路の大きさの倍率、`period` は柱の間隔の倍率。
    */
   var STAGE_LOOK = [
-    { hue:   0, sat: 30, light: 190, width: 1.00, height: 1.00, period: 1.00 },
-    { hue:  52, sat: 44, light: 142, width: 1.20, height: 0.86, period: 1.25 },
-    { hue: 108, sat: 52, light:  86, width: 0.84, height: 1.22, period: 0.78 },
-    { hue: 168, sat: 46, light:  36, width: 1.28, height: 1.10, period: 1.45 },
-    { hue: 232, sat: 58, light:   6, width: 0.80, height: 0.84, period: 0.70 },
-    { hue: 292, sat: 64, light: 318, width: 1.10, height: 1.30, period: 1.10 }
+    // 1: 素直な通路。何もない状態を基準として見せる
+    { hue:   0, sat: 30, light: 190, width: 1.00, height: 1.00, period: 1.00,
+      feature: 'none' },
+    // 2: 天井から箱が吊り下がる
+    { hue:  52, sat: 44, light: 142, width: 1.20, height: 0.86, period: 1.25,
+      feature: 'hanging' },
+    // 3: 壁に斜めの筋交いが入る
+    { hue: 108, sat: 52, light:  86, width: 0.84, height: 1.22, period: 0.78,
+      feature: 'brace' },
+    // 4: 床から低い台がせり出す
+    { hue: 168, sat: 46, light:  36, width: 1.28, height: 1.10, period: 1.45,
+      feature: 'podium' },
+    // 5: 壁が細かい縦のひだで覆われる
+    { hue: 232, sat: 58, light:   6, width: 0.80, height: 0.84, period: 0.70,
+      feature: 'fins' },
+    // 6: 通路そのものを角ばった枠がくぐらせる
+    { hue: 292, sat: 64, light: 318, width: 1.10, height: 1.30, period: 1.10,
+      feature: 'gate' }
   ];
 
   /**
@@ -381,7 +393,7 @@
    * @param {boolean} emissive 自ら光るか
    * @returns {void}
    */
-  function addPart(x, y, z, sx, sy, sz, hue, metal, emissive) {
+  function addPart(x, y, z, sx, sy, sz, hue, metal, emissive, rx, ry) {
     var nearEdge = z - sz;
 
     if (nearEdge < HALL.clipZ) {
@@ -410,6 +422,8 @@
     p.hue = hue;
     p.metal = metal;
     p.emissive = emissive;
+    p.rx = rx || 0;
+    p.ry = ry || 0;
     p.depth = z;
     parts.push(p);
   }
@@ -423,6 +437,71 @@
    */
   function hallBend(z, t) {
     return Math.sin(z * 0.22 + t * 0.25) * 0.55;
+  }
+
+  /**
+   * @brief ステージ固有の構造物を1区画ぶん足す。
+   *
+   * 通路の骨格（壁・床・柱・梁）だけでは、色を変えても同じ場所に見える。
+   * 形そのものが変わる要素をステージごとに1種類ずつ加えることで、
+   * 別の建物へ入ったと分かるようにする。
+   *
+   * @private
+   * @param {Object} f フレーム文脈
+   * @param {Object} look ステージの見た目
+   * @param {number} bend この区画の横ずれ
+   * @param {number} z 区画の奥行き位置
+   * @param {number} hw 通路の半幅
+   * @param {number} hh 通路の半分の高さ
+   * @param {number} half 区画の奥行きの半分
+   * @param {number} index 手前から数えた区画の番号
+   * @returns {void}
+   */
+  function addFeature(f, look, bend, z, hw, hh, half, index) {
+    var hue = HALL_HUE.beam;
+    var k;
+
+    if (look.feature === 'hanging') {
+      // 天井から下がる箱。区画ごとに長さを変えて、規則的すぎないようにする。
+      var drop = hh * (0.34 + 0.22 * Math.sin(index * 1.7 + f.t * 0.4));
+      addPart(bend, -hh + drop, z, hw * 0.18, drop, 0.18, hue, 0.9, false);
+
+    } else if (look.feature === 'brace') {
+      // 壁の斜めの筋交い。箱を回して斜めにする。
+      for (k = -1; k <= 1; k += 2) {
+        addPart(bend + k * hw * 0.82, 0, z,
+                0.09, hh * 0.95, 0.09, HALL_HUE.column, 0.95, false,
+                0, k * 0.55);
+      }
+
+    } else if (look.feature === 'podium') {
+      // 床からせり出す低い台。走行面に段差の連なりを作る。
+      for (k = -1; k <= 1; k += 2) {
+        addPart(bend + k * hw * 0.5, hh * 0.82, z,
+                hw * 0.22, hh * 0.18, half * 0.55, HALL_HUE.floor, 0.6, false);
+      }
+
+    } else if (look.feature === 'fins') {
+      // 壁を覆う細かい縦のひだ。密度で圧迫感を出す。
+      var fins = f.light ? 2 : 4;
+      for (var n = 0; n < fins; n++) {
+        var t = (n + 0.5) / fins;
+        var fz = z - half + half * 2 * t;
+        for (k = -1; k <= 1; k += 2) {
+          addPart(bend + k * hw * 0.93, 0, fz,
+                  0.05, hh * 0.8, 0.05, HALL_HUE.wall, 0.8, false);
+        }
+      }
+
+    } else if (look.feature === 'gate') {
+      // 通路を区切る角ばった枠。くぐるたびに区画が数えられる。
+      var frame = 0.12;
+      addPart(bend, -hh * 0.55, z, hw * 0.78, frame, frame, hue, 1, false);
+      addPart(bend, hh * 0.55, z, hw * 0.78, frame, frame, hue, 1, false);
+      for (k = -1; k <= 1; k += 2) {
+        addPart(bend + k * hw * 0.78, 0, z, frame, hh * 0.55, frame, hue, 1, false);
+      }
+    }
   }
 
   /**
@@ -501,6 +580,8 @@
       // 照明帯。等間隔に流れることで、通路の長さと自分の速さが分かる。
       addPart(bend - hw * 0.9, hh * 0.1, z, 0.05, 0.05, half * 0.62, look.light, 0, true);
       addPart(bend + hw * 0.9, hh * 0.1, z, 0.05, 0.05, half * 0.62, look.light, 0, true);
+
+      addFeature(f, look, bend, z, hw, hh, half, i);
     }
 
     // 奥の部材から描く。これで前後関係が正しくなる。
@@ -518,8 +599,8 @@
       mesh3d.drawMesh(c, mesh3d.CUBE, {
         pos: p.pos,
         scale: p.size,
-        rx: 0,
-        ry: 0,
+        rx: p.rx,
+        ry: p.ry,
         focal: focal,
         cx: cx,
         cy: cy,
@@ -557,10 +638,15 @@
   var SOLIDS = {
     /** @brief 立体の大きさ。 */
     scale: 0.19,
-    /** @brief 立体の色相 [deg]。建造物と補色の関係にして、拾う対象だと分かるようにする。 */
-    hue: 42,
-    /** @brief 立体の種類。`game` 側が持つ番号で選ぶ。 */
-    shapes: null
+    /**
+     * @brief 色相が一周する速さ [deg/s]。
+     *
+     * 拾う対象は建造物と別の存在だと一目で分かる必要がある。
+     * 建造物が同系色でまとまっているぶん、こちらは虹色に回して対比させる。
+     */
+    hueSpeed: 70,
+    /** @brief 奥行き1つぶんあたりの色相のずれ [deg]。列が虹の帯に見える。 */
+    hueByDepth: 26
   };
 
   /**
@@ -577,10 +663,6 @@
   function drawSolids(f) {
     var mesh3d = global.PULSAR.mesh3d;
     var game = global.PULSAR.game;
-
-    if (!SOLIDS.shapes) {
-      SOLIDS.shapes = [mesh3d.OCTAHEDRON, mesh3d.CUBE, mesh3d.TETRAHEDRON];
-    }
 
     var c = f.ctx;
     var cx = f.W / 2;
@@ -608,7 +690,10 @@
       // 奥ほど薄く。手前の立体だけが主張するようにする。
       var alpha = M.clamp(1.3 - it.z / game.CONFIG.farZ, 0.15, 1);
 
-      mesh3d.drawMesh(c, SOLIDS.shapes[it.kind], {
+      // 色相を時間と奥行きで回す。列全体が虹の帯として流れて見える。
+      var hue = (f.t * SOLIDS.hueSpeed + it.z * SOLIDS.hueByDepth) % 360;
+
+      mesh3d.drawMesh(c, mesh3d.CUBE, {
         pos: pos,
         scale: SOLIDS.scale * (1 + f.kick * 0.18),
         rx: f.t * 1.1 + it.z,
@@ -616,7 +701,7 @@
         focal: focal,
         cx: cx,
         cy: cy,
-        hue: SOLIDS.hue,
+        hue: hue,
         sat: 95,
         metal: 0.5,
         // 拾う対象だと一目で分かるよう、自ら光らせて背景から浮かせる
@@ -843,6 +928,7 @@
   global.PULSAR.scenes = {
     timeline: timeline,
     HALL: HALL,
+    STAGE_LOOK: STAGE_LOOK,
     setRaymarch: setRaymarch,
     isRaymarch: isRaymarch,
     SCROLL_TEXT: SCROLL_TEXT,

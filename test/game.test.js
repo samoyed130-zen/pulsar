@@ -312,11 +312,11 @@
       }
     });
 
-    it('立体の種類は3種のいずれか', function () {
+    it('立体はまだ取られていない状態で並ぶ', function () {
       G.reset();
       for (var i = 0; i < G.state.items.length; i++) {
-        var k = G.state.items[i].kind;
-        expect(k === 0 || k === 1 || k === 2).toBeTrue();
+        expect(G.state.items[i].taken).toBeFalse();
+        expect(G.state.items[i].judged).toBeFalse();
       }
     });
 

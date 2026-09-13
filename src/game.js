@@ -239,7 +239,7 @@
    *
    * @private
    * @param {number} z 生成位置の奥行き
-   * @returns {{z: number, angle: number, kind: number, judged: boolean, taken: boolean}}
+   * @returns {{z: number, angle: number, judged: boolean, taken: boolean}}
    */
   function makeItem(z) {
     var near = null;
@@ -252,7 +252,6 @@
     return {
       z: z,
       angle: M.wrapAngle(base + (Math.random() - 0.5) * 1.2),
-      kind: Math.floor(Math.random() * 3),
       judged: false,
       taken: false
     };
@@ -551,7 +550,6 @@
         var fresh = makeItem(farthest);
         it.z = fresh.z;
         it.angle = fresh.angle;
-        it.kind = fresh.kind;
         it.judged = false;
         it.taken = false;
       }

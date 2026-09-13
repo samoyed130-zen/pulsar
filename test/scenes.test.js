@@ -148,6 +148,36 @@
       expect(S.HALL.nearZ > 0).toBeTrue();
     });
 
+    it('ステージの数だけ背景の見た目が用意されている', function () {
+      expect(S.STAGE_LOOK.length).toBe(window.PULSAR.game.CONFIG.stageCount);
+    });
+
+    it('ステージごとに構造物の種類が違う（同じ場所に見えない）', function () {
+      var seen = {};
+      for (var i = 0; i < S.STAGE_LOOK.length; i++) {
+        var key = S.STAGE_LOOK[i].feature;
+        expect(typeof key).toBe('string');
+        expect(seen[key] === undefined).toBeTrue();
+        seen[key] = true;
+      }
+    });
+
+    it('ステージごとに色相が十分に離れている', function () {
+      for (var i = 1; i < S.STAGE_LOOK.length; i++) {
+        var d = Math.abs(S.STAGE_LOOK[i].hue - S.STAGE_LOOK[i - 1].hue);
+        expect(d >= 30).toBeTrue();
+      }
+    });
+
+    it('通路の寸法はどのステージでも妥当な範囲に収まる', function () {
+      for (var i = 0; i < S.STAGE_LOOK.length; i++) {
+        var k = S.STAGE_LOOK[i];
+        expect(k.width > 0.5 && k.width < 2).toBeTrue();
+        expect(k.height > 0.5 && k.height < 2).toBeTrue();
+        expect(k.period > 0.5 && k.period < 2).toBeTrue();
+      }
+    });
+
     it('背景の有無を切り替えられる', function () {
       var before = S.isRaymarch();
       S.setRaymarch(false);
