@@ -328,6 +328,44 @@
   /** @brief 円周。`mathx` の TAU をローカルに束縛して参照を短くする。 @private */
   var TAU_LOCAL = M.TAU;
 
+  /** @brief スコア表示の DOM 参照。 @private */
+  var scoreEl = null, distEl = null, bestEl = null, speedEl = null;
+
+  /** @brief 直前に描いたスコア。同じ値なら DOM を触らない。 @private */
+  var shownDist = -1, shownBest = -1, shownSpeed = '';
+
+  /**
+   * @brief スコア表示を更新する。
+   *
+   * Canvas ではなく DOM で出す理由: 数字は等幅で安定して読めた方がよく、
+   * 拡大や画面の揺れの影響も受けない方が読みやすいため。
+   *
+   * @private
+   * @param {boolean} visible 表示するか
+   * @returns {void}
+   */
+  function updateScore(visible) {
+    if (!scoreEl) return;
+    var st = global.PULSAR.game.state;
+
+    scoreEl.classList.toggle('hidden', !visible);
+    if (!visible) return;
+
+    if (st.score !== shownDist) {
+      distEl.textContent = String(st.score);
+      shownDist = st.score;
+    }
+    if (st.best !== shownBest) {
+      bestEl.textContent = String(st.best);
+      shownBest = st.best;
+    }
+    var sp = st.speed.toFixed(1);
+    if (sp !== shownSpeed) {
+      speedEl.textContent = sp;
+      shownSpeed = sp;
+    }
+  }
+
   /**
    * @brief 1フレーム描画する。
    * @private
@@ -400,7 +438,10 @@
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    drawPrompt(f, scene.name === CONFIG.playableScene);
+    var playable = scene.name === CONFIG.playableScene;
+    drawPrompt(f, playable);
+    // 操作区間にいる間と、遊んだ直後だけ出す。他の場面では絵を優先する。
+    updateScore(playable || engaged);
 
     if (hitFlash > 0.002) {
       ctx.fillStyle = 'rgba(255,60,80,' + (hitFlash * 0.5).toFixed(3) + ')';
@@ -425,6 +466,11 @@
 
     buf = document.createElement('canvas');
     bufCtx = buf.getContext('2d', { willReadFrequently: true });
+
+    scoreEl = document.getElementById('score');
+    distEl = document.getElementById('scoreDist');
+    bestEl = document.getElementById('scoreBest');
+    speedEl = document.getElementById('scoreSpeed');
 
     resize();
     bindInput();

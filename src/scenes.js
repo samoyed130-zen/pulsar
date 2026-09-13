@@ -257,8 +257,7 @@
     var game = global.PULSAR.game;
     game.update(f);
     game.draw(f);
-    game.drawScore(f);
-    // 操作方法の案内は main.js の drawPrompt が一括して担当する。
+    // スコア表示と操作案内は main.js が DOM 側でまとめて担当する。
   }
 
   // -----------------------------------------------------------------

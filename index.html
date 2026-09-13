@@ -18,8 +18,71 @@
 
 <div id="hud">
   <span class="brand">PULSAR</span>
+  <button id="helpBtn" type="button">あそびかた</button>
   <button id="soundBtn" type="button">♪ 音を出す</button>
   <a class="link" href="test.html">TESTS</a>
+</div>
+
+<!-- 走行スコア。操作区間に入ると現れる -->
+<div id="score" class="hidden" aria-live="off">
+  <div class="scoreRow">
+    <span class="scoreLabel">DISTANCE</span>
+    <span class="scoreValue" id="scoreDist">0</span>
+  </div>
+  <div class="scoreRow sub">
+    <span class="scoreLabel">BEST</span>
+    <span class="scoreValue" id="scoreBest">0</span>
+  </div>
+  <div class="scoreRow sub">
+    <span class="scoreLabel">SPEED</span>
+    <span class="scoreValue" id="scoreSpeed">0.0</span>
+  </div>
+</div>
+
+<!-- 操作説明。あそびかたボタンから開く -->
+<div id="help" hidden>
+  <div class="helpPanel" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <h2 id="helpTitle">あそびかた</h2>
+
+    <p class="helpLead">
+      これは自動で流れ続けるデモです。<strong>画面に触れると、そのままゲームになります。</strong>
+    </p>
+
+    <h3>操作</h3>
+    <table class="helpTable">
+      <tbody>
+        <tr>
+          <th>画面をなぞる</th>
+          <td>指（またはマウス）の向きへ自機が回り込みます。トンネルの中心から見た方向がそのまま自機の位置です。</td>
+        </tr>
+        <tr>
+          <th>← →キー</th>
+          <td>自機を左右に回します。キーボードでも遊べます。</td>
+        </tr>
+        <tr>
+          <th>触れずに待つ</th>
+          <td>自動操縦に戻り、デモとして流れ続けます。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>ルール</h3>
+    <ul class="helpList">
+      <li>迫ってくるリングには<strong>切れ目</strong>があります。そこを通り抜けてください。</li>
+      <li>進むほど加速し、リングの間隔が詰まって見えます。</li>
+      <li>ぶつかっても<strong>終わりません</strong>。画面が赤く弾けて減速し、そのまま走り続けます。</li>
+      <li>スコアは走った距離です。ベスト記録はこの端末に保存されます。</li>
+    </ul>
+
+    <h3>デモについて</h3>
+    <ul class="helpList">
+      <li>5つの場面が約53秒で一周します。触れるといつでもトンネルへ飛びます。</li>
+      <li>音は右上のボタンから。音源ファイルは使わず、その場で合成しています。</li>
+      <li>外部ライブラリは一切使っていません。Canvas 2D と Web Audio のみです。</li>
+    </ul>
+
+    <button id="helpClose" type="button">とじる</button>
+  </div>
 </div>
 
 <noscript>
@@ -37,19 +100,40 @@
 
   (function () {
     'use strict';
-    var btn = document.getElementById('soundBtn');
 
-    btn.addEventListener('click', function () {
+    var soundBtn = document.getElementById('soundBtn');
+    soundBtn.addEventListener('click', function () {
       if (!PULSAR.sound.isPlaying()) {
         PULSAR.sound.start();
         // 起動直後は suspended のことがあるため、状態ではなく操作で表示を決める。
-        btn.textContent = '♪ 音を止める';
-        btn.classList.add('on');
+        soundBtn.textContent = '♪ 音を止める';
+        soundBtn.classList.add('on');
       } else {
         PULSAR.sound.toggleMute();
-        btn.textContent = '♪ 音を出す';
-        btn.classList.remove('on');
+        soundBtn.textContent = '♪ 音を出す';
+        soundBtn.classList.remove('on');
       }
+    });
+
+    var help = document.getElementById('help');
+    var helpBtn = document.getElementById('helpBtn');
+
+    /**
+     * 説明の表示を切り替える。開いている間はデモを止めず、背後で流し続ける。
+     * @param {boolean} open 開くなら true
+     */
+    function setHelp(open) {
+      help.hidden = !open;
+      helpBtn.classList.toggle('on', open);
+    }
+
+    helpBtn.addEventListener('click', function () { setHelp(help.hidden); });
+    document.getElementById('helpClose').addEventListener('click', function () { setHelp(false); });
+    help.addEventListener('click', function (e) {
+      if (e.target === help) setHelp(false);
+    });
+    window.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') setHelp(false);
     });
   })();
 </script>

@@ -124,6 +124,161 @@ body {
   border-color: var(--accent);
 }
 
+/* --- スコア -------------------------------------------------------- */
+
+#score {
+  position: fixed;
+  right: var(--pad);
+  bottom: max(16px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(4, 5, 10, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-family: "Consolas", "SF Mono", monospace;
+  pointer-events: none;
+  /* 絵の邪魔をしないよう、出入りは静かに */
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+#score.hidden {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.scoreRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.scoreLabel {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: rgba(223, 229, 247, 0.4);
+}
+
+.scoreValue {
+  min-width: 4.5em;
+  text-align: right;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.scoreRow.sub .scoreValue {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(223, 229, 247, 0.55);
+}
+
+/* --- 操作説明 ------------------------------------------------------ */
+
+#help {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: var(--pad);
+  background: rgba(4, 5, 10, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  overflow-y: auto;
+}
+
+.helpPanel {
+  width: min(520px, 100%);
+  max-height: calc(100vh - 2 * var(--pad));
+  overflow-y: auto;
+  padding: 26px 26px 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(12, 15, 26, 0.94);
+}
+
+.helpPanel h2 {
+  margin: 0 0 14px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  color: var(--accent);
+}
+
+.helpPanel h3 {
+  margin: 22px 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: rgba(223, 229, 247, 0.5);
+}
+
+.helpLead {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--fg);
+}
+
+.helpLead strong { color: var(--accent); }
+
+.helpTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.helpTable th {
+  width: 8.5em;
+  padding: 8px 12px 8px 0;
+  text-align: left;
+  vertical-align: top;
+  font-weight: 600;
+  color: var(--fg);
+  border-top: 1px solid rgba(223, 229, 247, 0.1);
+  white-space: nowrap;
+}
+
+.helpTable td {
+  padding: 8px 0;
+  vertical-align: top;
+  color: var(--dim);
+  border-top: 1px solid rgba(223, 229, 247, 0.1);
+}
+
+.helpList {
+  margin: 0;
+  padding-left: 1.2em;
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--dim);
+}
+
+.helpList strong { color: var(--fg); font-weight: 600; }
+
+#helpClose {
+  width: 100%;
+  margin-top: 24px;
+  padding: 12px;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+#helpClose:hover { border-color: var(--accent); }
+
 .noscript {
   position: fixed;
   inset: 0;
@@ -137,10 +292,26 @@ body {
   font-size: 14px;
 }
 
-@media (max-width: 480px) {
-  .brand { letter-spacing: 0.3em; }
+@media (max-width: 560px) {
+  .brand {
+    letter-spacing: 0.3em;
+    /* 狭い画面ではボタンを優先し、作品名は畳む */
+    font-size: 10px;
+  }
+  #hud { gap: 8px; }
   #hud button,
-  #hud .link { padding: 6px 11px; font-size: 10px; }
+  #hud .link { padding: 6px 10px; font-size: 10px; }
+  #hud .link { display: none; }
+
+  #score { padding: 8px 11px; }
+  .scoreValue { font-size: 16px; min-width: 4em; }
+  .scoreRow.sub .scoreValue { font-size: 11px; }
+
+  .helpPanel { padding: 20px 18px 18px; }
+  .helpTable th { width: auto; display: block; padding-bottom: 0; border-top: none; }
+  .helpTable td { display: block; padding-top: 2px; }
+  .helpTable tr { display: block; padding: 8px 0; border-top: 1px solid rgba(223, 229, 247, 0.1); }
+
   /* 小さい画面では走査線が潰れて汚くなるため薄くする */
   .crt { opacity: 0.35; }
 }

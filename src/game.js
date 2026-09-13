@@ -328,28 +328,11 @@
     c.globalCompositeOperation = 'source-over';
   }
 
-  /**
-   * @brief スコアを画面の隅に小さく描く。
-   * @param {Object} f フレーム文脈
-   * @returns {void}
-   */
-  function drawScore(f) {
-    var c = f.ctx;
-    c.save();
-    c.font = '600 11px "Consolas", monospace';
-    c.textAlign = 'right';
-    c.textBaseline = 'bottom';
-    c.fillStyle = 'rgba(220,230,255,0.45)';
-    c.fillText('DIST ' + state.score + '   BEST ' + state.best, f.W - 16, f.H - 14);
-    c.restore();
-  }
-
   global.PULSAR.game = {
     CONFIG: CONFIG,
     state: state,
     reset: reset,
     update: update,
-    draw: draw,
-    drawScore: drawScore
+    draw: draw
   };
 })(typeof window !== 'undefined' ? window : this);
