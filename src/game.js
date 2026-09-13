@@ -20,19 +20,32 @@
    */
   var CONFIG = {
     /** @brief カメラから最も遠いリングまでの距離（内部単位）。 */
-    farZ: 22,
-    /** @brief リングの間隔（内部単位）。 */
-    spacing: 2.2,
+    farZ: 26,
+    /**
+     * @brief リングの間隔（内部単位）。
+     *
+     * 速度で割ると「何秒に1枚来るか」になる。初速では約0.75秒、
+     * 最高速でも約0.46秒。これより詰めると反応する時間が無くなる。
+     */
+    spacing: 3.0,
     /** @brief 走行速度の初期値（1秒あたりの距離）。 */
-    baseSpeed: 7.0,
+    baseSpeed: 4.0,
     /** @brief 走行速度の上限。 */
-    maxSpeed: 12.0,
-    /** @brief 1秒あたりの加速量。 */
-    accel: 0.22,
+    maxSpeed: 6.5,
+    /** @brief 1秒あたりの加速量。ゆっくり効かせて、難しくなる実感だけを残す。 */
+    accel: 0.06,
     /** @brief 透視投影の焦点距離。画面短辺に対する比率。 */
     focal: 0.62,
-    /** @brief リングの切れ目の開き角 [rad]。 */
-    gapWidth: 1.15,
+    /** @brief リングの切れ目の開き角 [rad]。約109度と広めに取る。 */
+    gapWidth: 1.9,
+    /**
+     * @brief 隣り合うリングで切れ目がずれる最大量 [rad]。
+     *
+     * 大きすぎると、間に合わない位置に切れ目が現れて理不尽になる。
+     */
+    gapDrift: 0.75,
+    /** @brief 衝突直後、判定を止める時間 [s]。連続で轢かれるのを防ぐ。 */
+    graceSeconds: 0.7,
     /** @brief 自機が置かれる奥行き（この位置を通過するリングと判定する）。 */
     shipZ: 1.1,
     /** @brief キー操作時の角速度 [rad/s]。 */
@@ -94,7 +107,7 @@
    */
   function makeRing(z, prevGap) {
     // 直前の切れ目から離れすぎないようにして、避けられない配置を防ぐ。
-    var delta = (Math.random() - 0.5) * 2.2;
+    var delta = (Math.random() - 0.5) * 2 * CONFIG.gapDrift;
     return { z: z, gap: M.wrapAngle(prevGap + delta), judged: false };
   }
 
@@ -111,10 +124,11 @@
     state.sinceHit = 99;
     state.best = loadBest();
 
-    var gap = 0;
-    for (var z = CONFIG.shipZ + 3; z < CONFIG.farZ; z += CONFIG.spacing) {
-      gap = M.wrapAngle(gap + (Math.random() - 0.5) * 2.2);
+    // 最初のリングは自機の正面に切れ目を置く。開幕でいきなり轢かれないように。
+    var gap = state.angle;
+    for (var z = CONFIG.shipZ + 4; z < CONFIG.farZ; z += CONFIG.spacing) {
       state.rings.push({ z: z, gap: gap, judged: false });
+      gap = M.wrapAngle(gap + (Math.random() - 0.5) * 2 * CONFIG.gapDrift);
     }
   }
 
@@ -189,7 +203,9 @@
       // 自機の位置を通過する瞬間に一度だけ判定する。
       if (!r.judged && r.z <= CONFIG.shipZ) {
         r.judged = true;
-        if (!M.canPass(state.angle, r.gap, CONFIG.gapWidth)) {
+        // 衝突直後は判定を止める。立て直す間もなく次に轢かれると理不尽に感じるため。
+        if (state.sinceHit >= CONFIG.graceSeconds &&
+            !M.canPass(state.angle, r.gap, CONFIG.gapWidth)) {
           f.impact(1);
           state.speed = CONFIG.baseSpeed; // 衝突した分だけ減速する（終了はしない）
           state.sinceHit = 0;

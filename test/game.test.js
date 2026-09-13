@@ -151,4 +151,36 @@
       expect(G.CONFIG.baseSpeed <= G.CONFIG.maxSpeed).toBeTrue();
     });
   });
+
+  describe('遊びやすさの条件', function () {
+    it('最高速でもリングの間隔が 0.4 秒以上ある（反応する時間を残す）', function () {
+      var interval = G.CONFIG.spacing / G.CONFIG.maxSpeed;
+      expect(interval >= 0.4).toBeTrue();
+    });
+
+    it('切れ目のずれは、その間に回りきれる範囲に収まっている', function () {
+      // 1枚あたりの猶予時間に、手動操作で回せる角度
+      var interval = G.CONFIG.spacing / G.CONFIG.maxSpeed;
+      var reachable = G.CONFIG.manualRate * interval * 0.5;
+      expect(G.CONFIG.gapDrift <= reachable).toBeTrue();
+    });
+
+    it('切れ目は円周の 1/4 より広い（狙って通せる幅がある）', function () {
+      expect(G.CONFIG.gapWidth > M.TAU / 4).toBeTrue();
+    });
+
+    it('衝突後に無敵時間がある', function () {
+      expect(G.CONFIG.graceSeconds > 0).toBeTrue();
+    });
+
+    it('開幕の最初のリングは自機の正面に切れ目がある', function () {
+      G.reset();
+      var near = null;
+      for (var i = 0; i < G.state.rings.length; i++) {
+        var r = G.state.rings[i];
+        if (near === null || r.z < near.z) near = r;
+      }
+      expect(M.canPass(G.state.angle, near.gap, G.CONFIG.gapWidth)).toBeTrue();
+    });
+  });
 })();
