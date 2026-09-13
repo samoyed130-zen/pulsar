@@ -1,0 +1,21 @@
+{
+  "name": "PULSAR",
+  "short_name": "PULSAR",
+  "description": "外部ライブラリを使わず、Canvas 2D と Web Audio だけで書いたメガデモ。触れるとゲームになります。",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#04050a",
+  "theme_color": "#04050a",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

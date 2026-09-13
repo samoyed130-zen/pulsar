@@ -6,6 +6,22 @@
 <title>PULSAR</title>
 <meta name="description" content="外部ライブラリを使わず、Canvas 2D と Web Audio だけで書いたメガデモ。トンネルの区間では画面に触れると操縦できます。">
 <meta name="theme-color" content="#04050a">
+
+<!--
+  ホーム画面に追加したときは、ブラウザの枠なしで開く。
+
+  iPhone の Safari には要素を全画面にする仕組みが無い（iPad は対応した）。
+  ホーム画面から起動したときだけ、アドレスバーもツールバーも消える。
+  メニューのフルスクリーンを出せない端末では、これが唯一の全画面になる。
+
+  `apple-` の2つは、manifest に対応する前の Safari 向けの指定。
+-->
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PULSAR">
+<link rel="apple-touch-icon" href="assets/icon.svg">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
 <!--
   末尾の ?v= は、直したものを確実に届けるための版番号。
 
@@ -15,7 +31,7 @@
 
   見た目や動きを直したら、この番号を1つ進めること。
 -->
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
 
@@ -293,6 +309,11 @@
         <strong>なめらか</strong> で、立体背景の塗り方を切り替えられます。
         入れているときは、三角形を1画素ずつ塗る自前の描画を使います。
       </li>
+      <li>
+        <strong>フルスクリーン</strong> で画面いっぱいに表示できます。
+        iPhone の Safari はこの仕組みに対応していないため、
+        <strong>ホーム画面に追加</strong>してそこから開くと全画面になります。
+      </li>
       <li>外部ライブラリは一切使っていません。Canvas 2D と Web Audio のみです。</li>
     </ul>
 
@@ -304,14 +325,14 @@
   <p class="noscript">この作品は JavaScript で描画しています。有効にしてご覧ください。</p>
 </noscript>
 
-<script src="src/store.js?v=9"></script>
-<script src="src/mathx.js?v=9"></script>
-<script src="src/raster.js?v=9"></script>
-<script src="src/mesh3d.js?v=9"></script>
-<script src="src/sound.js?v=9"></script>
-<script src="src/game.js?v=9"></script>
-<script src="src/scenes.js?v=9"></script>
-<script src="src/main.js?v=9"></script>
+<script src="src/store.js?v=10"></script>
+<script src="src/mathx.js?v=10"></script>
+<script src="src/raster.js?v=10"></script>
+<script src="src/mesh3d.js?v=10"></script>
+<script src="src/sound.js?v=10"></script>
+<script src="src/game.js?v=10"></script>
+<script src="src/scenes.js?v=10"></script>
+<script src="src/main.js?v=10"></script>
 <script>
   // 読み込み順に依存するため、起動はここで1度だけ行う。
   PULSAR.app.boot();
@@ -581,6 +602,31 @@
       var on = isFullscreen();
       fullBtn.textContent = on ? 'フルスクリーン あり' : 'フルスクリーン なし';
       fullBtn.classList.toggle('on', on);
+    }
+
+    /**
+     * すでにホーム画面から起動しているか。
+     *
+     * その場合はブラウザの枠が無いので、全画面の案内は要らない。
+     */
+    function isStandalone() {
+      return !!(navigator.standalone ||
+                (window.matchMedia &&
+                 window.matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches));
+    }
+
+    if (!canFullscreen() && !isStandalone()) {
+      /*
+       * 全画面にできない端末（iPhone の Safari など）では、代わりに
+       * ホーム画面へ追加する道を案内する。
+       *
+       * ホーム画面から起動したときだけ、アドレスバーもツールバーも
+       * 消える。押しても何も起きないボタンを置くよりは、できる方法を
+       * 伝えたほうがよい。
+       */
+      fullBtn.hidden = false;
+      fullBtn.disabled = true;
+      fullBtn.textContent = '全画面はホーム画面に追加';
     }
 
     if (canFullscreen()) {
@@ -867,7 +913,7 @@
       // 結果を眺めている最中に消えて出直すことになる。
       if (open && !testsFrame.getAttribute('src')) {
         // 版番号は作品側と揃える（古いまま読み込まれるのを避ける）
-        testsFrame.setAttribute('src', 'test.html?v=9');
+        testsFrame.setAttribute('src', 'test.html?v=10');
       }
 
       if (open) {

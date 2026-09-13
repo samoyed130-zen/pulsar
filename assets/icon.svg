@@ -1,0 +1,35 @@
+<!--
+  ホーム画面に置いたときのアイコン。
+
+  作品と同じく、素材を持ち込まずに図形だけで描く。中心から広がる輪は
+  トンネルのリングで、切れ目のある輪は「そこを抜ける」という遊びそのもの。
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#131a33"/>
+      <stop offset="100%" stop-color="#04050a"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4aa8ff"/>
+      <stop offset="55%" stop-color="#7ad7ff"/>
+      <stop offset="100%" stop-color="#b98cff"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- 奥のリングほど細く、薄く。3枚だけで奥行きが出る -->
+  <circle cx="256" cy="256" r="72" fill="none" stroke="url(#ring)" stroke-width="10"
+          stroke-linecap="round" stroke-dasharray="330 122" opacity="0.45"
+          transform="rotate(-40 256 256)"/>
+  <circle cx="256" cy="256" r="120" fill="none" stroke="url(#ring)" stroke-width="16"
+          stroke-linecap="round" stroke-dasharray="560 194" opacity="0.72"
+          transform="rotate(18 256 256)"/>
+  <circle cx="256" cy="256" r="176" fill="none" stroke="url(#ring)" stroke-width="24"
+          stroke-linecap="round" stroke-dasharray="830 276"
+          transform="rotate(-8 256 256)"/>
+
+  <!-- 自機。リングの切れ目を抜けていく三角 -->
+  <path d="M256 150 l30 52 -30 -16 -30 16 z" fill="#dfe5f7"/>
+</svg>
