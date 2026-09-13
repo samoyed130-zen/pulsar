@@ -10,15 +10,20 @@
 
 | 項目 | 内容 |
 | --- | --- |
-| 最終更新 | 2026-09-13 21:34 |
-| 進行中 | A. 骨組み（`index.html` / `style.css` / `src/main.js`） |
-| 完了 | 企画確定 / 旧作削除 / 環境構築 / git リポジトリ / **T. テスト基盤（61件すべて成功）** |
-| 次 | A. 骨組み → B. 音 → C. シーン |
-| ブロッカー | なし |
+| 最終更新 | 2026-09-13 21:40 |
+| 進行中 | C. シーンの演出詰め（見た目の作り込み） |
+| 完了 | 企画確定 / 環境構築 / git + GitHub push / T. テスト基盤（**92件すべて成功**） / A. 骨組み / B. 音 / C. シーン5種の初版 / D. 触れる区間の初版 |
+| 次 | 実機での見た目確認 → 演出の詰め → スマホ確認 → Pages 公開確認 |
+| ブロッカー | **GitHub Pages の有効化は本人操作が必要**（Settings → Pages → main / root） |
 
 **引き継ぎメモ**
 
-- 環境: Windows / PowerShell。git 2.55 / gh 2.100 / Node 24.19 を **21:20 に導入済み**。
+- 環境: Windows / PowerShell。git 2.55 / gh 2.100 / Node 24.19 を導入済み。
+- リモート: `git@github.com:samoyed130-zen/pulsar.git`（SSH 認証確認済み・push 済み）。
+  鍵は `C:\Users\norm8\.ssh\id_ed25519_samoyed130_zen`（**パスフレーズなし**。
+  旧鍵はパスフレーズ失念のため `.bak` へ退避、GitHub 側も新しい鍵に登録済み）。
+  リポジトリ単位で `core.sshCommand` を設定してあるので、追加の設定なしに push できる。
+- 公開 URL（Pages 有効化後）: https://samoyed130-zen.github.io/pulsar/
 - **PowerShell から git/node/gh を呼ぶ前に PATH を更新すること**（導入直後のセッションでは通らない）:
   ```powershell
   $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
@@ -377,3 +382,7 @@ CRT オーバーレイ / スマホ動作 / デプロイ / テスト基盤と `ma
 | 21:31 | テストランナーとテスト61件を実装 | `test/runner.js` `test/mathx.test.js` |
 | 21:32 | テストが `canPass` の境界バグを検出 → 許容誤差で修正、全61件成功 | `src/mathx.js` |
 | 21:34 | ブラウザ用テストページを追加 | `test.html` `test/run-node.js` |
+| 21:23 | メガデモ本体を実装（骨組み・5シーン・音・触れる区間） | `src/*.js` `index.html` `style.css` |
+| 21:35 | ゲーム状態とタイムラインのテストを追加、計92件すべて成功 | `test/game.test.js` `test/scenes.test.js` |
+| 21:38 | SSH 鍵をパスフレーズなしで再作成（旧鍵のパスフレーズ失念のため） | `~/.ssh` |
+| 21:41 | GitHub へ初回 push 成功 | `origin/main` |
