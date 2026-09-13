@@ -68,6 +68,29 @@
    * @param {number} alpha 不透明度 [0..1]
    * @returns {void}
    */
+  /**
+   * @brief `ImageData` の使い回し置き場。毎フレーム作ると確保が負荷になる。
+   * @private
+   */
+  var imageCache = { w: 0, h: 0, img: null };
+
+  /**
+   * @brief バッファと同じ大きさの `ImageData` を返す（使い回す）。
+   * @private
+   * @param {CanvasRenderingContext2D} bctx バッファの文脈
+   * @param {number} w 幅
+   * @param {number} h 高さ
+   * @returns {ImageData} 書き込み先
+   */
+  function getImage(bctx, w, h) {
+    if (!imageCache.img || imageCache.w !== w || imageCache.h !== h) {
+      imageCache.img = bctx.createImageData(w, h);
+      imageCache.w = w;
+      imageCache.h = h;
+    }
+    return imageCache.img;
+  }
+
   function blitBuffer(f, alpha) {
     var c = f.ctx;
     c.save();
@@ -209,44 +232,16 @@
   }
 
   // -----------------------------------------------------------------
-  // レイマーチングによる立体背景
+  // 立体背景（多角形による建造物）
   // -----------------------------------------------------------------
-
-  /**
-   * @brief レイマーチングの調整値。
-   *
-   * 1ピクセルごとに光線を進めるため、解像度と歩数がそのまま負荷になる。
-   * 低解像度で描いて拡大し、にじみを味として使う。
-   */
-  var RAY = {
-    /** @brief 光線を進める回数。多いほど精細で重い。 */
-    steps: 16,
-    /** @brief 描画量を落とすときの歩数。 */
-    stepsLight: 13,
-    /**
-     * @brief 描画に使う横幅 [px]。
-     *
-     * ここを上げると輪郭のにじみが減るが、負荷は面積に比例して増える。
-     * 176px で約 8ms/フレーム。立体の描画を三角形へ移して浮いた分を、
-     * この解像度に充てている。
-     */
-    width: 176,
-    /** @brief 描画量を落とすときの横幅 [px]。 */
-    widthLight: 112,
-    /** @brief 光線を打ち切る距離。 */
-    far: 26,
-    /** @brief 1歩の最小距離。小さすぎると進まず、歩数を無駄にする。 */
-    minStep: 0.16
-  };
 
   /**
    * @brief 立体背景を描くかどうか。
    *
-   * 1ピクセルずつ光線を進める処理は、この作品でいちばん重い。
-   * 描画が追いつかない端末でも遊べるよう、切れるようにしてある。
+   * 面の数だけ負荷がかかるため、描画が追いつかない端末では切れるようにしてある。
    * @private
    */
-  var raymarchEnabled = true;
+  var backgroundOn = true;
 
   /**
    * @brief 立体背景の有無を設定する。
@@ -254,9 +249,9 @@
    * @returns {void}
    */
   function setRaymarch(on) {
-    raymarchEnabled = !!on;
+    backgroundOn = !!on;
     try {
-      global.localStorage.setItem('pulsar.bg', raymarchEnabled ? '1' : '0');
+      global.localStorage.setItem('pulsar.bg', backgroundOn ? '1' : '0');
     } catch (e) { /* 保存できなくても動作には影響しない */ }
   }
 
@@ -265,419 +260,193 @@
    * @returns {boolean} 描くなら true
    */
   function isRaymarch() {
-    return raymarchEnabled;
+    return backgroundOn;
   }
 
   // 前回の選択を復元する。設定が読めない環境では既定（描く）のままにする。
   try {
-    if (global.localStorage.getItem('pulsar.bg') === '0') raymarchEnabled = false;
+    if (global.localStorage.getItem('pulsar.bg') === '0') backgroundOn = false;
   } catch (e) { /* 既定のまま */ }
-
-  /**
-   * @brief レイマーチング専用のバッファ。
-   *
-   * 他のエフェクトより粗い解像度で描くため、共有バッファとは別に持つ。
-   * @private
-   */
-  var rayBuf = null, rayCtx = null;
-
-  /**
-   * @brief レイマーチング用バッファを、必要な大きさで用意する。
-   * @private
-   * @param {number} w 幅 [px]
-   * @param {number} h 高さ [px]
-   * @returns {void}
-   */
-  function ensureRayBuffer(w, h) {
-    if (!rayBuf) {
-      rayBuf = document.createElement('canvas');
-      rayCtx = rayBuf.getContext('2d', { willReadFrequently: true });
-    }
-    if (rayBuf.width !== w || rayBuf.height !== h) {
-      rayBuf.width = w;
-      rayBuf.height = h;
-    }
-  }
-
-  /**
-   * @brief `ImageData` の使い回し置き場。毎フレーム作ると確保が負荷になる。
-   * @private
-   */
-  var imageCache = { w: 0, h: 0, img: null };
-
-  /**
-   * @brief バッファと同じ大きさの `ImageData` を返す（使い回す）。
-   * @private
-   * @param {CanvasRenderingContext2D} bctx バッファの文脈
-   * @param {number} w 幅
-   * @param {number} h 高さ
-   * @returns {ImageData} 書き込み先
-   */
-  function getImage(bctx, w, h) {
-    if (!imageCache.img || imageCache.w !== w || imageCache.h !== h) {
-      imageCache.img = bctx.createImageData(w, h);
-      imageCache.w = w;
-      imageCache.h = h;
-    }
-    return imageCache.img;
-  }
 
   /**
    * @brief 建造物の寸法。
    *
-   * すべて「カメラの大きさを 1 とする」単位。通路を大きく取ることが
-   * そのまま規模感になるため、ここの値が見た目の印象を決める。
+   * 単位はトンネルのリングと共通で、リングの半径が 1 にあたる。
+   * 通路をリングより大きく取ることが、そのまま規模感になる。
    */
   var HALL = {
     /** @brief 通路の半幅。 */
-    halfWidth: 5.4,
+    halfWidth: 2.05,
     /** @brief 通路の半分の高さ。 */
-    halfHeight: 3.8,
+    halfHeight: 1.45,
     /** @brief 柱や梁が並ぶ間隔。広いほど構造物が大きく感じられる。 */
-    period: 7.0,
-    /** @brief 柱を置く位置（中心からの距離）。 */
-    columnX: 4.3,
-    /** @brief 柱の太さ（半径）。 */
-    columnSize: 0.62,
-    /** @brief 照明帯の間隔。柱より細かくして、速さが読み取れるようにする。 */
-    lightPeriod: 2.4,
-    /** @brief 照明帯1本の長さ（半径）。 */
-    lightLength: 0.85
+    period: 2.9,
+    /** @brief 何区画分を同時に描くか。奥行きの見通しを決める。 */
+    cells: 9,
+    /** @brief 柱の位置（中心からの距離）。 */
+    columnX: 1.78,
+    /** @brief 描き始める手前の位置。これより近い部材は描かない。 */
+    nearZ: 0.6
   };
 
-  /** @brief 光の向き（正規化済み）。斜めから当てて、面の傾きを読み取りやすくする。 */
-  var LIGHT = [0.48, 0.62, -0.62];
-
   /**
-   * @brief 部材ごとの色相のずらし幅 [deg]。壁・柱・梁・桁・床。
-   *
-   * 建造物は同系色でまとめ、背景として沈める。主役（自機とリング）が
-   * 前に出るよう、ここでは色を散らさない。
+   * @brief 建造物の色。すべて同系色でまとめ、背景として沈める。
    */
-  var MAT_HUE = [0, 18, 30, 12, 6, 46];
-
-  /** @brief 部材ごとの彩度 [0..1]。柱と梁をわずかに鮮やかにして分ける。 */
-  var MAT_SAT = [0.42, 0.62, 0.68, 0.5, 0.38, 0.85];
-
-  /** @brief 照明帯を表す材質番号。自ら光るため、陰影計算の対象外にする。 */
-  var MAT_LIGHT = 5;
-
-  /** @brief 法線の計算結果を受け取る配列。毎回の確保を避けるため使い回す。 @private */
-  var normal = [0, 0, 0];
+  var HALL_HUE = {
+    wall: 214,
+    column: 206,
+    beam: 200,
+    floor: 220,
+    light: 188
+  };
 
   /**
-   * @brief 空間上の点から、最も近い物体までのおおよその距離を返す（距離関数）。
-   *
-   * 形は2つだけ:
-   * - ねじれながら続く筒の内壁（波打たせて、のっぺりした面に見せない）
-   * - 一定間隔で並ぶ細い輪
-   *
-   * この2つを `min` で合成するだけで、奥へ続く構造物になる。
+   * @brief 描画待ちの部材。奥から手前へ並べ替えてから描く。
+   * @private
+   */
+  var parts = [];
+
+  /** @brief 部材オブジェクトの使い回し置き場。毎フレームの確保を避ける。 @private */
+  var partPool = [];
+
+  /** @brief 今フレームで使った部材の数。 @private */
+  var partCount = 0;
+
+  /**
+   * @brief 部材を1つ登録する（この時点では描かない）。
    *
    * @private
-   * @param {number} x 座標 x
-   * @param {number} y 座標 y
-   * @param {number} z 座標 z（奥行き）
-   * @param {number} t 時刻 [s]
-   * @returns {number} 距離（正なら物体の外側）
-   */
-  /**
-   * @brief 直方体までの距離。
-   *
-   * 建造物は箱の組み合わせで作れる。三角関数を使わないため非常に軽い。
-   *
-   * @private
-   * @param {number} px 箱の中心を原点とした座標 x
-   * @param {number} py 座標 y
-   * @param {number} pz 座標 z
-   * @param {number} bx 箱の半径 x（中心から面まで）
-   * @param {number} by 半径 y
-   * @param {number} bz 半径 z
-   * @returns {number} 箱の外側なら正、内側なら負の距離
-   */
-  function boxDistance(px, py, pz, bx, by, bz) {
-    var qx = (px < 0 ? -px : px) - bx;
-    var qy = (py < 0 ? -py : py) - by;
-    var qz = (pz < 0 ? -pz : pz) - bz;
-
-    // 外側成分（負の軸は 0 として長さを測る）
-    var ox = qx > 0 ? qx : 0;
-    var oy = qy > 0 ? qy : 0;
-    var oz = qz > 0 ? qz : 0;
-    var outside = Math.sqrt(ox * ox + oy * oy + oz * oz);
-
-    // 内側成分（3軸のうち最も面に近い距離）
-    var m = qx > qy ? qx : qy;
-    if (qz > m) m = qz;
-    var inside = m < 0 ? m : 0;
-
-    return outside + inside;
-  }
-
-  /**
-   * @brief 建造物の内部を表す距離関数。
-   *
-   * 表現したいのは「巨大な構造物の中を潜り抜ける」感覚。そのために、
-   * 小さな物体を散らすのではなく、通路そのものを大きく取り、
-   * 柱・梁・段差といった**人の背丈より遥かに大きい部材**を並べている。
-   *
-   * 構成:
-   * - 左右の壁と床・天井で囲まれた大きな通路
-   * - 一定間隔で並ぶ太い角柱（奥行きの繰り返しで無限に続く）
-   * - 天井を渡る梁
-   * - 壁面から突き出す桁
-   *
-   * 奥行き方向の繰り返し（`z` を周期で折り返す）により、
-   * 何キロ分の構造物を置いても計算量は変わらない。
-   *
-   * @param {number} x 座標 x（右が正）
-   * @param {number} y 座標 y（下が正）
-   * @param {number} z 座標 z（奥が正）
-   * @param {number} t 時刻 [s]
-   * @returns {number} 最も近い面までの距離（通路の中では正）
-   */
-  function sceneDistance(x, y, z, t) {
-    // 通路がゆっくりうねる。全体が直線だと、進んでいる実感が乏しくなる。
-    var bend = Math.sin(z * 0.045 + t * 0.12) * 2.6;
-    var px = x - bend;
-
-    // 通路の内側。左右の壁・床・天井のうち、最も近い面までの距離。
-    var ax = px < 0 ? -px : px;
-    var ay = y < 0 ? -y : y;
-    var hall = HALL.halfWidth - ax;
-    var vert = HALL.halfHeight - ay;
-    var d = hall < vert ? hall : vert;
-
-    // 奥行き方向の繰り返し。ここから先は1区画分の座標で考える。
-    var zr = z - Math.floor(z / HALL.period) * HALL.period - HALL.period * 0.5;
-
-    // 角柱。左右に1本ずつ、床から天井まで通す。
-    var col = boxDistance(ax - HALL.columnX, y, zr,
-                          HALL.columnSize, HALL.halfHeight, HALL.columnSize);
-    if (col < d) d = col;
-
-    // 天井を渡る梁。
-    var beam = boxDistance(px, y + HALL.halfHeight * 0.82, zr,
-                           HALL.halfWidth, 0.42, 0.55);
-    if (beam < d) d = beam;
-
-    // 壁から突き出す桁。高さを変えて2段にし、規模感を出す。
-    var ledge = boxDistance(ax - HALL.halfWidth, y - HALL.halfHeight * 0.35,
-                            zr * 0.001, 0.9, 0.3, HALL.period);
-    if (ledge < d) d = ledge;
-
-    // 床の段差。奥行き方向に連続させ、走っている面を見せる。
-    var floorStep = boxDistance(px, y - HALL.halfHeight, zr * 0.001,
-                                HALL.halfWidth * 0.55, 0.35, HALL.period);
-    if (floorStep < d) d = floorStep;
-
-    // 照明帯。柱より短い間隔で並べることで、奥行きの目盛りになる。
-    // 等間隔に光が続くと、通路の長さと自分の速さが一目で分かる。
-    var zl = z - Math.floor(z / HALL.lightPeriod) * HALL.lightPeriod - HALL.lightPeriod * 0.5;
-    var strip = boxDistance(ax - HALL.halfWidth * 0.99, y + HALL.halfHeight * 0.45, zl,
-                            0.12, 0.14, HALL.lightLength);
-    if (strip < d) d = strip;
-
-    return d;
-  }
-
-  /**
-   * @brief その位置で最も近い物体の種類を返す（色分けに使う）。
-   *
-   * 距離関数と同じ計算を行い、どの項が最小だったかを答える。
-   * 交点が求まった後に1回だけ呼ぶので、距離関数ほど速さを求めなくてよい。
-   *
-   * @private
-   * @param {number} x 座標 x
-   * @param {number} y 座標 y
-   * @param {number} z 座標 z
-   * @param {number} t 時刻 [s]
-   * @returns {number} 0=内壁 / 1=輪 / 2=八面体
-   */
-  function sceneMaterial(x, y, z, t) {
-    var bend = Math.sin(z * 0.045 + t * 0.12) * 2.6;
-    var px = x - bend;
-    var ax = px < 0 ? -px : px;
-    var ay = y < 0 ? -y : y;
-    var zr = z - Math.floor(z / HALL.period) * HALL.period - HALL.period * 0.5;
-
-    var hall = HALL.halfWidth - ax;
-    var vert = HALL.halfHeight - ay;
-    var shell = hall < vert ? hall : vert;
-
-    var col = boxDistance(ax - HALL.columnX, y, zr,
-                          HALL.columnSize, HALL.halfHeight, HALL.columnSize);
-    var beam = boxDistance(px, y + HALL.halfHeight * 0.82, zr,
-                           HALL.halfWidth, 0.42, 0.55);
-    var ledge = boxDistance(ax - HALL.halfWidth, y - HALL.halfHeight * 0.35,
-                            zr * 0.001, 0.9, 0.3, HALL.period);
-    var floorStep = boxDistance(px, y - HALL.halfHeight, zr * 0.001,
-                                HALL.halfWidth * 0.55, 0.35, HALL.period);
-
-    var zl = z - Math.floor(z / HALL.lightPeriod) * HALL.lightPeriod - HALL.lightPeriod * 0.5;
-    var strip = boxDistance(ax - HALL.halfWidth * 0.99, y + HALL.halfHeight * 0.45, zl,
-                            0.12, 0.14, HALL.lightLength);
-
-    var best = shell, id = 0;
-    if (col < best) { best = col; id = 1; }
-    if (beam < best) { best = beam; id = 2; }
-    if (ledge < best) { best = ledge; id = 3; }
-    if (floorStep < best) { best = floorStep; id = 4; }
-    if (strip < best) { id = 5; }
-    return id;
-  }
-
-  /**
-   * @brief 交点における面の向き（法線）を求める。
-   *
-   * 距離関数を4方向にわずかにずらして比べる。傾きが最も急な向きが面の法線になる。
-   *
-   * @private
-   * @param {number} x 座標 x
-   * @param {number} y 座標 y
-   * @param {number} z 座標 z
-   * @param {number} t 時刻 [s]
-   * @param {Array<number>} out 結果を書き込む長さ3の配列（確保を避けるため使い回す）
+   * @param {number} x 位置 x
+   * @param {number} y 位置 y（下が正）
+   * @param {number} z 位置 z（奥が正）
+   * @param {number} sx 半径 x
+   * @param {number} sy 半径 y
+   * @param {number} sz 半径 z
+   * @param {number} hue 色相 [deg]
+   * @param {number} metal 金属らしさ [0..1]
+   * @param {boolean} emissive 自ら光るか
    * @returns {void}
    */
-  function sceneNormal(x, y, z, t, out) {
-    var h = 0.015;
-    var nx = sceneDistance(x + h, y, z, t) - sceneDistance(x - h, y, z, t);
-    var ny = sceneDistance(x, y + h, z, t) - sceneDistance(x, y - h, z, t);
-    var nz = sceneDistance(x, y, z + h, t) - sceneDistance(x, y, z - h, t);
-    var len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
-    out[0] = nx / len;
-    out[1] = ny / len;
-    out[2] = nz / len;
+  function addPart(x, y, z, sx, sy, sz, hue, metal, emissive) {
+    var p = partPool[partCount];
+    if (!p) {
+      p = { pos: [0, 0, 0], size: [0, 0, 0] };
+      partPool[partCount] = p;
+    }
+    partCount++;
+
+    p.pos[0] = x; p.pos[1] = y; p.pos[2] = z;
+    p.size[0] = sx; p.size[1] = sy; p.size[2] = sz;
+    p.hue = hue;
+    p.metal = metal;
+    p.emissive = emissive;
+    p.depth = z;
+    parts.push(p);
   }
 
   /**
-   * @brief レイマーチングで立体的な背景を描く。
+   * @brief 通路の横ずれ。奥行きに応じて曲げ、直線に見せない。
+   * @private
+   * @param {number} z 奥行き
+   * @param {number} t 時刻 [s]
+   * @returns {number} 横方向のずれ
+   */
+  function hallBend(z, t) {
+    return Math.sin(z * 0.22 + t * 0.25) * 0.55;
+  }
+
+  /**
+   * @brief 建造物を描く。
    *
-   * 法線も陰影も計算しない。光線を進めながら物体への近さを足し込むだけの
-   * 「グロー蓄積」方式にしている。計算が軽いうえ、デモらしい発光した見た目になる。
+   * レイマーチングをやめ、すべて多角形で組み立てている。理由は3つ:
+   * - 画面の解像度そのままで描けるため、拡大によるにじみが出ない
+   * - 面の色を直接決められるため、階調の縞（マッハバンド）が出ない
+   * - 箱ばかりの構造物では、1ピクセルずつ面を探すより桁違いに速い
    *
    * @param {Object} f フレーム文脈
-   * @param {number} camZ カメラの奥行き位置（進むほど増える）
-   * @param {number} brightness 明るさの倍率 [0..1]
+   * @param {number} travel 走行距離（奥行きの基準）
    * @returns {void}
    */
-  function drawRaymarch(f, camZ, brightness) {
-    var bw = f.light ? RAY.widthLight : RAY.width;
-    var bh = Math.max(1, Math.round(bw * f.H / Math.max(1, f.W)));
-    ensureRayBuffer(bw, bh);
+  function drawHall(f, travel) {
+    var mesh3d = global.PULSAR.mesh3d;
+    var c = f.ctx;
 
-    var img = getImage(rayCtx, bw, bh);
-    var data = img.data;
+    var cx = f.W / 2;
+    var cy = f.H / 2;
+    var focal = Math.min(f.W, f.H) * global.PULSAR.game.CONFIG.focal;
 
-    var steps = f.light ? RAY.stepsLight : RAY.steps;
-    var t = f.t;
-    var aspect = bw / bh;
-    var hueBase = f.hue;
-    var kick = f.kick || 0;
+    var offset = travel % HALL.period;
+    var cells = f.light ? HALL.cells - 3 : HALL.cells;
 
-    // 何にも当たらなかった画素の色。真っ黒だと奥が「抜けている」ように見え、
-    // 構造物の中にいる感じが失われる。薄い霧を置いて奥行きを残す。
-    var fogRgb = hslToRgb(((((hueBase + 10) % 360) + 360) % 360) / 360, 0.5, 0.055);
+    parts.length = 0;
+    partCount = 0;
 
-    for (var py = 0; py < bh; py++) {
-      // 画面座標を -1..1 に写す
-      var sy = (py / bh) * 2 - 1;
+    var hw = HALL.halfWidth;
+    var hh = HALL.halfHeight;
 
-      for (var px = 0; px < bw; px++) {
-        var sx = ((px / bw) * 2 - 1) * aspect;
+    for (var i = 0; i < cells; i++) {
+      var z = HALL.nearZ + i * HALL.period - offset + HALL.period;
+      if (z < HALL.nearZ * 0.5) continue;
 
-        // 光線の向き（正規化は省き、z を 1 に固定して近似する）
-        var len = Math.sqrt(sx * sx + sy * sy + 1);
-        var dx = sx / len, dy = sy / len, dz = 1 / len;
+      var bend = hallBend(z, f.t);
+      var half = HALL.period * 0.5;
 
-        var dist = 0.5;
-        var hit = false;
-        var glow = 0;
-        var d = 0;
+      // 左右の壁（区画ごとの板）
+      addPart(bend - hw, 0, z, 0.12, hh, half, HALL_HUE.wall, 0.35, false);
+      addPart(bend + hw, 0, z, 0.12, hh, half, HALL_HUE.wall, 0.35, false);
 
-        for (var i = 0; i < steps; i++) {
-          d = sceneDistance(dx * dist, dy * dist, camZ + dz * dist, t);
-          var ad = d < 0 ? -d : d;
+      // 床と天井
+      addPart(bend, hh, z, hw, 0.1, half, HALL_HUE.floor, 0.3, false);
+      addPart(bend, -hh, z, hw, 0.1, half, HALL_HUE.wall, 0.25, false);
 
-          // 遠くの面ほど粗くてよい。距離に比例した許容量で面に乗ったと判定する。
-          if (ad < 0.006 * dist + 0.004) { hit = true; break; }
+      // 柱。床から天井まで通す。金属らしさを最も強くする。
+      addPart(bend - HALL.columnX, 0, z, 0.14, hh, 0.14, HALL_HUE.column, 0.95, false);
+      addPart(bend + HALL.columnX, 0, z, 0.14, hh, 0.14, HALL_HUE.column, 0.95, false);
 
-          // 面に触れなくても、かすめた分だけ淡く光らせる（輪郭が浮かぶ）。
-          // 強くすると画面全体が単色に覆われ、せっかくの立体が沈むので控えめにする。
-          glow += 0.006 / (0.05 + ad * ad);
+      // 天井を渡る梁
+      addPart(bend, -hh * 0.86, z, hw * 0.98, 0.1, 0.13, HALL_HUE.beam, 0.85, false);
 
-          dist += ad * 0.92;
-          if (dist > RAY.far) break;
-        }
+      // 壁から突き出す桁。2段にして規模感を出す。
+      addPart(bend - hw * 0.88, -hh * 0.3, z, 0.16, 0.07, half * 0.95, HALL_HUE.beam, 0.7, false);
+      addPart(bend + hw * 0.88, -hh * 0.3, z, 0.16, 0.07, half * 0.95, HALL_HUE.beam, 0.7, false);
 
-        var r = fogRgb[0], g = fogRgb[1], b = fogRgb[2];
-
-        if (hit) {
-          var hx = dx * dist, hy = dy * dist, hz = camZ + dz * dist;
-          sceneNormal(hx, hy, hz, t, normal);
-
-          // 拡散光。面の向きと光の向きの一致具合で明るさを決める。
-          var lambert = normal[0] * LIGHT[0] + normal[1] * LIGHT[1] + normal[2] * LIGHT[2];
-          if (lambert < 0) lambert = 0;
-
-          // 視線と面が浅い角度で交わるところを光らせ、輪郭を立たせる。
-          var facing = -(normal[0] * dx + normal[1] * dy + normal[2] * dz);
-          if (facing < 0) facing = 0;
-          var rim = Math.pow(1 - facing, 3);
-
-          // 奥ほど暗く落として距離を感じさせる
-          var fog = 1 / (1 + dist * dist * 0.012);
-
-          var mat = sceneMaterial(hx, hy, hz, t);
-          var hue = hueBase + MAT_HUE[mat];
-          var light;
-
-          if (mat === MAT_LIGHT) {
-            // 照明帯は自ら光るので、面の向きで暗くしない。
-            // 遠くでも見えることで、通路の奥行きがそのまま伝わる。
-            light = (0.62 + kick * 0.1) * (0.35 + fog * 0.65);
-          } else {
-            light = (0.10 + lambert * 0.42 + rim * 0.34) * fog * brightness;
-            if (light > 0.72) light = 0.72;
-          }
-
-          var rgb = hslToRgb((((hue % 360) + 360) % 360) / 360, MAT_SAT[mat], light);
-          r = rgb[0]; g = rgb[1]; b = rgb[2];
-        }
-
-        // かすめた光を足す。何にも当たらなかった画素も真っ黒にはしない。
-        if (glow > 0) {
-          var gv = glow * brightness;
-          if (gv > 0.35) gv = 0.35;
-          // 面の色と喧嘩しないよう、かすめ光は基準の色相のまま薄く乗せる。
-          var grgb = hslToRgb(((((hueBase + 20) % 360) + 360) % 360) / 360, 0.85, gv * 0.3);
-          r += grgb[0]; g += grgb[1]; b += grgb[2];
-          if (r > 255) r = 255;
-          if (g > 255) g = 255;
-          if (b > 255) b = 255;
-        }
-
-        var o = (py * bw + px) * 4;
-        data[o] = r;
-        data[o + 1] = g;
-        data[o + 2] = b;
-        data[o + 3] = 255;
-      }
+      // 照明帯。等間隔に流れることで、通路の長さと自分の速さが分かる。
+      addPart(bend - hw * 0.9, hh * 0.1, z, 0.05, 0.05, half * 0.62, HALL_HUE.light, 0, true);
+      addPart(bend + hw * 0.9, hh * 0.1, z, 0.05, 0.05, half * 0.62, HALL_HUE.light, 0, true);
     }
 
-    rayCtx.putImageData(img, 0, 0);
-
-    var c = f.ctx;
-    c.globalCompositeOperation = 'source-over';
-    c.fillStyle = '#04050a';
-    c.fillRect(0, 0, f.W, f.H);
+    // 奥の部材から描く。これで前後関係が正しくなる。
+    parts.sort(function (a, b) { return b.depth - a.depth; });
 
     c.save();
-    c.imageSmoothingEnabled = true;
-    // 既定の補間は粗く、拡大率が大きいと縞が出る。品質を上げてにじみを抑える。
-    c.imageSmoothingQuality = 'high';
-    c.drawImage(rayBuf, 0, 0, f.W, f.H);
+    c.lineJoin = 'round';
+
+    for (var k = 0; k < parts.length; k++) {
+      var p = parts[k];
+
+      // 奥ほど霞ませる。距離が伝わり、遠くの面のちらつきも抑えられる。
+      var fade = M.clamp(1.35 - p.depth / (HALL.period * cells), 0.06, 1);
+
+      mesh3d.drawMesh(c, mesh3d.CUBE, {
+        pos: p.pos,
+        scale: p.size,
+        rx: 0,
+        ry: 0,
+        focal: focal,
+        cx: cx,
+        cy: cy,
+        hue: (f.hue * 0.25 + p.hue) % 360,
+        sat: p.emissive ? 90 : 34,
+        metal: p.metal,
+        emissive: p.emissive,
+        // 映り込む照明の位置を走行に合わせて流す
+        phase: f.t * 0.8 + travel * 0.25,
+        dim: fade,
+        alpha: 1,
+        edges: !p.emissive ? false : true
+      });
+    }
+
     c.restore();
   }
 
@@ -772,10 +541,15 @@
     var game = global.PULSAR.game;
     game.update(f);
 
-    if (raymarchEnabled) {
-      // 背景はレイマーチングで描く。走った距離をそのままカメラの位置にするため、
-      // 手前のリングと奥の構造物が同じ速さで流れ、立体感が一致する。
-      drawRaymarch(f, game.state.dist * 0.55, 0.75 + game.gauge() * 0.5);
+    var c = f.ctx;
+    c.globalCompositeOperation = 'source-over';
+
+    if (backgroundOn) {
+      // 走った距離をそのままカメラ位置にするため、手前のリングと
+      // 奥の構造物が同じ速さで流れ、立体感が一致する。
+      c.fillStyle = '#04050a';
+      c.fillRect(0, 0, f.W, f.H);
+      drawHall(f, game.state.dist);
     } else {
       // 背景なしのときは残像だけを残し、リングの軌跡で奥行きを見せる。
       fadeCanvas(f, 0.26);
@@ -947,13 +721,11 @@
 
   global.PULSAR.scenes = {
     timeline: timeline,
-    RAY: RAY,
+    HALL: HALL,
     setRaymarch: setRaymarch,
     isRaymarch: isRaymarch,
     SCROLL_TEXT: SCROLL_TEXT,
     hslToRgb: hslToRgb,
-    sceneDistance: sceneDistance,
-    sceneMaterial: sceneMaterial,
-    drawRaymarch: drawRaymarch
+    drawHall: drawHall
   };
 })(typeof window !== 'undefined' ? window : this);

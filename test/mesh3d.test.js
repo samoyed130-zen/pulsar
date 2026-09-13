@@ -173,6 +173,57 @@
     });
   });
 
+  describe('environment（環境マッピング）', function () {
+    it('上を向いた反射は明るい（天井が映る）', function () {
+      // y は下が正なので、上向きは -1
+      var up = V.environment(0, -1, 0, 0);
+      var down = V.environment(0, 1, 0, 0);
+      expect(up > down).toBeTrue();
+    });
+
+    it('下を向いた反射は暗い（床が映る）', function () {
+      expect(V.environment(0, 1, 0, 0) <= V.ENV.floorLight + 1).toBeTrue();
+    });
+
+    it('返す明るさは 0 以上 100 以下に収まる', function () {
+      for (var i = 0; i < 120; i++) {
+        var a = i * 0.37;
+        var v = V.environment(Math.cos(a), Math.sin(a * 1.3), Math.sin(a), a);
+        expect(v >= 0 && v <= 100).toBeTrue();
+      }
+    });
+
+    it('位相を変えると映り込みが動く', function () {
+      // 照明が映らない向きでは位相を変えても値は同じなので、
+      // 「どこかの向きで変化すること」を確かめる
+      var moved = false;
+      for (var i = 0; i < 60; i++) {
+        var r = i * 0.1;
+        if (V.environment(Math.cos(r), -0.3, Math.sin(r), 0) !==
+            V.environment(Math.cos(r), -0.3, Math.sin(r), 1.1)) {
+          moved = true;
+          break;
+        }
+      }
+      expect(moved).toBeTrue();
+    });
+
+    it('横方向には照明が複数本ある（等間隔の映り込み）', function () {
+      // 一周ぶん調べて、明るい山が複数回現れること
+      var peaks = 0;
+      var prev = V.environment(Math.cos(0), 0, Math.sin(0), 0);
+      var rising = false;
+      for (var i = 1; i <= 360; i++) {
+        var r = i * Math.PI / 180;
+        var cur = V.environment(Math.cos(r), 0, Math.sin(r), 0);
+        if (cur > prev + 0.01) rising = true;
+        else if (rising && cur < prev - 0.01) { peaks++; rising = false; }
+        prev = cur;
+      }
+      expect(peaks >= 2).toBeTrue();
+    });
+  });
+
   describe('transform（回転と移動）', function () {
     var out = [0, 0, 0];
 
@@ -186,6 +237,13 @@
     it('拡大率が掛かる', function () {
       V.transform([1, 1, 1], 0, 0, 3, [0, 0, 0], out);
       expect(out[0]).toBeCloseTo(3);
+    });
+
+    it('軸ごとに違う拡大率を指定できる（柱や梁のような細長い部材のため）', function () {
+      V.transform([1, 1, 1], 0, 0, [2, 5, 0.5], [0, 0, 0], out);
+      expect(out[0]).toBeCloseTo(2);
+      expect(out[1]).toBeCloseTo(5);
+      expect(out[2]).toBeCloseTo(0.5);
     });
 
     it('回転しても原点からの距離は変わらない', function () {

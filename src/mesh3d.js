@@ -71,6 +71,60 @@
   var LIGHT = [0.43, -0.57, -0.70];
 
   /**
+   * @brief 環境マッピングの設定。
+   *
+   * 金属面に映り込む「周囲の景色」を、画像を用意せずその場で作る。
+   * 反射した向きが上を向いていれば明るい天井、下を向いていれば暗い床、
+   * 横を向いていれば等間隔に並ぶ照明が映る、と決めておけばよい。
+   * 実際の周囲と厳密に一致していなくても、面の向きに応じて映り込みが
+   * 動きさえすれば、目は金属だと解釈する。
+   */
+  var ENV = {
+    /** @brief 上方向（天井側）に映る明るさ。 */
+    skyLight: 74,
+    /** @brief 下方向（床側）に映る明るさ。 */
+    floorLight: 6,
+    /** @brief 横方向に映る照明の本数。 */
+    streaks: 6,
+    /** @brief 映り込む照明の鋭さ。大きいほど細く締まった光になる。 */
+    streakSharp: 10,
+    /** @brief 映り込む照明の強さ。 */
+    streakGain: 38
+  };
+
+  /**
+   * @brief 反射した向きに何が映るかを返す（環境マッピング）。
+   *
+   * @private
+   * @param {number} rx 反射方向 x
+   * @param {number} ry 反射方向 y（下が正）
+   * @param {number} rz 反射方向 z
+   * @param {number} phase 照明の位置をずらす量。動かすと映り込みが流れる
+   * @returns {number} 映り込みの明るさ [0..100 相当]
+   */
+  function environment(rx, ry, rz, phase) {
+    // 上下の向きで、天井の明かりと暗い床を混ぜる。
+    var up = -ry;                       // y は下が正なので反転する
+    var mix = (up + 1) * 0.5;           // -1..1 を 0..1 へ
+    var base = ENV.floorLight + (ENV.skyLight - ENV.floorLight) * mix * mix;
+
+    // 横方向には照明が等間隔に並んでいることにする。
+    var angle = Math.atan2(rx, rz);
+    var s = Math.sin(angle * ENV.streaks + phase);
+    s = s > 0 ? s : 0;
+
+    // 累乗して細い光にする（pow より掛け算の方が速い）
+    var s2 = s * s;
+    var s4 = s2 * s2;
+    var s8 = s4 * s4;
+
+    var v = base + s8 * ENV.streakGain * (0.35 + mix * 0.65);
+
+    // 明度として使うため、100 を超えないようにする。
+    return v > 100 ? 100 : v;
+  }
+
+  /**
    * @brief 点を x 軸・y 軸まわりに回してから平行移動する。
    * @param {Array<number>} p 元の座標 [x, y, z]
    * @param {number} rx x 軸まわりの回転 [rad]
@@ -84,9 +138,18 @@
     var cx = Math.cos(rx), sx = Math.sin(rx);
     var cy = Math.cos(ry), sy = Math.sin(ry);
 
-    var x = p[0] * scale;
-    var y = p[1] * scale;
-    var z = p[2] * scale;
+    // 拡大率は数値でも軸ごとの配列でもよい。柱や梁のような細長い部材は
+    // 軸ごとに違う倍率が要るため。
+    var kx, ky, kz;
+    if (typeof scale === 'number') {
+      kx = ky = kz = scale;
+    } else {
+      kx = scale[0]; ky = scale[1]; kz = scale[2];
+    }
+
+    var x = p[0] * kx;
+    var y = p[1] * ky;
+    var z = p[2] * kz;
 
     // x 軸まわり
     var y1 = y * cx - z * sx;
@@ -224,7 +287,38 @@
       var lambert = -(tmpNormal[0] * LIGHT[0] + tmpNormal[1] * LIGHT[1] + tmpNormal[2] * LIGHT[2]);
       if (lambert < 0) lambert = 0;
 
-      visible.push({ f: f, depth: tmpCenter[2], light: lambert });
+      // 視線の向き（カメラから面の中心へ）
+      var len = Math.sqrt(tmpCenter[0] * tmpCenter[0] + tmpCenter[1] * tmpCenter[1] +
+                          tmpCenter[2] * tmpCenter[2]) || 1;
+      var vx = tmpCenter[0] / len, vy = tmpCenter[1] / len, vz = tmpCenter[2] / len;
+
+      var facing = -(tmpNormal[0] * vx + tmpNormal[1] * vy + tmpNormal[2] * vz);
+      if (facing < 0) facing = 0;
+
+      // フレネル。浅い角度で見た面ほど強く反射する。
+      var rim = 1 - facing;
+      rim = rim * rim * rim;
+
+      // 反射ベクトル r = v - 2(v・n)n
+      var vn = vx * tmpNormal[0] + vy * tmpNormal[1] + vz * tmpNormal[2];
+      var rx = vx - 2 * vn * tmpNormal[0];
+      var ry = vy - 2 * vn * tmpNormal[1];
+      var rz = vz - 2 * vn * tmpNormal[2];
+
+      var env = environment(rx, ry, rz, o.phase || 0);
+
+      // 鏡面反射。光源そのものの映り込み。
+      var hx = LIGHT[0] - vx, hy = LIGHT[1] - vy, hz = LIGHT[2] - vz;
+      var hl = Math.sqrt(hx * hx + hy * hy + hz * hz) || 1;
+      var spec = -(tmpNormal[0] * hx + tmpNormal[1] * hy + tmpNormal[2] * hz) / hl;
+      if (spec < 0) spec = 0;
+      var sp2 = spec * spec;
+      var sp8 = sp2 * sp2 * sp2 * sp2;
+
+      visible.push({
+        f: f, depth: tmpCenter[2],
+        light: lambert, rim: rim, env: env, spec: sp8
+      });
     }
 
     // 奥の面から塗る。面どうしが重なっても正しい前後関係になる。
@@ -240,14 +334,45 @@
       ctx.lineTo(s2[0], s2[1]);
       ctx.closePath();
 
-      var l = 16 + v.light * 46;
-      ctx.fillStyle = 'hsla(' + o.hue.toFixed(0) + ',92%,' + l.toFixed(0) + '%,' + o.alpha.toFixed(3) + ')';
+      var sat = (o.sat === undefined ? 92 : o.sat);
+      var metal = (o.metal === undefined ? 0 : o.metal);
+      var l;
+
+      if (o.emissive) {
+        // 自ら光る部材は面の向きで暗くしない
+        l = 62 + v.light * 8;
+      } else {
+        // 拡散光（素材そのものの色）
+        var diffuse = 8 + v.light * 38;
+
+        // 映り込み。金属ほど拡散光より映り込みが支配的になる。
+        // 浅い角度（フレネル）ではどんな素材でも映り込みが強くなる。
+        var reflectivity = metal * 0.55 + (1 - metal) * 0.10 + v.rim * (0.25 + metal * 0.55);
+        if (reflectivity > 1) reflectivity = 1;
+
+        l = diffuse * (1 - reflectivity * 0.65) + v.env * reflectivity;
+
+        // 光源そのものの映り込み。金属の硬さはここで決まる。
+        l += v.spec * (18 + metal * 52);
+
+        // 映り込みが強いところほど素材の色は失われ、白く飛ぶ。
+        sat = sat * (1 - reflectivity * 0.72);
+      }
+      l = l * (o.dim === undefined ? 1 : o.dim);
+      if (l > 96) l = 96;
+
+      ctx.fillStyle = 'hsla(' + o.hue.toFixed(0) + ',' + sat.toFixed(0) + '%,' +
+                      l.toFixed(1) + '%,' + o.alpha.toFixed(3) + ')';
       ctx.fill();
 
-      // 稜線を明るく描くと、面が平らでも形が読み取れる。
-      ctx.strokeStyle = 'hsla(' + o.hue.toFixed(0) + ',100%,78%,' + (o.alpha * 0.75).toFixed(3) + ')';
-      ctx.lineWidth = 1.1;
-      ctx.stroke();
+      // 稜線を描くと、面が平らでも形が読み取れる。
+      if (o.edges !== false) {
+        ctx.strokeStyle = 'hsla(' + o.hue.toFixed(0) + ',100%,' +
+                          (o.emissive ? 88 : 70) + '%,' +
+                          (o.alpha * (o.emissive ? 0.9 : 0.32)).toFixed(3) + ')';
+        ctx.lineWidth = o.emissive ? 1.4 : 0.9;
+        ctx.stroke();
+      }
     }
 
     return visible.length;
@@ -259,6 +384,8 @@
     CUBE: CUBE,
     TETRAHEDRON: TETRAHEDRON,
     LIGHT: LIGHT,
+    ENV: ENV,
+    environment: environment,
     transform: transform,
     project: project,
     faceNormal: faceNormal,
