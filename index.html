@@ -175,6 +175,22 @@
       </tbody>
     </table>
 
+    <h3>キーボード</h3>
+    <table class="helpTable">
+      <tbody>
+        <tr><th>← →</th><td>自機を回す（離したその場に留まります）</td></tr>
+        <tr><th>P / Space</th><td>一時停止・再開</td></tr>
+        <tr><th>H / ?</th><td>この説明を開閉</td></tr>
+        <tr><th>M</th><td>音のオン・オフ</td></tr>
+        <tr><th>B</th><td>立体背景のオン・オフ</td></tr>
+        <tr><th>S</th><td>感度を次の段階へ</td></tr>
+        <tr><th>T</th><td>タイトルへ戻る（確認あり）</td></tr>
+        <tr><th>1〜6</th><td>タイトルで、そのステージから開始</td></tr>
+        <tr><th>Enter</th><td>リザルトでもう一度あそぶ / 確認に「はい」</td></tr>
+        <tr><th>Esc</th><td>開いているものを閉じる</td></tr>
+      </tbody>
+    </table>
+
     <h3>ルール</h3>
     <ul class="helpList">
       <li>迫ってくるリングには<strong>切れ目</strong>があります。そこを通り抜けてください。</li>
@@ -325,11 +341,70 @@
     buildStageSelect();
     setTitle(true);   // 起動時はタイトル画面から始まる
 
+    // --- キーボードショートカット ---
+    //
+    // 押せるボタンはすべてキーからも触れるようにする。
+    // 戻り値が true なら、ブラウザ側の既定の動作を止める。
+    PULSAR.app.onShortcut = function (key) {
+      var k = key.length === 1 ? key.toLowerCase() : key;
+
+      // 逃げ道。開いているものを閉じる
+      if (k === 'Escape') {
+        if (!confirmEl.hidden) { setConfirm(false); return true; }
+        if (!help.hidden) { setHelp(false); return true; }
+        return false;
+      }
+
+      // 確認が出ている間は、その返事だけを受け付ける
+      if (!confirmEl.hidden) {
+        if (k === 'y' || k === 'Enter') { confirmYesBtn.click(); return true; }
+        if (k === 'n') { setConfirm(false); return true; }
+        return false;
+      }
+
+      // リザルトが出ている間は、もう一度あそぶ
+      if (!resultEl.hidden && k === 'Enter') {
+        PULSAR.app.retry();
+        return true;
+      }
+
+      var onTitle = !title.hidden;
+
+      // タイトルでは数字キーでステージを選ぶ
+      if (onTitle && k >= '1' && k <= '9') {
+        var n = parseInt(k, 10);
+        if (n <= PULSAR.game.unlockedStage()) { startPlaying(n); return true; }
+        return false;
+      }
+
+      if (k === 'h' || k === '?') { setHelp(help.hidden); return true; }
+      if (k === 'm') { soundBtn.click(); return true; }
+      if (k === 'b') { bgBtn.click(); return true; }
+      if (k === 's') { sensBtn.click(); return true; }
+
+      // 一時停止とタイトルへ戻るは、走っている間だけ
+      if ((k === 'p' || k === ' ') && !onTitle) {
+        if (!PULSAR.app.isBusy()) pauseBtn.click();
+        return true;   // 合図の最中でも、画面が動かないよう受け取っておく
+      }
+
+      if (k === 't' && !onTitle) { titleBtn.click(); return true; }
+
+      return false;
+    };
+
     var pauseBtn = document.getElementById('pauseBtn');
 
-    /** 一時停止ボタンの表示を状態に合わせる。 */
+    /**
+     * 一時停止ボタンの表示を状態に合わせる。
+     * 合図や知らせの最中は押せなくする。そこでの停止は演出であって、
+     * 利用者が解除するものではないため。
+     */
     function syncPauseButton() {
-      var on = PULSAR.app.isPaused();
+      var busy = PULSAR.app.isBusy();
+      var on = PULSAR.app.isManualPaused();
+
+      pauseBtn.disabled = busy;
       pauseBtn.textContent = on ? '▶ 再開' : '❙❙ 一時停止';
       pauseBtn.classList.toggle('on', on);
     }
@@ -390,6 +465,9 @@
     // --- タイトルへ戻る（確認してから） ---
 
     var confirmEl = document.getElementById('confirm');
+    var confirmYesBtn = document.getElementById('confirmYes');
+    var titleBtn = document.getElementById('titleBtn');
+    var resultEl = document.getElementById('result');
 
     /**
      * 確認の表示を切り替える。開いている間はゲームを止める。
@@ -400,7 +478,7 @@
       PULSAR.app.setPaused('dialog', open);
     }
 
-    document.getElementById('titleBtn').addEventListener('click', function () {
+    titleBtn.addEventListener('click', function () {
       setConfirm(true);
     });
 
@@ -408,7 +486,7 @@
       setConfirm(false);
     });
 
-    document.getElementById('confirmYes').addEventListener('click', function () {
+    confirmYesBtn.addEventListener('click', function () {
       setConfirm(false);
       PULSAR.app.showAutoplay();
       buildStageSelect();   // 途中で開放されたステージを反映する

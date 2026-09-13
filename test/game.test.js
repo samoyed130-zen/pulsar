@@ -22,6 +22,7 @@
       W: 800,
       H: 600,
       steer: 0,
+      inputMode: 'pointer',
       pointer: { x: 400, y: 300, down: false, everTouched: false },
       impacts: 0
     };
@@ -599,6 +600,40 @@
       expect(G.getSensitivity()).toBe(0.25);
       G.setSensitivity(1);
       expect(G.getSensitivity()).toBe(1);
+    });
+
+    it('キーから手を離しても、指の位置へ戻らない', function () {
+      G.reset();
+      var f = makeFrame({ dt: 1 / 60 });
+      f.pointer.everTouched = true;
+      f.pointer.x = 400;
+      f.pointer.y = 100;        // 画面中心より上 = 指の向きは上
+      f.inputMode = 'key';
+
+      // キーで下方向へ回してから離す
+      f.steer = 1;
+      for (var i = 0; i < 30; i++) G.update(f);
+      var held = G.state.angle;
+
+      f.steer = 0;
+      for (var j = 0; j < 60; j++) G.update(f);
+
+      expect(M.angleDist(G.state.angle, held) < 0.05).toBeTrue();
+    });
+
+    it('指で操作しているときは、指の向きへ追う', function () {
+      G.reset();
+      var f = makeFrame({ dt: 1 / 60 });
+      f.pointer.everTouched = true;
+      f.pointer.x = 400;
+      f.pointer.y = 100;
+      f.inputMode = 'pointer';
+
+      G.state.angle = Math.PI / 2;
+      for (var i = 0; i < 60; i++) G.update(f);
+
+      // 画面中心から見て上 = -π/2 方向
+      expect(M.angleDist(G.state.angle, -Math.PI / 2) < 0.2).toBeTrue();
     });
 
     it('速い段階ほど、同じ時間で目標へ近づく', function () {

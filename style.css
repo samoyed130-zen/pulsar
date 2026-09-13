@@ -32,6 +32,14 @@ body {
   /* タッチ操作をブラウザのスクロールに奪わせない。操作の取りこぼしを防ぐ */
   touch-action: none;
   overscroll-behavior: none;
+
+  /*
+   * 文字を選択できないようにする。読み物ではなく操作する画面なので、
+   * なぞったときに選択範囲や文字カーソルが出ると壊れて見える。
+   */
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
 }
 
 #stage {
@@ -132,6 +140,14 @@ body.on-title #titleBtn { display: none; }
 #hud button.on {
   color: var(--accent);
   border-color: var(--accent);
+}
+
+/* 合図の最中など、押しても意味がないときは触れないことを見せる */
+#hud button:disabled {
+  opacity: 0.35;
+  cursor: default;
+  color: var(--dim);
+  border-color: var(--line);
 }
 
 /* --- タイトル画面 --------------------------------------------------- */

@@ -205,6 +205,15 @@
   var keys = { left: false, right: false };
 
   /**
+   * @brief 直前に使った操作手段。'pointer' か 'key'。
+   *
+   * キーで動かした後に指の位置へ引き戻されると、キー操作が成立しない。
+   * どちらで操作しているかを覚えておき、手を離したときの扱いを変える。
+   * @private
+   */
+  var inputMode = 'pointer';
+
+  /**
    * @brief キャンバスと低解像度バッファを画面サイズに合わせる。
    * @returns {void}
    */
@@ -252,6 +261,7 @@
     canvas.addEventListener('pointerdown', function (e) {
       readPointer(e);
       pointer.down = true;
+      inputMode = 'pointer';
       noteInput();
       // 自動再生制限があるため、操作を起点に音を起こす。
       // 中断されていた場合もここで復帰する（操作のたびに試すのが最も確実）。
@@ -262,15 +272,30 @@
       readPointer(e);
       // 一度操作した後は、PC では押していなくてもマウスで操縦できる方が自然。
       // ただし「初めての操作」とはみなさない（不用意なマウス移動でデモが飛ぶため）。
-      if (pointer.everTouched) lastInput = clock;
+      if (pointer.everTouched) {
+        lastInput = clock;
+        inputMode = 'pointer';
+      }
     });
 
     global.addEventListener('pointerup', function () { pointer.down = false; });
     global.addEventListener('pointercancel', function () { pointer.down = false; });
 
     global.addEventListener('keydown', function (e) {
-      if (e.key === 'ArrowLeft') { keys.left = true; noteInput(); }
-      if (e.key === 'ArrowRight') { keys.right = true; noteInput(); }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        if (e.key === 'ArrowLeft') keys.left = true;
+        else keys.right = true;
+        inputMode = 'key';
+        noteInput();
+        e.preventDefault();   // 画面が動くのを防ぐ
+        return;
+      }
+
+      // 修飾キー付きはブラウザの操作なので、こちらでは拾わない。
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      var handler = api.onShortcut;
+      if (typeof handler === 'function' && handler(e.key)) e.preventDefault();
     });
     global.addEventListener('keyup', function (e) {
       if (e.key === 'ArrowLeft') keys.left = false;
@@ -889,6 +914,7 @@
       bufCtx: bufCtx,
       pointer: pointer,
       steer: steer,
+      inputMode: inputMode,
       impact: impact
     };
 
@@ -1063,9 +1089,35 @@
   }
 
   /**
-   * @brief 外部へ公開する窓口。
+   * @brief 利用者の操作で止めているか。
+   *
+   * 合図や知らせの表示による停止と区別する。ボタンの表示は
+   * こちらに従わせないと、合図のあいだだけ「再開」と出てしまう。
+   *
+   * @returns {boolean} ボタンで止めているなら true
    */
-  global.PULSAR.app = {
+  function isManualPaused() {
+    return pauseReasons.manual;
+  }
+
+  /**
+   * @brief 演出の最中か（合図・知らせ）。
+   *
+   * このあいだは操作を受け付けるべきではないので、ボタンを押せなくする。
+   *
+   * @returns {boolean} 演出中なら true
+   */
+  function isBusy() {
+    return pauseReasons.countdown || pauseReasons.banner;
+  }
+
+  /**
+   * @brief 外部へ公開する窓口。
+   *
+   * `onShortcut` はキー入力を受け取る差し込み口で、`index.html` 側が
+   * 実装を入れる（どのキーに何を割り当てるかは画面側の都合なので）。
+   */
+  var api = {
     CONFIG: CONFIG,
     boot: boot,
     impact: impact,
@@ -1075,6 +1127,11 @@
     startCountdown: startCountdown,
     setPaused: setPaused,
     togglePause: togglePause,
-    isPaused: isPaused
+    isPaused: isPaused,
+    isManualPaused: isManualPaused,
+    isBusy: isBusy,
+    onShortcut: null
   };
+
+  global.PULSAR.app = api;
 })(typeof window !== 'undefined' ? window : this);

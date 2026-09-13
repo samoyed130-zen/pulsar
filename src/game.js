@@ -476,6 +476,12 @@
       };
     }
 
+    // キーから手を離したら、その場に留まる。
+    // ここで指の位置へ戻してしまうと、キーで動かした意味がなくなる。
+    if (f.inputMode === 'key') {
+      return { target: state.angle, rate: CONFIG.manualRate };
+    }
+
     if (f.pointer.everTouched) {
       var dx = f.pointer.x - f.W / 2;
       var dy = f.pointer.y - f.H / 2;
