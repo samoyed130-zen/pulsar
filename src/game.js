@@ -65,6 +65,12 @@
      * 開いた方が「通り抜けた」感じが出る。0 で透視投影どおり。
      */
     ringNearBoost: 1.2,
+    /**
+     * @brief 手前のリングをどれだけ余分に太くするか。
+     *
+     * 近さの2乗に掛かる。遠くでは細い線のまま、くぐる直前だけ太くなる。
+     */
+    ringNearThickness: 6.5,
     /** @brief コンボゲージが満タンになる連続通過数。 */
     comboForMax: 20,
     /** @brief 1つのステージの持ち時間 [s]。 */
@@ -600,7 +606,10 @@
 
       var start = r.gap + state.params.gapWidth * 0.5;
       var end = r.gap - state.params.gapWidth * 0.5 + TAU;
-      var width = (1.5 + near * 3.5) * CONFIG.ringThickness;
+      // 手前ほど太くする。近さの2乗の項を足すことで、遠くでは細い線のまま、
+      // くぐる直前だけ急に太くなる。奥行きが線の太さからも読み取れる。
+      var width = (1.2 + near * 2.8 + near * near * CONFIG.ringNearThickness) *
+                  CONFIG.ringThickness;
 
       // 太い線の下に、さらに広がる淡い線を敷いて厚みを出す。
       c.strokeStyle = M.hsl(hue, 90, 50, alpha * 0.35);
