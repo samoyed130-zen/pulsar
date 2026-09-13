@@ -586,8 +586,9 @@
         phase: f.t * 0.8 + travel * 0.25,
         // 重いときだけ、グラデーションを使わない塗り分けに切り替える
         shade: f.quality === 0 ? 'pieces' : 'gradient',
-        // 疑似グレアでは色が沈むので、塗る側の彩度で補う
+        // 疑似グレアでは色も明るさも沈むので、塗る側で補う
         satBoost: f.satBoost,
+        lightLift: f.lightLift,
         dim: fade,
         alpha: 1,
         // 照明帯は光の面として見せたいので、輪郭線を描かない。
@@ -688,6 +689,7 @@
         edges: false,
         phase: f.t,
         satBoost: f.satBoost,
+        lightLift: f.lightLift,
         alpha: alpha
       });
     }

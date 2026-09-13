@@ -344,10 +344,15 @@
       expect(app.CONFIG.softGlareSat > 1).toBeTrue();
     });
 
-    it('塗る側の明るさは持ち上げない', function () {
-      // 明るさには上限があるので、掛けて持ち上げると多くの面が上限で
-      // 頭打ちになり、面と面の境目が段差として見えてしまう。
-      // 暗さはグレア側で取り戻す。
+    it('明るさの底上げは上限に届かない割合で指定する', function () {
+      // 1 以上だと全面が上限に張り付き、面の境目だけが段差として残る。
+      expect(app.CONFIG.softGlareLift > 0).toBeTrue();
+      expect(app.CONFIG.softGlareLift < 1).toBeTrue();
+    });
+
+    it('明るさを倍率で持ち上げる設定は持たない', function () {
+      // 掛けて持ち上げると明るい面から順に上限で頭打ちになり、
+      // 面と面の境目が段差として見えてしまう。
       expect(app.CONFIG.noGlareBoost === undefined).toBeTrue();
     });
 

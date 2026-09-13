@@ -71,6 +71,13 @@
      * 同じように掛けても境目は生まれない。
      */
     softGlareSat: 1.35,
+    /**
+     * @brief 疑似グレアの環境で、明るさを底上げする割合 [0..1)。
+     *
+     * 倍率ではなく「上限までの残りに対する割合」。倍率で持ち上げると
+     * 明るい面から順に上限へ張り付き、面の境目が段差として見えてしまう。
+     */
+    softGlareLift: 0.18,
     /** @brief この時間を超え続けたら描画を軽くする [ms]。戻すことはしない。 */
     slowMs: 22
   };
@@ -1132,8 +1139,9 @@
       guideIntro: fadeOutHint(),
       // 描画が追いついていないときは、シーン側も手を抜く
       quality: quality,
-      // 疑似グレアでは色が沈むので、塗る側の彩度で補う
+      // 疑似グレアでは色も明るさも沈むので、塗る側で補う
       satBoost: slowFilter ? CONFIG.softGlareSat : 1,
+      lightLift: slowFilter ? CONFIG.softGlareLift : 0,
       impact: impact
     };
 

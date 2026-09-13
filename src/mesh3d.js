@@ -272,6 +272,25 @@
   }
 
   /**
+   * @brief 明るさを、上限へ向けて一定の割合だけ引き上げる。
+   *
+   * 倍率で持ち上げると、明るい面から順に上限へ張り付く。すると
+   * 隣り合う面の差が消え、面の境目だけが段差として見えてしまう。
+   *
+   * 上限までの残りに対して同じ割合を足す形にすると、どれだけ引き上げても
+   * 上限に届かず、面どうしの前後関係も保たれる。差は縮むので、
+   * 眠い絵にはなる代わりに、境目が割れることはない。
+   *
+   * @private
+   * @param {number} l 明るさ [%]
+   * @param {number} lift 引き上げる割合 [0..1)
+   * @returns {number} 引き上げた明るさ [%]
+   */
+  function liftLight(l, lift) {
+    return l + (96 - l) * lift;
+  }
+
+  /**
    * @brief 三角形を、頂点の明るさをつないだグラデーションで塗る。
    *
    * Canvas 2D には頂点ごとの色を面内で補間する仕組みがない。そこで、
@@ -471,6 +490,7 @@
    * @param {number} o.hue 色相 [deg]
    * @param {number} o.alpha 不透明度 [0..1]
    * @param {number} [o.satBoost] 彩度の倍率。グレアが弱い環境で色を補うのに使う
+   * @param {number} [o.lightLift] 明るさを上限へ向けて引き上げる割合 [0..1)
    * @returns {number} 実際に描いた面の数
    */
   function drawMesh(ctx, mesh, o) {
@@ -586,6 +606,15 @@
       if (o.satBoost !== undefined) {
         sat = sat * o.satBoost;
         if (sat > 100) sat = 100;
+      }
+
+      // 明るさの底上げ。倍率ではなく上限までの割合で足すので、
+      // 面が上限に張り付いて境目が段差になることはない。
+      if (o.lightLift) {
+        l = liftLight(l, o.lightLift);
+        vl0 = liftLight(vl0, o.lightLift);
+        vl1 = liftLight(vl1, o.lightLift);
+        vl2 = liftLight(vl2, o.lightLift);
       }
 
       var dim = (o.dim === undefined ? 1 : o.dim);
