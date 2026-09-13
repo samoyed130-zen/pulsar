@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PULSAR — 単体テスト</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0;
+    padding: 24px 20px 60px;
+    background: #0a0c14;
+    color: #d8dced;
+    font-family: "Consolas", "SF Mono", "Courier New", monospace;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 780px; margin: 0 auto; }
+  h1 { font-size: 15px; letter-spacing: 0.2em; color: #6f7899; margin: 0 0 4px; }
+  .sub { color: #4d5570; font-size: 11px; margin: 0 0 20px; }
+  .sub a { color: #7ad7ff; }
+  .banner {
+    padding: 14px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    letter-spacing: 0.08em;
+    margin: 0 0 22px;
+  }
+  .banner.ok { background: rgba(64, 220, 150, 0.12); color: #5fe3a8; border: 1px solid rgba(95, 227, 168, 0.35); }
+  .banner.ng { background: rgba(255, 90, 110, 0.12); color: #ff7d90; border: 1px solid rgba(255, 125, 144, 0.4); }
+  h2 { font-size: 12px; color: #7ad7ff; letter-spacing: 0.12em; margin: 22px 0 6px; font-weight: 600; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { padding: 3px 0 3px 2px; display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+  .mark { flex: 0 0 auto; font-size: 10px; letter-spacing: 0.1em; }
+  .pass .mark { color: #3f8f6b; }
+  .failcase .mark { color: #ff7d90; }
+  .failcase { color: #ff7d90; }
+  .why { flex-basis: 100%; padding-left: 44px; color: #ffb3c0; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>PULSAR — 単体テスト</h1>
+  <p class="sub">
+    外部テストフレームワークを使わない自作ランナーで実行しています。
+    &nbsp;/&nbsp; <a href="index.html">作品へ戻る</a>
+  </p>
+  <div id="out"></div>
+</div>
+
+<script src="src/mathx.js"></script>
+<script src="src/mesh3d.js"></script>
+<script src="src/sound.js"></script>
+<script src="src/game.js"></script>
+<script src="src/scenes.js"></script>
+<script src="src/main.js"></script>
+
+<script src="test/runner.js"></script>
+<script src="test/mathx.test.js"></script>
+<script src="test/mesh3d.test.js"></script>
+<script src="test/game.test.js"></script>
+<script src="test/scenes.test.js"></script>
+<script>
+  PULSAR.test.run(document.getElementById('out'));
+</script>
+</body>
+</html>

@@ -1,0 +1,635 @@
+/*
+ * PULSAR — スタイル
+ *
+ * 画面はほぼ Canvas が占める。CSS の役割は次の3つに限る:
+ *   1. Canvas を画面いっぱいに敷く
+ *   2. ブラウン管風のオーバーレイ（走査線・周辺減光）を重ねる
+ *   3. 最小限の HUD を置く
+ */
+
+:root {
+  --bg: #04050a;
+  --fg: #dfe5f7;
+  --dim: rgba(223, 229, 247, 0.45);
+  --line: rgba(223, 229, 247, 0.18);
+  --accent: #7ad7ff;
+  --pad: max(14px, env(safe-area-inset-left));
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  /* タッチ操作をブラウザのスクロールに奪わせない。操作の取りこぼしを防ぐ */
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* --- ブラウン管風オーバーレイ ------------------------------------ */
+
+.crt,
+.vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* 走査線。1px の横縞を繰り返すだけだが、画面の密度が一気に上がる */
+.crt {
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.22) 0px,
+    rgba(0, 0, 0, 0.22) 1px,
+    rgba(0, 0, 0, 0) 1px,
+    rgba(0, 0, 0, 0) 3px
+  );
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+}
+
+/* 周辺減光。中央へ視線を集める */
+.vignette {
+  background: radial-gradient(
+    ellipse 78% 72% at 50% 50%,
+    rgba(0, 0, 0, 0) 40%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+}
+
+/* --- HUD ---------------------------------------------------------- */
+
+#hud {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  left: var(--pad);
+  right: var(--pad);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+}
+
+/* スコアを左上へ置いたため、作品名は場所を譲って右側のボタン列にまとめる */
+.brand {
+  flex: 0 0 auto;
+  margin-right: auto;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.42em;
+  color: var(--dim);
+  opacity: 0.55;
+}
+
+#hud button,
+#hud .link {
+  pointer-events: auto;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--dim);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 13px;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+#hud button:hover,
+#hud .link:hover {
+  color: var(--fg);
+  border-color: var(--accent);
+}
+
+#hud button.on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* --- タイトル画面 --------------------------------------------------- */
+
+/*
+ * 背後でデモを流したまま重ねる。塗りつぶさず、中央だけを軽く落として
+ * 文字を読ませる。デモが見えていることが、この作品の第一印象になる。
+ */
+#title[hidden] { display: none; }
+
+#title {
+  position: fixed;
+  inset: 0;
+  z-index: 11;
+  display: grid;
+  place-items: center;
+  padding: var(--pad);
+  background: radial-gradient(
+    ellipse 70% 60% at 50% 50%,
+    rgba(4, 5, 10, 0.78) 0%,
+    rgba(4, 5, 10, 0.35) 70%,
+    rgba(4, 5, 10, 0.1) 100%
+  );
+  cursor: pointer;
+  animation: titleIn 0.8s ease both;
+}
+
+@keyframes titleIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.titleInner {
+  text-align: center;
+  pointer-events: none;
+}
+
+.titleLogo {
+  margin: 0;
+  font-family: "Consolas", "Impact", system-ui, monospace;
+  font-size: clamp(52px, 15vw, 128px);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  color: var(--fg);
+  text-shadow:
+    -3px 0 0 rgba(122, 215, 255, 0.75),
+     3px 0 0 rgba(255, 110, 200, 0.75),
+     0 0 42px rgba(122, 215, 255, 0.35);
+}
+
+.titleSub {
+  margin: 16px 0 34px;
+  font-size: clamp(13px, 3.4vw, 17px);
+  letter-spacing: 0.16em;
+  color: rgba(223, 229, 247, 0.75);
+}
+
+.startBtn {
+  pointer-events: auto;
+  font-family: "Consolas", monospace;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  padding: 16px 46px 16px 52px;
+  color: #04121c;
+  background: var(--accent);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  animation: startPulse 1.9s ease-in-out infinite;
+}
+
+@keyframes startPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(122, 215, 255, 0.5); }
+  50% { box-shadow: 0 0 0 18px rgba(122, 215, 255, 0); }
+}
+
+.startBtn:hover { background: #9ce2ff; }
+
+.titleHint {
+  margin: 18px 0 0;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: rgba(223, 229, 247, 0.4);
+}
+
+/* --- 走行パネル ----------------------------------------------------- */
+
+/*
+ * 視線はトンネルの中心に集まる。情報はその真下へ一列に積み、
+ * 目を左右へ振らずに読めるようにする。
+ * 並びは「大きい情報が上」— コンボ → ゲージ → 音の層 → 数値。
+ */
+#panel {
+  position: fixed;
+  left: var(--pad);
+  /* HUD のボタン列の下に置く */
+  top: calc(max(12px, env(safe-area-inset-top)) + 46px);
+  width: min(320px, calc(100% - 2 * var(--pad)));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 14px 18px 15px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(4, 5, 10, 0.52);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-family: "Consolas", "SF Mono", monospace;
+  pointer-events: none;
+  /* 絵の邪魔をしないよう、出入りは静かに */
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+#panel.hidden {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.comboRow {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  line-height: 1;
+}
+
+.comboValue {
+  font-size: 52px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  transition: transform 0.12s ease;
+  text-shadow: 0 0 24px rgba(122, 215, 255, 0.5);
+}
+
+/* コンボが伸びた瞬間だけ弾ませる */
+.comboValue.bump { transform: scale(1.28); }
+
+/* 立体を取って時間が延びた瞬間の反応 */
+@keyframes timeGain {
+  0%   { transform: scale(1); color: var(--fg); }
+  20%  { transform: scale(1.3); color: #ffce6e; }
+  100% { transform: scale(1); color: var(--fg); }
+}
+
+.statValue.gain { animation: timeGain 0.6s ease-out; }
+
+.comboUnit {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: rgba(223, 229, 247, 0.55);
+}
+
+.gauge {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+}
+
+.gaugeFill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #4aa8ff, #7ad7ff, #b98cff);
+  transition: width 0.18s ease;
+}
+
+/* 音の層が加わる位置の目盛り */
+.gaugeTick {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: rgba(4, 5, 10, 0.85);
+}
+
+.layers {
+  display: flex;
+  gap: 5px;
+  width: 100%;
+}
+
+.layer {
+  flex: 1 1 0;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 6px 2px;
+  border-radius: 4px;
+  border: 1px solid rgba(223, 229, 247, 0.14);
+  color: rgba(223, 229, 247, 0.32);
+  transition: color 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+}
+
+.layer.on {
+  color: var(--accent);
+  border-color: rgba(122, 215, 255, 0.6);
+  background: rgba(122, 215, 255, 0.12);
+}
+
+.stats {
+  display: flex;
+  width: 100%;
+  margin-top: 3px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(223, 229, 247, 0.12);
+}
+
+.stat {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.statLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: rgba(223, 229, 247, 0.45);
+}
+
+.statValue {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+/* --- リザルト ------------------------------------------------------ */
+
+#result[hidden] { display: none; }
+
+#result {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  display: grid;
+  place-items: center;
+  padding: var(--pad);
+  background: rgba(4, 5, 10, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.resultPanel {
+  width: min(420px, 100%);
+  padding: 28px 26px 24px;
+  border: 1px solid rgba(122, 215, 255, 0.3);
+  border-radius: 16px;
+  background: rgba(12, 15, 26, 0.95);
+  text-align: center;
+}
+
+.resultPanel h2 {
+  margin: 0;
+  font-family: "Consolas", monospace;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  color: var(--accent);
+}
+
+.resultLead {
+  margin: 8px 0 22px;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.resultStats {
+  margin: 0 0 18px;
+  padding: 0;
+  border-top: 1px solid rgba(223, 229, 247, 0.1);
+}
+
+.resultStats > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 9px 2px;
+  border-bottom: 1px solid rgba(223, 229, 247, 0.1);
+}
+
+.resultStats dt {
+  font-family: "Consolas", monospace;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: rgba(223, 229, 247, 0.45);
+}
+
+.resultStats dd {
+  margin: 0;
+  font-family: "Consolas", monospace;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.resultNote {
+  margin: 0 0 20px;
+  min-height: 1.2em;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--accent);
+}
+
+.resultButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.resultButtons button {
+  flex: 1 1 0;
+  padding: 13px 10px;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.resultButtons button:hover { border-color: var(--accent); }
+
+.resultButtons .primary {
+  color: #04121c;
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 700;
+}
+
+.resultButtons .primary:hover { background: #9ce2ff; }
+
+/* --- 操作説明 ------------------------------------------------------ */
+
+/*
+ * `hidden` 属性による非表示は、この要素の `display: grid` に負けてしまう。
+ * 属性セレクタで明示的に打ち消す（これが無いとダイアログが閉じない）。
+ */
+#help[hidden] { display: none; }
+
+#help {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: var(--pad);
+  background: rgba(4, 5, 10, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  overflow-y: auto;
+}
+
+.helpPanel {
+  width: min(520px, 100%);
+  max-height: calc(100vh - 2 * var(--pad));
+  overflow-y: auto;
+  padding: 26px 26px 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(12, 15, 26, 0.94);
+}
+
+.helpPanel h2 {
+  margin: 0 0 14px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  color: var(--accent);
+}
+
+.helpPanel h3 {
+  margin: 22px 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: rgba(223, 229, 247, 0.5);
+}
+
+.helpLead {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--fg);
+}
+
+.helpLead strong { color: var(--accent); }
+
+.helpTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.helpTable th {
+  width: 8.5em;
+  padding: 8px 12px 8px 0;
+  text-align: left;
+  vertical-align: top;
+  font-weight: 600;
+  color: var(--fg);
+  border-top: 1px solid rgba(223, 229, 247, 0.1);
+  white-space: nowrap;
+}
+
+.helpTable td {
+  padding: 8px 0;
+  vertical-align: top;
+  color: var(--dim);
+  border-top: 1px solid rgba(223, 229, 247, 0.1);
+}
+
+.helpList {
+  margin: 0;
+  padding-left: 1.2em;
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--dim);
+}
+
+.helpList strong { color: var(--fg); font-weight: 600; }
+
+#helpClose {
+  width: 100%;
+  margin-top: 24px;
+  padding: 12px;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+#helpClose:hover { border-color: var(--accent); }
+
+.noscript {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 24px;
+  text-align: center;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 14px;
+}
+
+@media (max-width: 560px) {
+  .brand {
+    letter-spacing: 0.3em;
+    /* 狭い画面ではボタンを優先し、作品名は畳む */
+    font-size: 10px;
+  }
+  #hud { gap: 8px; }
+  #hud button,
+  #hud .link { padding: 6px 10px; font-size: 10px; }
+  #hud .link { display: none; }
+
+  #panel {
+    padding: 11px 13px 12px;
+    gap: 7px;
+    width: min(260px, calc(100% - 2 * var(--pad)));
+  }
+  .comboValue { font-size: 40px; }
+  .comboUnit { font-size: 11px; letter-spacing: 0.14em; }
+  .statLabel { font-size: 8px; letter-spacing: 0.1em; }
+  .statValue { font-size: 19px; }
+  .layer { font-size: 9px; letter-spacing: 0.02em; padding: 4px 1px; }
+  .resultStats dd { font-size: 22px; }
+  .brand { display: none; }
+
+  .helpPanel { padding: 20px 18px 18px; }
+  .helpTable th { width: auto; display: block; padding-bottom: 0; border-top: none; }
+  .helpTable td { display: block; padding-top: 2px; }
+  .helpTable tr { display: block; padding: 8px 0; border-top: 1px solid rgba(223, 229, 247, 0.1); }
+
+  /* 小さい画面では走査線が潰れて汚くなるため薄くする */
+  .crt { opacity: 0.35; }
+}
+
+/* ボタンが3つ並ぶため、極端に狭い画面では作品名を畳んで場所を譲る */
+@media (max-width: 400px) {
+  .brand {
+    overflow: hidden;
+    text-indent: -999px;
+    flex: 0 1 0;
+  }
+  #hud { justify-content: flex-end; }
+  #hud button { padding: 6px 8px; font-size: 9px; letter-spacing: 0.04em; }
+}

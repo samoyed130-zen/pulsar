@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>PULSAR</title>
+<meta name="description" content="外部ライブラリを使わず、Canvas 2D と Web Audio だけで書いたメガデモ。トンネルの区間では画面に触れると操縦できます。">
+<meta name="theme-color" content="#04050a">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<canvas id="stage"></canvas>
+
+<!-- 走査線と周辺減光。ブラウン管風の質感を CSS だけで足す -->
+<div class="crt" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+
+<!--
+  タイトル画面。背後ではデモが流れ続ける（アトラクトモード）。
+  どこを押しても始まるよう、画面全体を受け口にしている。
+-->
+<div id="title">
+  <div class="titleInner">
+    <h1 class="titleLogo">PULSAR</h1>
+    <p class="titleSub">触れると、デモがゲームになる</p>
+    <button id="startBtn" type="button" class="startBtn">START</button>
+    <p class="titleHint">画面のどこを押しても始まります</p>
+  </div>
+</div>
+
+<div id="hud">
+  <span class="brand">PULSAR</span>
+  <button id="helpBtn" type="button">あそびかた</button>
+  <button id="bgBtn" type="button">背景 3D</button>
+  <button id="soundBtn" type="button">♪ 音を出す</button>
+  <a class="link" href="test.html">TESTS</a>
+</div>
+
+<!--
+  走行情報。視線が集まるトンネルの中心の真下に、1つの塊として置く。
+  上から順に コンボ → ゲージ → 数値 と、大きい情報から並べる。
+-->
+<div id="panel" class="hidden" aria-live="off">
+  <div class="comboRow">
+    <span class="comboValue" id="comboValue">0</span>
+    <span class="comboUnit">COMBO</span>
+  </div>
+
+  <div class="gauge">
+    <span class="gaugeFill" id="gaugeFill"></span>
+    <!-- 音の層が加わる位置。どこまで溜めれば何が増えるかを目で示す -->
+    <i class="gaugeTick" style="left:30%"></i>
+    <i class="gaugeTick" style="left:55%"></i>
+    <i class="gaugeTick" style="left:85%"></i>
+  </div>
+
+  <div class="layers" id="comboLayers">
+    <span class="layer on">DRUM</span>
+    <span class="layer" data-layer="bass">BASS</span>
+    <span class="layer" data-layer="hat">HAT</span>
+    <span class="layer" data-layer="lead">LEAD</span>
+    <span class="layer" data-layer="arp">ARP</span>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <span class="statLabel">DISTANCE</span>
+      <span class="statValue" id="scoreDist">0</span>
+    </div>
+    <div class="stat">
+      <span class="statLabel">TIME</span>
+      <span class="statValue" id="scoreTime">3:00</span>
+    </div>
+    <div class="stat">
+      <span class="statLabel">BEST</span>
+      <span class="statValue" id="scoreBest">0</span>
+    </div>
+  </div>
+</div>
+
+<!-- リザルト。持ち時間を使い切ると出る -->
+<div id="result" hidden>
+  <div class="resultPanel" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+    <h2 id="resultTitle">TIME UP</h2>
+    <p class="resultLead">3分間の走行が終わりました。</p>
+
+    <dl class="resultStats">
+      <div><dt>DISTANCE</dt><dd id="rsDist">0</dd></div>
+      <div><dt>BEST</dt><dd id="rsBest">0</dd></div>
+      <div><dt>MAX COMBO</dt><dd id="rsCombo">0</dd></div>
+      <div><dt>ITEMS</dt><dd id="rsItems">0</dd></div>
+      <div><dt>TIME GAINED</dt><dd id="rsGained">0s</dd></div>
+      <div><dt>PASSED</dt><dd id="rsPassed">0</dd></div>
+      <div><dt>CRASHED</dt><dd id="rsHits">0</dd></div>
+    </dl>
+
+    <p class="resultNote" id="rsNote"></p>
+
+    <div class="resultButtons">
+      <button id="retryBtn" type="button" class="primary">もう一度あそぶ</button>
+    </div>
+  </div>
+</div>
+
+<!-- 操作説明。あそびかたボタンから開く -->
+<div id="help" hidden>
+  <div class="helpPanel" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+    <h2 id="helpTitle">あそびかた</h2>
+
+    <p class="helpLead">
+      これは自動で流れ続けるデモです。<strong>画面に触れると、そのままゲームになります。</strong>
+    </p>
+
+    <h3>操作</h3>
+    <table class="helpTable">
+      <tbody>
+        <tr>
+          <th>画面をなぞる</th>
+          <td>指（またはマウス）の向きへ自機が回り込みます。トンネルの中心から見た方向がそのまま自機の位置です。</td>
+        </tr>
+        <tr>
+          <th>← →キー</th>
+          <td>自機を左右に回します。キーボードでも遊べます。</td>
+        </tr>
+        <tr>
+          <th>触れずに待つ</th>
+          <td>自動操縦に戻り、デモとして流れ続けます。</td>
+        </tr>
+        <tr>
+          <th>スマートフォン</th>
+          <td>
+            <strong>縦持ちを推奨します。</strong>
+            自機は画面中心のまわりを回るため、縦持ちの方が指の動きと自機の動きが一致します。
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>ルール</h3>
+    <ul class="helpList">
+      <li>迫ってくるリングには<strong>切れ目</strong>があります。そこを通り抜けてください。</li>
+      <li>
+        流れてくる<strong>光る立体</strong>に触れると、持ち時間が5秒延びます。
+        切れ目の近くに現れるので、避けながら拾ってください。
+      </li>
+      <li>進むほど加速し、リングの間隔が詰まって見えます。</li>
+      <li>ぶつかっても<strong>終わりません</strong>。画面が赤く弾けて減速し、そのまま走り続けます。</li>
+      <li>スコアは走った距離です。ベスト記録はこの端末に保存されます。</li>
+    </ul>
+
+    <h3>デモについて</h3>
+    <ul class="helpList">
+      <li>5つの場面が約53秒で一周します。触れるといつでもトンネルへ飛びます。</li>
+      <li>
+        音は右上のボタンから。音源ファイルは使わず、その場で合成しています。
+        鳴らない場合は端末がマナーモードになっていないかご確認ください。
+      </li>
+      <li>
+        <strong>背景 3D</strong> ボタンで、トンネルの立体背景を切り替えられます。
+        1ピクセルずつ光線を進めて描いているため、動きが重い端末では切ってください。
+      </li>
+      <li>外部ライブラリは一切使っていません。Canvas 2D と Web Audio のみです。</li>
+    </ul>
+
+    <button id="helpClose" type="button">とじる</button>
+  </div>
+</div>
+
+<noscript>
+  <p class="noscript">この作品は JavaScript で描画しています。有効にしてご覧ください。</p>
+</noscript>
+
+<script src="src/mathx.js"></script>
+<script src="src/mesh3d.js"></script>
+<script src="src/sound.js"></script>
+<script src="src/game.js"></script>
+<script src="src/scenes.js"></script>
+<script src="src/main.js"></script>
+<script>
+  // 読み込み順に依存するため、起動はここで1度だけ行う。
+  PULSAR.app.boot();
+
+  (function () {
+    'use strict';
+
+    var soundBtn = document.getElementById('soundBtn');
+
+    /**
+     * ボタンの見た目を合わせる。
+     * 実際に鳴っているかではなく「音を出したい状態か」で判断する。
+     * 端末が一時的に音声を中断しても、表示が勝手に戻らないようにするため。
+     */
+    function syncSoundButton() {
+      var on = PULSAR.sound.isOn();
+      soundBtn.textContent = on ? '♪ 音を止める' : '♪ 音を出す';
+      soundBtn.classList.toggle('on', on);
+    }
+
+    soundBtn.addEventListener('click', function () {
+      if (PULSAR.sound.isMuted()) {
+        PULSAR.sound.turnOn();
+      } else {
+        PULSAR.sound.setMuted(true);
+      }
+      // 起動直後は state が running になるまで一瞬かかるため、少し待って同期する。
+      setTimeout(syncSoundButton, 60);
+    });
+
+    // 画面に触れた時点でも音は起動する。その状態をボタンにも反映させる。
+    window.setInterval(syncSoundButton, 700);
+
+    var title = document.getElementById('title');
+
+    /** タイトル画面を閉じて遊び始める。 */
+    function startPlaying() {
+      title.hidden = true;
+      PULSAR.sound.turnOn();   // 操作を起点にしないと音は鳴らせない
+      PULSAR.app.startGame();
+    }
+
+    // どこを押しても始まる。ボタンは「押す場所」を示すための目印。
+    title.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      startPlaying();
+    });
+    document.getElementById('startBtn').addEventListener('click', startPlaying);
+
+    var bgBtn = document.getElementById('bgBtn');
+
+    /** 背景ボタンの見た目を現在の設定に合わせる。 */
+    function syncBgButton() {
+      var on = PULSAR.scenes.isRaymarch();
+      bgBtn.textContent = on ? '背景 3D' : '背景 なし';
+      bgBtn.classList.toggle('on', on);
+    }
+
+    bgBtn.addEventListener('click', function () {
+      PULSAR.scenes.setRaymarch(!PULSAR.scenes.isRaymarch());
+      syncBgButton();
+    });
+    syncBgButton();
+
+    document.getElementById('retryBtn').addEventListener('click', function () {
+      PULSAR.app.retry();
+    });
+
+    var help = document.getElementById('help');
+    var helpBtn = document.getElementById('helpBtn');
+
+    /**
+     * 説明の表示を切り替える。開いている間はデモを止めず、背後で流し続ける。
+     * @param {boolean} open 開くなら true
+     */
+    function setHelp(open) {
+      help.hidden = !open;
+      helpBtn.classList.toggle('on', open);
+    }
+
+    helpBtn.addEventListener('click', function () { setHelp(help.hidden); });
+    document.getElementById('helpClose').addEventListener('click', function () { setHelp(false); });
+    help.addEventListener('click', function (e) {
+      if (e.target === help) setHelp(false);
+    });
+    window.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') setHelp(false);
+    });
+  })();
+</script>
+</body>
+</html>
