@@ -1203,16 +1203,13 @@
    * 始まる」のか「さっきの続きに戻る」のかで意味が違うためで、
    * メニューから戻るときは添えない。
    *
-   * @param {string} [head] 上に小さく添える文字（例: `STAGE 2`）
+   * @param {string} [head] 最初の READY に添える文字（例: `STAGE 2`）
    * @returns {void}
    */
   function startCountdown(head) {
     var i = 0;
 
-    if (countdownHeadEl) {
-      countdownHeadEl.textContent = head || '';
-      countdownHeadEl.hidden = !head;
-    }
+    if (countdownHeadEl) countdownHeadEl.textContent = head || '';
 
     /**
      * @brief 表示を1つ進め、弾むアニメーションを掛け直す。
@@ -1222,6 +1219,18 @@
     var show = function (label) {
       if (!countdownEl || !countdownNumEl) return;
       countdownEl.hidden = false;
+
+      /*
+       * ステージ番号を添えるのは、最初の READY のあいだだけ。
+       *
+       * 数え始めたあとも出し続けると、指を置く場所より先に文字を
+       * 読ませることになる。番号は「どのステージが始まるか」を
+       * 伝えるためのもので、その役目は最初の一枚で終わっている。
+       */
+      if (countdownHeadEl) {
+        countdownHeadEl.hidden = !head || i > 0;
+      }
+
       countdownNumEl.textContent = label;
       // 数字と単語では収まる大きさが違うので、字数で切り替える
       countdownNumEl.classList.toggle('word', label.length > 1);
