@@ -34,9 +34,17 @@ function load(rel) {
   vm.runInContext(code, context, { filename: rel });
 }
 
+// 作品側。DOM に触れるのは起動関数の中だけなので、読み込むだけなら通る。
 load('src/mathx.js');
+load('src/sound.js');
+load('src/game.js');
+load('src/scenes.js');
+load('src/main.js');
+
 load('test/runner.js');
 load('test/mathx.test.js');
+load('test/game.test.js');
+load('test/scenes.test.js');
 
 // mount に null を渡すと DOM を触らずに集計だけ行う。
 var result = vm.runInContext('PULSAR.test.run(null)', context);
