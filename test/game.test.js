@@ -767,6 +767,70 @@
       }
     });
 
+    it('更新の刻みが変わっても、判定の結果は変わらない', function () {
+      /*
+       * 表示の速さ（fps）が端末で違っても、遊びの手応えを変えないこと。
+       *
+       * 動きは経過時間で計算し、リングは「自機の位置を越えた瞬間に
+       * 一度だけ」判定している。刻みが粗くても飛び越して見逃すことはない。
+       *
+       * 乱数を固定しないと切れ目の位置が変わり、比べられない。
+       */
+      var realRandom = Math.random;
+      var seed;
+
+      function seeded() {
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+        return seed / 0x7fffffff;
+      }
+
+      /** 一定の角度を狙い続けて走らせ、結果を返す。 */
+      function play(fps) {
+        seed = 12345;
+        Math.random = seeded;
+        G.reset(1);
+
+        var dt = 1 / fps;
+        var steps = Math.round(20 * fps);
+
+        for (var i = 0; i < steps; i++) {
+          // 手前のリングの切れ目へ、時間で決まる速さで寄せる
+          var target = 0, best = 1e9;
+          for (var k = 0; k < G.state.rings.length; k++) {
+            var r = G.state.rings[k];
+            if (!r.judged && r.z < best) { best = r.z; target = r.gap; }
+          }
+
+          var radius = 200;
+          G.update({
+            dt: dt,
+            t: i * dt,
+            W: 1280, H: 720,
+            pointer: {
+              x: 640 + Math.cos(target) * radius,
+              y: 360 + Math.sin(target) * radius,
+              down: true,
+              everTouched: true
+            },
+            steer: 0,
+            inputMode: 'pointer',
+            impact: function () {}
+          });
+        }
+
+        return { passed: G.state.passed, hits: G.state.hits, dist: G.state.dist };
+      }
+
+      var fast = play(120);
+      var slow = play(30);
+      Math.random = realRandom;
+
+      expect(slow.passed).toBe(fast.passed);
+      expect(slow.hits).toBe(fast.hits);
+      // 距離は積分なので完全一致はしない。1% 以内なら同じ走りと見てよい。
+      expect(Math.abs(slow.dist - fast.dist) / fast.dist < 0.01).toBeTrue();
+    });
+
     it('スマートフォンでも、リングの線が輪を塗り潰さない', function () {
       // 輪の半径は画面に比例して小さくなる。線の太さを据え置くと、
       // 小さい画面では線が輪の内側を埋めてしまい、切れ目が読めなくなる。
