@@ -106,7 +106,15 @@
    * 解除されてしまう。
    * @private
    */
-  var pauseReasons = { manual: false, dialog: false, hidden: false, countdown: false };
+  var pauseReasons = {
+    manual: false, dialog: false, hidden: false, countdown: false, banner: false
+  };
+
+  /** @brief 大きく出す知らせを消すタイマー。 @private */
+  var bannerTimer = 0;
+
+  /** @brief 知らせを出している最中か（二重に出さないため）。 @private */
+  var bannerBusy = false;
 
   /** @brief カウントダウンの表示を進めるタイマー。 @private */
   var countdownTimer = 0;
@@ -443,7 +451,7 @@
 
   /** @brief 走行パネルとリザルトの DOM 参照。 @private */
   var panelEl = null, distEl = null, goalEl = null, timeEl = null;
-  var pausedEl = null, countdownEl = null, countdownNumEl = null;
+  var pausedEl = null, countdownEl = null, countdownNumEl = null, bannerEl = null;
   var comboValueEl = null, gaugeFillEl = null, layerEls = null;
   var stageValueEl = null, stageFillEl = null;
   var resultEl = null;
@@ -522,13 +530,6 @@
 
     if (st.stage !== shownStage) {
       stageValueEl.textContent = String(st.stage);
-
-      // 次のステージへ進んだ瞬間も、数えてから走り出す。
-      // 難しさと景色が変わるので、構える時間を挟む。
-      if (shownStage > 0 && st.stage > shownStage) {
-        lastStage = st.stage;
-        startCountdown();
-      }
       shownStage = st.stage;
     }
     stageFillEl.style.width = (game.stageProgress() * 100).toFixed(1) + '%';
@@ -593,7 +594,7 @@
    */
   function isPaused() {
     return pauseReasons.manual || pauseReasons.dialog ||
-           pauseReasons.hidden || pauseReasons.countdown;
+           pauseReasons.hidden || pauseReasons.countdown || pauseReasons.banner;
   }
 
   /**
@@ -625,8 +626,40 @@
     // 説明を開いているときとカウントダウン中は、それぞれの画面が前に出るため
     // 「PAUSED」は出さない。
     if (pausedEl) {
-      pausedEl.hidden = !(after && !pauseReasons.dialog && !pauseReasons.countdown);
+      pausedEl.hidden = !(after && !pauseReasons.dialog &&
+                          !pauseReasons.countdown && !pauseReasons.banner);
     }
+  }
+
+  /**
+   * @brief 画面いっぱいに知らせを出し、一定時間おいてから次へ進む。
+   *
+   * ステージを抜けた瞬間にそのまま次が始まると、何が起きたのか分からない。
+   * 手を止めさせて結果を伝えてから、次へ渡す。
+   *
+   * @private
+   * @param {string} text 出す文字
+   * @param {number} ms 見せている時間 [ms]
+   * @param {Function} done 消した後に行う処理
+   * @returns {void}
+   */
+  function showBanner(text, ms, done) {
+    global.clearTimeout(bannerTimer);
+    setPaused('banner', true);
+
+    if (bannerEl) {
+      bannerEl.textContent = text;
+      bannerEl.hidden = false;
+      bannerEl.classList.remove('pop');
+      void bannerEl.offsetWidth;
+      bannerEl.classList.add('pop');
+    }
+
+    bannerTimer = global.setTimeout(function () {
+      if (bannerEl) bannerEl.hidden = true;
+      setPaused('banner', false);
+      done();
+    }, ms);
   }
 
   /**
@@ -895,7 +928,28 @@
     // 端末側の都合で音が中断されていたら、気づかれないうちに戻す。
     global.PULSAR.sound.keepAlive();
 
-    if (game.state.finished && !resultShown) showResult();
+    // ステージを抜けたら、祝いの表示を挟んでから次へ渡す。
+    if (game.goalReached() && !bannerBusy) {
+      bannerBusy = true;
+
+      if (game.isLastStage()) {
+        showBanner('GAME COMPLETED!', 2000, function () {
+          game.completeGame();
+          bannerBusy = false;
+        });
+      } else {
+        showBanner('STAGE CLEAR!', 2000, function () {
+          game.advanceStage();
+          shownStage = game.state.stage;
+          lastStage = game.state.stage;
+          needsRender = true;   // 合図の裏に次のステージの景色を描く
+          bannerBusy = false;
+          startCountdown();
+        });
+      }
+    }
+
+    if (game.state.finished && !resultShown && !bannerBusy) showResult();
 
     if (hitFlash > 0.002) {
       ctx.fillStyle = 'rgba(255,60,80,' + (hitFlash * 0.5).toFixed(3) + ')';
@@ -919,13 +973,29 @@
       var sxp = W / 2 + Math.cos(game.state.angle) * shipR;
       var syp = H / 2 + Math.sin(game.state.angle) * shipR;
 
+      var reach = Math.min(W, H);
+
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      ctx.strokeStyle = 'rgba(255,214,130,' + (cf * 0.75).toFixed(3) + ')';
-      ctx.lineWidth = 1.5 + cf * 2.5;
+
+      // 広がる輪を2枚重ねる。速さの違う輪が追いかけると、
+      // 一瞬の出来事でも「弾けた」と分かる。
+      ctx.strokeStyle = 'rgba(255,214,130,' + (cf * 0.8).toFixed(3) + ')';
+      ctx.lineWidth = 2 + cf * 6;
       ctx.beginPath();
-      ctx.arc(sxp, syp, 12 + (1 - cf) * 46, 0, TAU_LOCAL);
+      ctx.arc(sxp, syp, 14 + (1 - cf) * reach * 0.42, 0, TAU_LOCAL);
       ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(255,246,214,' + (cf * 0.45).toFixed(3) + ')';
+      ctx.lineWidth = 1 + cf * 3;
+      ctx.beginPath();
+      ctx.arc(sxp, syp, 10 + (1 - cf) * reach * 0.24, 0, TAU_LOCAL);
+      ctx.stroke();
+
+      // 画面全体にもわずかに光を回す
+      ctx.fillStyle = 'rgba(255,206,110,' + (cf * 0.10).toFixed(3) + ')';
+      ctx.fillRect(0, 0, W, H);
+
       ctx.restore();
     }
 
@@ -972,6 +1042,7 @@
     pausedEl = document.getElementById('paused');
     countdownEl = document.getElementById('countdown');
     countdownNumEl = document.getElementById('countdownNum');
+    bannerEl = document.getElementById('banner');
 
     // タブが隠れている間は止める。戻ったときに時間だけ進んでいる事故を防ぐ。
     document.addEventListener('visibilitychange', function () {

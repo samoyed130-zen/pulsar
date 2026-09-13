@@ -464,14 +464,26 @@
       }
     });
 
-    it('規定の距離を走ると次のステージへ進む', function () {
+    it('規定の距離に達すると、抜ける条件を満たしたと分かる', function () {
       G.reset();
       var f = makeFrame();
       f.pointer.everTouched = true;
       G.update(f);
 
+      expect(G.goalReached()).toBeFalse();
+
       G.state.dist = G.CONFIG.stageDistance + 1;
       G.update(f);
+
+      // 到達しても自動では進まない（祝いの表示を挟むため）
+      expect(G.goalReached()).toBeTrue();
+      expect(G.state.stage).toBe(1);
+    });
+
+    it('進める指示を出すと次のステージになる', function () {
+      G.reset();
+      G.state.dist = G.CONFIG.stageDistance + 1;
+      G.advanceStage();
 
       expect(G.state.stage).toBe(2);
       expect(G.state.stageStartDist > 0).toBeTrue();
@@ -479,42 +491,38 @@
 
     it('ステージが変わると持ち時間が戻る', function () {
       G.reset();
-      var f = makeFrame();
-      f.pointer.everTouched = true;
-      G.update(f);
-
       G.state.timeLeft = 10;
-      G.state.dist = G.CONFIG.stageDistance + 1;
-      G.update(f);
-
+      G.advanceStage();
       expect(G.state.timeLeft).toBe(G.CONFIG.sessionSeconds);
     });
 
     it('ステージが変わると難しさも切り替わる', function () {
       G.reset();
-      var f = makeFrame();
-      f.pointer.everTouched = true;
-      G.update(f);
-
       var before = G.state.params.gapWidth;
-      G.state.dist = G.CONFIG.stageDistance + 1;
-      G.update(f);
-
+      G.advanceStage();
       expect(G.state.params.gapWidth < before).toBeTrue();
     });
 
-    it('最終ステージを抜けると踏破になり、終了する', function () {
+    it('最終ステージでは、それ以上ステージが進まない', function () {
       G.reset();
-      var f = makeFrame();
-      f.pointer.everTouched = true;
-      G.update(f);
-
       G.state.stage = G.CONFIG.stageCount;
-      G.state.dist = G.CONFIG.stageDistance * 99;
-      G.update(f);
+      expect(G.isLastStage()).toBeTrue();
+      G.advanceStage();
+      expect(G.state.stage).toBe(G.CONFIG.stageCount);
+    });
 
+    it('踏破の指示で、踏破かつ終了になる', function () {
+      G.reset();
+      G.completeGame();
       expect(G.state.cleared).toBeTrue();
       expect(G.state.finished).toBeTrue();
+    });
+
+    it('終了後は抜ける条件を満たさない（演出が二重に出ない）', function () {
+      G.reset();
+      G.state.dist = G.CONFIG.stageDistance * 9;
+      G.completeGame();
+      expect(G.goalReached()).toBeFalse();
     });
 
     it('ステージの進み具合は 0〜1 に収まる', function () {
@@ -542,13 +550,7 @@
 
     it('ステージを抜けると、その先が開放される', function () {
       G.reset();
-      var f = makeFrame();
-      f.pointer.everTouched = true;
-      G.update(f);
-
-      G.state.dist = G.CONFIG.stageDistance + 1;
-      G.update(f);
-
+      G.advanceStage();
       expect(G.unlockedStage() >= 2).toBeTrue();
     });
 

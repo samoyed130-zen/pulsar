@@ -117,7 +117,7 @@
     return {
       gapWidth: M.lerp(1.95, 1.15, t),
       gapDrift: M.lerp(0.6, 1.05, t),
-      itemPeriod: M.lerp(4.6, 9.5, t),
+      itemPeriod: M.lerp(46, 95, t),
       maxSpeed: M.lerp(6.4, 8.8, t)
     };
   }
@@ -293,12 +293,7 @@
    * @returns {void}
    */
   function advanceStage() {
-    if (state.stage >= CONFIG.stageCount) {
-      state.cleared = true;
-      state.finished = true;
-      unlock(CONFIG.stageCount);
-      return;
-    }
+    if (state.stage >= CONFIG.stageCount) return;
 
     state.stage++;
     unlock(state.stage);
@@ -325,6 +320,37 @@
     if (v <= state.unlocked) return;
     state.unlocked = v;
     saveUnlocked(v);
+  }
+
+  /**
+   * @brief 全ステージ踏破として終了する。
+   * @returns {void}
+   */
+  function completeGame() {
+    state.cleared = true;
+    state.finished = true;
+    unlock(CONFIG.stageCount);
+  }
+
+  /**
+   * @brief 今のステージを抜ける距離に達しているか。
+   *
+   * 到達しても自動では進めない。祝いの表示を挟んでから切り替えたいので、
+   * 進めるかどうかの判断は呼び出し側（`main.js`）に任せる。
+   *
+   * @returns {boolean} 抜ける条件を満たしていれば true
+   */
+  function goalReached() {
+    return state.started && !state.finished &&
+           (state.dist - state.stageStartDist) >= CONFIG.stageDistance;
+  }
+
+  /**
+   * @brief 今が最後のステージか。
+   * @returns {boolean} 最終ステージなら true
+   */
+  function isLastStage() {
+    return state.stage >= CONFIG.stageCount;
   }
 
   /**
@@ -490,12 +516,6 @@
     }
 
     updateItems(f, dt);
-
-    // 規定の距離を走り抜けたら次のステージへ。
-    if (state.started && !state.finished &&
-        state.dist - state.stageStartDist >= CONFIG.stageDistance) {
-      advanceStage();
-    }
 
     state.score = M.scoreFromDistance(state.dist);
   }
@@ -702,6 +722,10 @@
     gauge: gauge,
     stageParams: stageParams,
     stageProgress: stageProgress,
-    unlockedStage: unlockedStage
+    unlockedStage: unlockedStage,
+    advanceStage: advanceStage,
+    completeGame: completeGame,
+    goalReached: goalReached,
+    isLastStage: isLastStage
   };
 })(typeof window !== 'undefined' ? window : this);
