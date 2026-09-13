@@ -162,6 +162,7 @@
     var failed = 0;
     var bySuite = {};
     var order = [];
+    var flat = [];
 
     for (var i = 0; i < cases.length; i++) {
       var c = cases[i];
@@ -176,6 +177,7 @@
       }
 
       if (ok) passed++; else failed++;
+      flat.push({ suite: c.suite, name: c.name, ok: ok, message: message });
 
       if (!bySuite[c.suite]) {
         bySuite[c.suite] = [];
@@ -183,6 +185,9 @@
       }
       bySuite[c.suite].push({ name: c.name, ok: ok, message: message });
     }
+
+    // コマンドライン実行（test/run-node.js）から失敗内容を取り出すために保持する。
+    global.PULSAR.test.__lastResults = flat;
 
     render(mount, order, bySuite, passed, failed);
     return { total: cases.length, passed: passed, failed: failed };

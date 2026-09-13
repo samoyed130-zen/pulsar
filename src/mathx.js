@@ -15,6 +15,14 @@
   var TAU = Math.PI * 2;
 
   /**
+   * @brief 角度比較の許容誤差 [rad]。
+   *
+   * 見た目には無視できる大きさ（約 0.00000006 度）だが、
+   * 浮動小数の丸めで境界判定が裏返るのを防ぐために必要。
+   */
+  var ANGLE_EPSILON = 1e-9;
+
+  /**
    * @brief 値を指定範囲へ収める。
    * @param {number} v  入力値
    * @param {number} lo 下限（含む）
@@ -83,13 +91,18 @@
 
   /**
    * @brief 自機がリングの切れ目を通過できるか判定する。
+   *
+   * 境界は通過扱いとする。ただし角度の減算で誤差が出るため
+   * （例: 1.3 - 1.0 = 0.30000000000000004）、単純な `<=` では端が落ちる。
+   * 遊びの感触に影響しない極小の許容誤差を足して、境界を確実に通過側へ入れる。
+   *
    * @param {number} shipAngle 自機の角度 [rad]
    * @param {number} gapCenter 切れ目の中心角 [rad]
    * @param {number} gapWidth  切れ目の開き角 [rad]（全幅。中心から左右に半分ずつ）
    * @returns {boolean} 通過できるなら true。ちょうど端の場合も通過とみなす
    */
   function canPass(shipAngle, gapCenter, gapWidth) {
-    return angleDist(shipAngle, gapCenter) <= gapWidth * 0.5;
+    return angleDist(shipAngle, gapCenter) <= gapWidth * 0.5 + ANGLE_EPSILON;
   }
 
   /**

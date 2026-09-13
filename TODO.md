@@ -10,19 +10,26 @@
 
 | 項目 | 内容 |
 | --- | --- |
-| 最終更新 | 2026-09-13 21:12 |
-| 進行中 | A. 骨組み |
-| 完了 | 企画確定 / 旧作「声で、崩す。」の削除 |
-| 次 | T. テスト基盤 → B. 音 |
+| 最終更新 | 2026-09-13 21:34 |
+| 進行中 | A. 骨組み（`index.html` / `style.css` / `src/main.js`） |
+| 完了 | 企画確定 / 旧作削除 / 環境構築 / git リポジトリ / **T. テスト基盤（61件すべて成功）** |
+| 次 | A. 骨組み → B. 音 → C. シーン |
 | ブロッカー | なし |
 
 **引き継ぎメモ**
 
-- 環境: Windows / PowerShell。**git・node・gh はいずれも未インストール**。
-  → テストはブラウザで走る自作ランナー（`test.html`）。デプロイは GitHub の Web 画面からアップロード。
+- 環境: Windows / PowerShell。git 2.55 / gh 2.100 / Node 24.19 を **21:20 に導入済み**。
+- **PowerShell から git/node/gh を呼ぶ前に PATH を更新すること**（導入直後のセッションでは通らない）:
+  ```powershell
+  $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+  ```
+- テストの実行方法は2通り。どちらも同じテストを走らせる:
+  - コマンドライン（開発中はこちら）: `node test/run-node.js`
+  - ブラウザ（審査員向け・本番）: `test.html` を開く
 - ローカル確認用サーバー: `python -m http.server 8123` を起動済み → http://127.0.0.1:8123/
-- `LICENSE` の著作権者が `NAME_HERE` のまま。提出前に実名 or ハンドル名へ置換が必要。
-- 旧作「声で、崩す。」は削除済み（復元不可、git なし）。
+- git の `user.name` を暫定で `norm8` に設定。**本名 or ハンドル名を確認して差し替える**。
+- `LICENSE` の著作権者が `NAME_HERE` のまま。提出前に置換が必要。
+- リモートリポジトリは未作成（`gh auth login` も未実施）。デプロイ時に行う。
 
 ### このファイルの更新ルール（複数エージェントで作業する場合を含む）
 
@@ -268,23 +275,29 @@ Node.js が未インストールのため、**ブラウザで走る依存ゼロ�
 `test.html` を開くと結果が一覧表示される。GitHub Pages 上にも置くので、
 審査員が URL を開くだけでテストの通過を確認できる。
 
-- [ ] `test/runner.js` に `describe` / `it` / `expect` 相当を最小限で実装
-      （`toBe` / `toBeCloseTo` / `toEqual` / `toThrow` があれば足りる）
-- [ ] 失敗時は赤字で「期待値・実際の値・テスト名」を表示
-- [ ] 合計 / 成功 / 失敗の件数を上部に表示、1件でも落ちたら赤いバナー
-- [ ] `test.html` から各 `*.test.js` を読み込むだけで登録される形にする
+- [x] `test/runner.js` に `describe` / `it` / `expect` 相当を最小限で実装
+      （`toBe` / `toBeCloseTo` / `toEqual` / `toBeTrue` / `toBeFalse` / `toThrow`）
+- [x] 失敗時は赤字で「期待値・実際の値・テスト名」を表示
+- [x] 合計 / 成功 / 失敗の件数を上部に表示、1件でも落ちたら赤いバナー
+- [x] `test.html` から各 `*.test.js` を読み込むだけで登録される形にする
+- [x] `test/run-node.js` を追加（同じテストをコマンドラインからも実行できるようにした）
 
 **テスト対象は純粋関数に限る**（Canvas・音・DOM はテストしない。時間内に見合わない）。
 そのために、判定や計算を `mathx.js` とゲームの更新関数へ**先に切り出してから**実装する。
 
-- [ ] `clamp(v, lo, hi)` — 範囲外・境界値
-- [ ] `lerp(a, b, t)` — t=0, 1, 中間
-- [ ] `wrapAngle(a)` — 負の角度・2π超え・ちょうど 0 と 2π
-- [ ] `angleDist(a, b)` — 境界（0 と 2π 付近）をまたぐ場合が本命
-- [ ] `canPass()` — 切れ目の中心 / 端 / わずかに外 / 境界またぎ
-- [ ] `scoreFromDistance()` — 単調増加すること
-- [ ] `pickScene(timeline, t)` — 尺の合計を超えたらループ先頭に戻ること
-- [ ] `beatAt(bpm, t)` — BPM と時刻から拍番号が正しいこと
+- [x] `clamp(v, lo, hi)` — 範囲外・境界値
+- [x] `lerp(a, b, t)` — t=0, 1, 中間
+- [x] `approach(cur, target, rate, dt)` — fps 非依存の追従
+- [x] `wrapAngle(a)` — 負の角度・2π超え・ちょうど 0 と 2π
+- [x] `angleDist(a, b)` — 境界（0 と 2π 付近）をまたぐ場合が本命
+- [x] `canPass()` — 切れ目の中心 / 端 / わずかに外 / 境界またぎ
+- [x] `scoreFromDistance()` — 単調非減少であること
+- [x] `pickScene(timeline, t)` — 尺の合計を超えたらループ先頭に戻ること
+- [x] `beatAt(bpm, t)` / `beatPhase(bpm, t)` — 拍番号と拍内位相
+- [x] `edgeFade()` / `easeInOut()` / `hsl()`
+
+> **テストが実際にバグを1件見つけた。** `canPass` の境界判定が浮動小数の誤差で裏返っていた
+> （`1.3 - 1.0 = 0.30000000000000004`）。許容誤差 `ANGLE_EPSILON` を導入して修正済み。
 
 > テストは実装の**直後**に書く。まとめて最後に書くと必ず時間切れになる。
 
@@ -358,3 +371,9 @@ CRT オーバーレイ / スマホ動作 / デプロイ / テスト基盤と `ma
 | 21:08 | 見た目優先へ方針変更。ゲームを「触れる区間」に格下げ | `TODO.md` |
 | 21:11 | 旧作のファイルを削除 | `index.html` `style.css` `script.js` `README.md` |
 | 21:12 | §0 現在地・§10 進捗ログを新設（引き継ぎ用） | `TODO.md` |
+| 21:20 | git 2.55 / gh 2.100 / Node 24.19 を winget で導入 | 環境 |
+| 21:22 | git リポジトリ初期化・初回コミット `d09362b` | `.gitignore` |
+| 21:30 | 純粋関数モジュールを実装 | `src/mathx.js` |
+| 21:31 | テストランナーとテスト61件を実装 | `test/runner.js` `test/mathx.test.js` |
+| 21:32 | テストが `canPass` の境界バグを検出 → 許容誤差で修正、全61件成功 | `src/mathx.js` |
+| 21:34 | ブラウザ用テストページを追加 | `test.html` `test/run-node.js` |
