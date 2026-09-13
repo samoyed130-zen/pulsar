@@ -34,7 +34,13 @@
     /** @brief 走り出しのテンポ倍率（遅い方）。 */
     tempoMin: 0.80,
     /** @brief 最高速でのテンポ倍率（速い方）。 */
-    tempoMax: 1.28
+    tempoMax: 1.28,
+    /** @brief グレアの基本の強さ [0..1]。 */
+    glare: 0.55,
+    /** @brief グレアのぼかし半径 [px]（縮小後のバッファ上での値）。 */
+    glareBlur: 5,
+    /** @brief グレアに使う縮小率。小さいほど軽く、光が大きく広がる。 */
+    glareScale: 0.25
   };
 
   /** @brief 表示用のキャンバスと文脈。 @private */
@@ -88,6 +94,49 @@
   /** @brief 遊び始めた時刻 [s]（`clock` 基準）。操作案内の表示に使う。 @private */
   var startedAt = -999;
 
+  /** @brief グレア用の縮小バッファ。 @private */
+  var glareBuf = null, glareCtx = null;
+
+  /** @brief グレアが使えるか（`filter` 未対応の環境では諦める）。 @private */
+  var glareOk = false;
+
+  /**
+   * @brief 明るい部分をにじませて重ねる（グレア）。
+   *
+   * 画面を縮小して写し、暗い部分を潰してからぼかし、加算で戻す。
+   * 縮小してからぼかすので、広がりの割に計算量が小さい。
+   *
+   * 光源そのものを明るくするのではなく「周囲へ光が漏れる」ことで、
+   * 画面の輝度差が誇張され、金属や照明の眩しさが伝わる。
+   *
+   * @private
+   * @param {number} amount 強さ [0..1]
+   * @returns {void}
+   */
+  function drawGlare(amount) {
+    if (!glareOk || amount <= 0.01) return;
+
+    var gw = glareBuf.width;
+    var gh = glareBuf.height;
+
+    // 暗部を切り落として明るい部分だけを残す。
+    // brightness で持ち上げ、contrast で暗い側を潰すのが最も安い方法。
+    glareCtx.setTransform(1, 0, 0, 1, 0, 0);
+    glareCtx.globalCompositeOperation = 'source-over';
+    glareCtx.filter = 'brightness(2.1) contrast(2.6) saturate(1.25) blur(' +
+                      CONFIG.glareBlur + 'px)';
+    glareCtx.clearRect(0, 0, gw, gh);
+    glareCtx.drawImage(canvas, 0, 0, gw, gh);
+    glareCtx.filter = 'none';
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = amount;
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(glareBuf, 0, 0, W, H);
+    ctx.restore();
+  }
+
   /** @brief 衝突などで一時的に加わる画面の揺れの強さ [0..1]。 @private */
   var shake = 0;
 
@@ -117,6 +166,11 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     lightMode = Math.sqrt(W * W + H * H) < CONFIG.lightModeDiagonal;
+
+    if (glareBuf) {
+      glareBuf.width = Math.max(1, Math.round(W * CONFIG.glareScale));
+      glareBuf.height = Math.max(1, Math.round(H * CONFIG.glareScale));
+    }
 
     // バッファは画面比を保ったまま固定幅にする（拡大時に歪ませないため）。
     buf.width = CONFIG.bufferWidth;
@@ -568,6 +622,10 @@
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+    // 絵ができた直後にグレアを重ねる。UI の文字までにじませないよう、
+    // スコアや案内を描く前にかける。
+    drawGlare(CONFIG.glare * (0.75 + kick * 0.45));
+
     var playable = scene.name === CONFIG.playableScene;
     drawPrompt(f, playable);
     // 操作区間にいる間と、遊んだ直後だけ出す。他の場面では絵を優先する。
@@ -604,6 +662,11 @@
 
     buf = document.createElement('canvas');
     bufCtx = buf.getContext('2d', { willReadFrequently: true });
+
+    glareBuf = document.createElement('canvas');
+    glareCtx = glareBuf.getContext('2d');
+    // filter に未対応の環境ではグレアを諦める（他は通常どおり動く）
+    glareOk = !!glareCtx && ('filter' in glareCtx);
 
     panelEl = document.getElementById('panel');
     distEl = document.getElementById('scoreDist');

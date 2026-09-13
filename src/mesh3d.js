@@ -236,6 +236,79 @@
   var tmpCenter = [0, 0, 0];
 
   /**
+   * @brief ある頂点から見たときの映り込みの明るさを求める。
+   *
+   * 面の法線は平らな面では一定でも、視線の向きは頂点ごとに違う。
+   * その差が面の中の明るさの変化になり、単色に潰れるのを防ぐ。
+   *
+   * @private
+   * @param {Array<number>} p 頂点（カメラを原点とする座標）
+   * @param {Array<number>} n 面の法線
+   * @param {number} phase 映り込みの位相
+   * @returns {number} 映り込みの明るさ [0..100 相当]
+   */
+  /**
+   * @brief 明るさを表示できる範囲へ収める。
+   * @private
+   * @param {number} l 明るさ [%]
+   * @returns {number} 2〜96 に収めた値
+   */
+  function clampLight(l) {
+    if (l < 2) return 2;
+    return l > 96 ? 96 : l;
+  }
+
+  /**
+   * @brief 三角形を、頂点の明るさをつないだグラデーションで塗る。
+   *
+   * Canvas 2D には頂点ごとの色を面内で補間する仕組みがない。そこで、
+   * 最も暗い頂点と最も明るい頂点を結ぶ直線のグラデーションで近似する。
+   * 平らな面が単色に潰れなくなり、隣の面との境目が線として浮かなくなる。
+   *
+   * @private
+   * @param {CanvasRenderingContext2D} ctx 描画先
+   * @param {Array<number>} s0 画面座標（頂点1）
+   * @param {Array<number>} s1 画面座標（頂点2）
+   * @param {Array<number>} s2 画面座標（頂点3）
+   * @param {number} l0 頂点1の明るさ [%]
+   * @param {number} l1 頂点2の明るさ [%]
+   * @param {number} l2 頂点3の明るさ [%]
+   * @param {number} hue 色相 [deg]
+   * @param {number} sat 彩度 [%]
+   * @param {number} alpha 不透明度 [0..1]
+   * @returns {CanvasGradient|string} 塗りに使う値
+   */
+  function faceGradient(ctx, s0, s1, s2, l0, l1, l2, hue, sat, alpha) {
+    // 明るさの差が小さければ、単色で塗って余計な処理を省く。
+    var lo = l0, hi = l0, loS = s0, hiS = s0;
+    if (l1 < lo) { lo = l1; loS = s1; }
+    if (l2 < lo) { lo = l2; loS = s2; }
+    if (l1 > hi) { hi = l1; hiS = s1; }
+    if (l2 > hi) { hi = l2; hiS = s2; }
+
+    var h = hue.toFixed(0);
+    var s = sat.toFixed(0);
+    var a = alpha.toFixed(3);
+
+    if (hi - lo < 1.5) {
+      return 'hsla(' + h + ',' + s + '%,' + ((lo + hi) * 0.5).toFixed(1) + '%,' + a + ')';
+    }
+
+    var grad = ctx.createLinearGradient(loS[0], loS[1], hiS[0], hiS[1]);
+    grad.addColorStop(0, 'hsla(' + h + ',' + s + '%,' + lo.toFixed(1) + '%,' + a + ')');
+    grad.addColorStop(1, 'hsla(' + h + ',' + s + '%,' + hi.toFixed(1) + '%,' + a + ')');
+    return grad;
+  }
+
+  function vertexReflection(p, n, phase) {
+    var len = Math.sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]) || 1;
+    var vx = p[0] / len, vy = p[1] / len, vz = p[2] / len;
+
+    var vn = vx * n[0] + vy * n[1] + vz * n[2];
+    return environment(vx - 2 * vn * n[0], vy - 2 * vn * n[1], vz - 2 * vn * n[2], phase);
+  }
+
+  /**
    * @brief 立体を1つ描く。
    *
    * 手順は次のとおり:
@@ -315,9 +388,18 @@
       var sp2 = spec * spec;
       var sp8 = sp2 * sp2 * sp2 * sp2;
 
+      // 頂点ごとの映り込み。面の法線は平らな面では一定だが、
+      // **視線の向きは頂点ごとに違う**。映り込みは視線に依存するため、
+      // 頂点ごとに求めれば面の中で連続的に変化する。
+      // これがないと平らな面が単色に潰れ、面の境目が線として見えてしまう。
+      var e0 = vertexReflection(a, tmpNormal, o.phase || 0);
+      var e1 = vertexReflection(b, tmpNormal, o.phase || 0);
+      var e2 = vertexReflection(c, tmpNormal, o.phase || 0);
+
       visible.push({
         f: f, depth: tmpCenter[2],
-        light: lambert, rim: rim, env: env, spec: sp8
+        light: lambert, rim: rim, env: env, spec: sp8,
+        e0: e0, e1: e1, e2: e2
       });
     }
 
@@ -336,7 +418,7 @@
 
       var sat = (o.sat === undefined ? 92 : o.sat);
       var metal = (o.metal === undefined ? 0 : o.metal);
-      var l;
+      var l, vl0 = 0, vl1 = 0, vl2 = 0;
 
       if (o.emissive) {
         // 自ら光る部材は面の向きで暗くしない
@@ -357,12 +439,26 @@
 
         // 映り込みが強いところほど素材の色は失われ、白く飛ぶ。
         sat = sat * (1 - reflectivity * 0.72);
-      }
-      l = l * (o.dim === undefined ? 1 : o.dim);
-      if (l > 96) l = 96;
 
-      ctx.fillStyle = 'hsla(' + o.hue.toFixed(0) + ',' + sat.toFixed(0) + '%,' +
-                      l.toFixed(1) + '%,' + o.alpha.toFixed(3) + ')';
+        // 頂点ごとの映り込みの差を、面の中の明るさの差として反映する。
+        vl0 = l + (v.e0 - v.env) * reflectivity;
+        vl1 = l + (v.e1 - v.env) * reflectivity;
+        vl2 = l + (v.e2 - v.env) * reflectivity;
+      }
+
+      var dim = (o.dim === undefined ? 1 : o.dim);
+      l = clampLight(l * dim);
+
+      if (o.emissive) {
+        ctx.fillStyle = 'hsla(' + o.hue.toFixed(0) + ',' + sat.toFixed(0) + '%,' +
+                        l.toFixed(1) + '%,' + o.alpha.toFixed(3) + ')';
+      } else {
+        ctx.fillStyle = faceGradient(ctx, s0, s1, s2,
+                                     clampLight(vl0 * dim),
+                                     clampLight(vl1 * dim),
+                                     clampLight(vl2 * dim),
+                                     o.hue, sat, o.alpha);
+      }
       ctx.fill();
 
       // 稜線を描くと、面が平らでも形が読み取れる。
