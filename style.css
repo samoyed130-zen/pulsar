@@ -179,6 +179,208 @@ body {
   color: rgba(223, 229, 247, 0.55);
 }
 
+/* --- コンボゲージ -------------------------------------------------- */
+
+#combo {
+  position: fixed;
+  left: var(--pad);
+  bottom: max(16px, env(safe-area-inset-bottom));
+  width: min(280px, 42vw);
+  padding: 10px 13px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(4, 5, 10, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-family: "Consolas", "SF Mono", monospace;
+  pointer-events: none;
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+#combo.hidden {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.comboHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.comboLabel {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: rgba(223, 229, 247, 0.4);
+}
+
+.comboValue {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  transition: transform 0.12s ease;
+}
+
+/* コンボが伸びた瞬間だけ弾ませる */
+.comboValue.bump { transform: scale(1.35); }
+
+.gauge {
+  position: relative;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.gaugeFill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #4aa8ff, #7ad7ff, #b98cff);
+  transition: width 0.18s ease;
+}
+
+/* 音の層が加わる位置の目盛り */
+.gaugeTick {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: rgba(4, 5, 10, 0.8);
+}
+
+.comboLayers {
+  display: flex;
+  gap: 6px;
+  margin-top: 7px;
+  flex-wrap: wrap;
+}
+
+.layer {
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  padding: 2px 5px;
+  border-radius: 3px;
+  border: 1px solid rgba(223, 229, 247, 0.14);
+  color: rgba(223, 229, 247, 0.3);
+  transition: color 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+}
+
+.layer.on {
+  color: var(--accent);
+  border-color: rgba(122, 215, 255, 0.55);
+  background: rgba(122, 215, 255, 0.1);
+}
+
+/* --- リザルト ------------------------------------------------------ */
+
+#result[hidden] { display: none; }
+
+#result {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  display: grid;
+  place-items: center;
+  padding: var(--pad);
+  background: rgba(4, 5, 10, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.resultPanel {
+  width: min(420px, 100%);
+  padding: 28px 26px 24px;
+  border: 1px solid rgba(122, 215, 255, 0.3);
+  border-radius: 16px;
+  background: rgba(12, 15, 26, 0.95);
+  text-align: center;
+}
+
+.resultPanel h2 {
+  margin: 0;
+  font-family: "Consolas", monospace;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  color: var(--accent);
+}
+
+.resultLead {
+  margin: 8px 0 22px;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.resultStats {
+  margin: 0 0 18px;
+  padding: 0;
+  border-top: 1px solid rgba(223, 229, 247, 0.1);
+}
+
+.resultStats > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 9px 2px;
+  border-bottom: 1px solid rgba(223, 229, 247, 0.1);
+}
+
+.resultStats dt {
+  font-family: "Consolas", monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: rgba(223, 229, 247, 0.4);
+}
+
+.resultStats dd {
+  margin: 0;
+  font-family: "Consolas", monospace;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.resultNote {
+  margin: 0 0 20px;
+  min-height: 1.2em;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--accent);
+}
+
+.resultButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.resultButtons button {
+  flex: 1 1 0;
+  padding: 13px 10px;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.resultButtons button:hover { border-color: var(--accent); }
+
+.resultButtons .primary {
+  color: #04121c;
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 700;
+}
+
+.resultButtons .primary:hover { background: #9ce2ff; }
+
 /* --- 操作説明 ------------------------------------------------------ */
 
 /*

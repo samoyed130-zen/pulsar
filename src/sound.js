@@ -65,6 +65,27 @@
   var muted = false;
 
   /**
+   * @brief 曲の厚み [0..1]。コンボゲージがそのまま入る。
+   *
+   * 0 ではキックだけが鳴り、上がるにつれてベース・ハイハット・リード・
+   * 高音のアルペジオが順に加わる。遊び手は数字を見なくても、
+   * 音が増えたことで「繋がっている」と分かる。
+   * @private
+   */
+  var intensity = 0;
+
+  /**
+   * @brief 層が加わる順番と、それぞれが出てくる厚みのしきい値。
+   * @private
+   */
+  var LAYER = {
+    bass: 0.02,   // 触れて走り出せばすぐ土台が入る
+    hat: 0.30,
+    lead: 0.55,
+    arp: 0.85
+  };
+
+  /**
    * @brief キックドラムを鳴らす。
    * @private
    * @param {number} at 発音時刻 [s]
@@ -155,18 +176,47 @@
   function scheduleStep(n, at) {
     var i = n % 16;
     var bar = Math.floor(n / 16);
+    var v = intensity;
 
+    // キックは常に鳴る。曲の背骨であり、映像の脈拍と一致させているため。
     if (i % 4 === 0) kick(at);
-    if (i % 2 === 1) hat(at, i % 4 === 3 ? 1 : 0.55);
 
-    if (BASS[i] !== null) {
-      tone(BASS[i], at, 0.22, 'sawtooth', 0.32, 420 + Math.sin(bar * 0.7) * 260);
+    if (v >= LAYER.bass && BASS[i] !== null) {
+      // 厚みが増すほどフィルタを開き、同じ音型でも前に出てくるようにする。
+      var cutoff = 320 + v * 900 + Math.sin(bar * 0.7) * 220;
+      tone(BASS[i], at, 0.22, 'sawtooth', 0.20 + v * 0.16, cutoff);
+    }
+
+    if (v >= LAYER.hat && i % 2 === 1) {
+      hat(at, (i % 4 === 3 ? 1 : 0.55) * (0.5 + v * 0.5));
     }
 
     // リードは2小節に1回休ませて、繰り返しの単調さを減らす。
-    if (LEAD[i] !== null && bar % 4 !== 3) {
-      tone(LEAD[i], at, 0.16, 'square', 0.075, 2600);
+    if (v >= LAYER.lead && LEAD[i] !== null && bar % 4 !== 3) {
+      tone(LEAD[i], at, 0.16, 'square', 0.05 + v * 0.05, 2600);
     }
+
+    // 満タン近くでだけ現れる高音。ここまで来た手応えを音で返す。
+    if (v >= LAYER.arp && LEAD[i] !== null) {
+      tone(LEAD[i] * 2, at, 0.10, 'triangle', 0.05, 5200);
+    }
+  }
+
+  /**
+   * @brief 曲の厚みを設定する。
+   * @param {number} v 厚み [0..1]。範囲外は丸める
+   * @returns {void}
+   */
+  function setIntensity(v) {
+    intensity = v < 0 ? 0 : (v > 1 ? 1 : v);
+  }
+
+  /**
+   * @brief 現在の曲の厚みを返す。
+   * @returns {number} 厚み [0..1]
+   */
+  function getIntensity() {
+    return intensity;
   }
 
   /**
@@ -234,8 +284,11 @@
   global.PULSAR = global.PULSAR || {};
   global.PULSAR.sound = {
     CONFIG: CONFIG,
+    LAYER: LAYER,
     start: start,
     toggleMute: toggleMute,
-    isPlaying: isPlaying
+    isPlaying: isPlaying,
+    setIntensity: setIntensity,
+    getIntensity: getIntensity
   };
 })(typeof window !== 'undefined' ? window : this);

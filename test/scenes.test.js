@@ -111,6 +111,31 @@
     });
   });
 
+  describe('sound の層', function () {
+    var S2 = window.PULSAR.sound;
+
+    it('厚みは 0..1 に丸められる', function () {
+      S2.setIntensity(-3);
+      expect(S2.getIntensity()).toBe(0);
+      S2.setIntensity(9);
+      expect(S2.getIntensity()).toBe(1);
+      S2.setIntensity(0.4);
+      expect(S2.getIntensity()).toBeCloseTo(0.4);
+    });
+
+    it('層のしきい値は 0..1 に入り、順番どおりに並んでいる', function () {
+      var L = S2.LAYER;
+      expect(L.bass < L.hat).toBeTrue();
+      expect(L.hat < L.lead).toBeTrue();
+      expect(L.lead < L.arp).toBeTrue();
+      expect(L.bass >= 0 && L.arp <= 1).toBeTrue();
+    });
+
+    it('ゲージ満タンで全ての層が鳴る条件を満たす', function () {
+      expect(1 >= S2.LAYER.arp).toBeTrue();
+    });
+  });
+
   describe('テンポ設定の一致', function () {
     it('映像と音の BPM が一致している（ずれると演出が合わなくなる）', function () {
       expect(window.PULSAR.sound.CONFIG.bpm).toBe(window.PULSAR.app.CONFIG.bpm);

@@ -53,22 +53,50 @@
     /** @brief 自動操縦が切れ目へ向かう追従の速さ。 */
     autoRate: 4.5,
     /** @brief 手動操作の追従の速さ。自動より機敏にする。 */
-    manualRate: 14.0
+    manualRate: 14.0,
+    /** @brief 自機を置く円の半径（リング半径に対する比率）。 */
+    shipRadiusRatio: 0.5,
+    /** @brief コンボゲージが満タンになる連続通過数。 */
+    comboForMax: 20,
+    /** @brief 1回の挑戦の持ち時間 [s]。 */
+    sessionSeconds: 180
   };
 
   /**
    * @brief 走行状態。
-   * @type {{ships: number, angle: number, dist: number, speed: number,
-   *         rings: Array<Object>, score: number, best: number, sinceHit: number}}
+   *
+   * `started` は最初の操作で立ち、そこから持ち時間の消費が始まる。
+   * `finished` が立つと判定を止め、絵だけが流れ続ける（デモを止めないため）。
    */
   var state = {
+    /** @brief 自機の角度 [rad]。 */
     angle: 0,
+    /** @brief 走行距離（内部単位）。 */
     dist: 0,
+    /** @brief 現在の速度。 */
     speed: CONFIG.baseSpeed,
+    /** @brief リングの一覧。 */
     rings: [],
+    /** @brief 表示用スコア（距離の整数化）。 */
     score: 0,
+    /** @brief この端末での最高記録。 */
     best: 0,
-    sinceHit: 99
+    /** @brief 直近の衝突からの経過時間 [s]。 */
+    sinceHit: 99,
+    /** @brief 連続通過数。衝突で 0 に戻る。 */
+    combo: 0,
+    /** @brief この挑戦での最大コンボ。 */
+    maxCombo: 0,
+    /** @brief 通過した総リング数。 */
+    passed: 0,
+    /** @brief 衝突した回数。 */
+    hits: 0,
+    /** @brief 挑戦が始まっているか。 */
+    started: false,
+    /** @brief 持ち時間を使い切ったか。 */
+    finished: false,
+    /** @brief 残り時間 [s]。 */
+    timeLeft: CONFIG.sessionSeconds
   };
 
   /**
@@ -122,6 +150,13 @@
     state.rings = [];
     state.score = 0;
     state.sinceHit = 99;
+    state.combo = 0;
+    state.maxCombo = 0;
+    state.passed = 0;
+    state.hits = 0;
+    state.started = false;
+    state.finished = false;
+    state.timeLeft = CONFIG.sessionSeconds;
     state.best = loadBest();
 
     // 最初のリングは自機の正面に切れ目を置く。開幕でいきなり轢かれないように。
@@ -185,6 +220,14 @@
     var dt = f.dt;
     if (dt <= 0) return;
 
+    // 最初の操作で挑戦が始まる。触れられるまでは持ち時間を減らさない。
+    if (!state.started && f.pointer.everTouched) state.started = true;
+
+    if (state.started && !state.finished) {
+      state.timeLeft = Math.max(0, state.timeLeft - dt);
+      if (state.timeLeft === 0) state.finished = true;
+    }
+
     state.speed = Math.min(CONFIG.maxSpeed, state.speed + CONFIG.accel * dt);
     state.dist += state.speed * dt;
     state.sinceHit += dt;
@@ -201,14 +244,22 @@
       r.z -= state.speed * dt;
 
       // 自機の位置を通過する瞬間に一度だけ判定する。
+      // 持ち時間を使い切った後は判定しない。絵としては走り続ける。
       if (!r.judged && r.z <= CONFIG.shipZ) {
         r.judged = true;
-        // 衝突直後は判定を止める。立て直す間もなく次に轢かれると理不尽に感じるため。
-        if (state.sinceHit >= CONFIG.graceSeconds &&
-            !M.canPass(state.angle, r.gap, CONFIG.gapWidth)) {
+        if (state.finished) continue;
+
+        if (M.canPass(state.angle, r.gap, CONFIG.gapWidth)) {
+          state.combo++;
+          state.passed++;
+          if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+        } else if (state.sinceHit >= CONFIG.graceSeconds) {
+          // 衝突直後は判定を止める。立て直す間もなく次に轢かれると理不尽に感じるため。
           f.impact(1);
           state.speed = CONFIG.baseSpeed; // 衝突した分だけ減速する（終了はしない）
           state.sinceHit = 0;
+          state.combo = 0;
+          state.hits++;
         }
       }
       if (r.z > lastGap) lastGap = r.gap;
@@ -234,6 +285,18 @@
       state.best = state.score;
       saveBest(state.best);
     }
+  }
+
+  /**
+   * @brief コンボゲージの溜まり具合を返す。
+   *
+   * 音の層と画面の明るさがこの値に従うため、遊び手は「溜まっている」ことを
+   * 数字ではなく音の厚みで感じ取れる。
+   *
+   * @returns {number} 0（空）〜1（満タン）
+   */
+  function gauge() {
+    return M.clamp(state.combo / CONFIG.comboForMax, 0, 1);
   }
 
   /**
@@ -291,7 +354,7 @@
    */
   function drawShip(f, cx, cy, focal) {
     var c = f.ctx;
-    var radius = focal / CONFIG.shipZ * 0.82;
+    var radius = focal / CONFIG.shipZ * CONFIG.shipRadiusRatio;
     var x = cx + Math.cos(state.angle) * radius;
     var y = cy + Math.sin(state.angle) * radius;
 
@@ -349,6 +412,7 @@
     state: state,
     reset: reset,
     update: update,
-    draw: draw
+    draw: draw,
+    gauge: gauge
   };
 })(typeof window !== 'undefined' ? window : this);

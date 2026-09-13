@@ -152,6 +152,113 @@
     });
   });
 
+  describe('コンボと持ち時間', function () {
+    it('開始時はコンボ 0、ゲージは空', function () {
+      G.reset();
+      expect(G.state.combo).toBe(0);
+      expect(G.gauge()).toBe(0);
+    });
+
+    it('ゲージは 0..1 に収まる', function () {
+      G.reset();
+      G.state.combo = 9999;
+      expect(G.gauge()).toBe(1);
+      G.state.combo = -5;
+      expect(G.gauge()).toBe(0);
+    });
+
+    it('通過するとコンボが増える', function () {
+      G.reset();
+      var f = makeFrame();
+      f.pointer.everTouched = true;
+      for (var i = 0; i < 600; i++) G.update(f);
+      expect(G.state.combo > 0).toBeTrue();
+      expect(G.state.passed > 0).toBeTrue();
+    });
+
+    it('衝突するとコンボが 0 に戻る', function () {
+      G.reset();
+      var f = makeFrame();
+      G.state.combo = 12;
+      var near = null;
+      for (var j = 0; j < G.state.rings.length; j++) {
+        var r = G.state.rings[j];
+        if (r.z > G.CONFIG.shipZ && (near === null || r.z < near.z)) near = r;
+      }
+      near.z = G.CONFIG.shipZ + 0.001;
+      G.state.angle = M.wrapAngle(near.gap + Math.PI);
+      G.update(f);
+      expect(G.state.combo).toBe(0);
+      expect(G.state.hits).toBe(1);
+    });
+
+    it('最大コンボは減らない', function () {
+      G.reset();
+      G.state.combo = 7;
+      G.state.maxCombo = 7;
+      G.state.combo = 0;
+      expect(G.state.maxCombo).toBe(7);
+    });
+
+    it('触れるまで持ち時間は減らない', function () {
+      G.reset();
+      var f = makeFrame({ dt: 1 });
+      for (var i = 0; i < 5; i++) G.update(f);
+      expect(G.state.timeLeft).toBe(G.CONFIG.sessionSeconds);
+      expect(G.state.started).toBeFalse();
+    });
+
+    it('触れると持ち時間が減り始める', function () {
+      G.reset();
+      var f = makeFrame({ dt: 1 });
+      f.pointer.everTouched = true;
+      G.update(f);
+      expect(G.state.started).toBeTrue();
+      expect(G.state.timeLeft < G.CONFIG.sessionSeconds).toBeTrue();
+    });
+
+    it('持ち時間を使い切ると finished になり、残り時間は負にならない', function () {
+      G.reset();
+      var f = makeFrame({ dt: 10 });
+      f.pointer.everTouched = true;
+      for (var i = 0; i < 25; i++) G.update(f);
+      expect(G.state.finished).toBeTrue();
+      expect(G.state.timeLeft).toBe(0);
+    });
+
+    it('終了後は衝突判定が止まる', function () {
+      G.reset();
+      var f = makeFrame({ dt: 1 / 60 });
+      f.pointer.everTouched = true;
+      G.state.finished = true;
+      var before = f.impacts;
+      // 反対を向き続けても、もう轢かれない
+      for (var i = 0; i < 900; i++) {
+        var near = null;
+        for (var j = 0; j < G.state.rings.length; j++) {
+          var r = G.state.rings[j];
+          if (r.z > G.CONFIG.shipZ && (near === null || r.z < near.z)) near = r;
+        }
+        if (near) G.state.angle = M.wrapAngle(near.gap + Math.PI);
+        G.update(f);
+      }
+      expect(f.impacts).toBe(before);
+    });
+
+    it('reset で挑戦の状態が初期化される', function () {
+      G.state.combo = 5;
+      G.state.finished = true;
+      G.state.started = true;
+      G.state.hits = 3;
+      G.reset();
+      expect(G.state.combo).toBe(0);
+      expect(G.state.finished).toBeFalse();
+      expect(G.state.started).toBeFalse();
+      expect(G.state.hits).toBe(0);
+      expect(G.state.timeLeft).toBe(G.CONFIG.sessionSeconds);
+    });
+  });
+
   describe('遊びやすさの条件', function () {
     it('最高速でもリングの間隔が 0.4 秒以上ある（反応する時間を残す）', function () {
       var interval = G.CONFIG.spacing / G.CONFIG.maxSpeed;

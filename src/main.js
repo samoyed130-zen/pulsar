@@ -277,7 +277,9 @@
       // 操作区間では、指が円を描く動きそのものを見せる。
       var cx = f.W / 2;
       var cy = f.H / 2;
-      var radius = Math.min(f.W, f.H) * 0.29;
+      // 自機が実際に動く円と同じ半径にする。案内と動きがずれると混乱するため。
+      var g = global.PULSAR.game.CONFIG;
+      var radius = Math.min(f.W, f.H) * g.focal / g.shipZ * g.shipRadiusRatio;
       var a = clock * 1.5;
 
       c.globalCompositeOperation = 'lighter';
@@ -328,11 +330,29 @@
   /** @brief 円周。`mathx` の TAU をローカルに束縛して参照を短くする。 @private */
   var TAU_LOCAL = M.TAU;
 
-  /** @brief スコア表示の DOM 参照。 @private */
-  var scoreEl = null, distEl = null, bestEl = null, speedEl = null;
+  /** @brief スコアとゲージの DOM 参照。 @private */
+  var scoreEl = null, distEl = null, bestEl = null, timeEl = null;
+  var comboEl = null, comboValueEl = null, gaugeFillEl = null, layerEls = null;
+  var resultEl = null;
 
-  /** @brief 直前に描いたスコア。同じ値なら DOM を触らない。 @private */
-  var shownDist = -1, shownBest = -1, shownSpeed = '';
+  /** @brief 直前に描いた値。同じなら DOM を触らない。 @private */
+  var shownDist = -1, shownBest = -1, shownTime = '', shownCombo = -1;
+
+  /** @brief リザルトを表示済みか。 @private */
+  var resultShown = false;
+
+  /**
+   * @brief 秒数を m:ss 形式にする。
+   * @private
+   * @param {number} sec 秒数（0 以上）
+   * @returns {string} 表示用の文字列
+   */
+  function formatTime(sec) {
+    var s = Math.max(0, Math.ceil(sec));
+    var m = Math.floor(s / 60);
+    var r = s % 60;
+    return m + ':' + (r < 10 ? '0' : '') + r;
+  }
 
   /**
    * @brief スコア表示を更新する。
@@ -346,9 +366,11 @@
    */
   function updateScore(visible) {
     if (!scoreEl) return;
-    var st = global.PULSAR.game.state;
+    var game = global.PULSAR.game;
+    var st = game.state;
 
     scoreEl.classList.toggle('hidden', !visible);
+    comboEl.classList.toggle('hidden', !visible);
     if (!visible) return;
 
     if (st.score !== shownDist) {
@@ -359,11 +381,82 @@
       bestEl.textContent = String(st.best);
       shownBest = st.best;
     }
-    var sp = st.speed.toFixed(1);
-    if (sp !== shownSpeed) {
-      speedEl.textContent = sp;
-      shownSpeed = sp;
+
+    var tm = formatTime(st.timeLeft);
+    if (tm !== shownTime) {
+      timeEl.textContent = tm;
+      shownTime = tm;
     }
+
+    if (st.combo !== shownCombo) {
+      comboValueEl.textContent = String(st.combo);
+      // 伸びた瞬間だけ弾ませる。次のフレームでクラスを外して再生し直せるようにする。
+      if (st.combo > shownCombo) {
+        comboValueEl.classList.remove('bump');
+        void comboValueEl.offsetWidth; // 再フローを強制してアニメーションを作り直す
+        comboValueEl.classList.add('bump');
+      }
+      shownCombo = st.combo;
+    }
+
+    var g = game.gauge();
+    gaugeFillEl.style.width = (g * 100).toFixed(1) + '%';
+
+    // どの層まで鳴っているかを、音と同じ条件で表示する
+    var layers = global.PULSAR.sound.LAYER;
+    for (var i = 0; i < layerEls.length; i++) {
+      var key = layerEls[i].getAttribute('data-layer');
+      if (!key) continue;
+      layerEls[i].classList.toggle('on', g >= layers[key]);
+    }
+  }
+
+  /**
+   * @brief リザルトを表示する。
+   * @private
+   * @returns {void}
+   */
+  function showResult() {
+    var st = global.PULSAR.game.state;
+    resultShown = true;
+
+    document.getElementById('rsDist').textContent = String(st.score);
+    document.getElementById('rsBest').textContent = String(st.best);
+    document.getElementById('rsCombo').textContent = String(st.maxCombo);
+    document.getElementById('rsPassed').textContent = String(st.passed);
+    document.getElementById('rsHits').textContent = String(st.hits);
+
+    var note = '';
+    if (st.score >= st.best && st.score > 0) note = '自己ベスト更新。';
+    else if (st.hits === 0) note = 'ノーミス走破。';
+    else if (st.maxCombo >= global.PULSAR.game.CONFIG.comboForMax) note = 'ゲージ満タン到達。';
+    document.getElementById('rsNote').textContent = note;
+
+    resultEl.hidden = false;
+  }
+
+  /**
+   * @brief もう一度挑戦する。
+   * @returns {void}
+   */
+  function retry() {
+    resultEl.hidden = true;
+    resultShown = false;
+    global.PULSAR.game.reset();
+    pointer.everTouched = true; // 説明は出し直さない
+    lastInput = clock;
+    jumpToPlayable();
+  }
+
+  /**
+   * @brief リザルトを閉じ、デモの流れへ戻る。
+   * @returns {void}
+   */
+  function watchDemo() {
+    resultEl.hidden = true;
+    resultShown = false;
+    global.PULSAR.game.reset();
+    lastInput = -999; // 引き留めを解除し、次のシーンへ進ませる
   }
 
   /**
@@ -443,6 +536,17 @@
     // 操作区間にいる間と、遊んだ直後だけ出す。他の場面では絵を優先する。
     updateScore(playable || engaged);
 
+    // 曲の厚み。遊んでいる間はコンボゲージ、デモとして流れている間は
+    // 場面の進行に合わせて自動でうねらせる（無人でも音が育って聞こえる）。
+    var game = global.PULSAR.game;
+    global.PULSAR.sound.setIntensity(
+      game.state.started && !game.state.finished
+        ? game.gauge()
+        : 0.35 + 0.35 * Math.sin(clock * 0.12)
+    );
+
+    if (game.state.finished && !resultShown) showResult();
+
     if (hitFlash > 0.002) {
       ctx.fillStyle = 'rgba(255,60,80,' + (hitFlash * 0.5).toFixed(3) + ')';
       ctx.fillRect(0, 0, W, H);
@@ -470,7 +574,14 @@
     scoreEl = document.getElementById('score');
     distEl = document.getElementById('scoreDist');
     bestEl = document.getElementById('scoreBest');
-    speedEl = document.getElementById('scoreSpeed');
+    timeEl = document.getElementById('scoreTime');
+
+    comboEl = document.getElementById('combo');
+    comboValueEl = document.getElementById('comboValue');
+    gaugeFillEl = document.getElementById('gaugeFill');
+    layerEls = document.getElementById('comboLayers').querySelectorAll('.layer');
+
+    resultEl = document.getElementById('result');
 
     resize();
     bindInput();
@@ -481,6 +592,8 @@
   global.PULSAR.app = {
     CONFIG: CONFIG,
     boot: boot,
-    impact: impact
+    impact: impact,
+    retry: retry,
+    watchDemo: watchDemo
   };
 })(typeof window !== 'undefined' ? window : this);
