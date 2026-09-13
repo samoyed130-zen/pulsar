@@ -315,56 +315,75 @@ body.on-title #panel { display: none; }
 /* --- 走行パネル ----------------------------------------------------- */
 
 /*
- * 視線はトンネルの中心に集まる。情報はその真下へ一列に積み、
- * 目を左右へ振らずに読めるようにする。
- * 並びは「大きい情報が上」— コンボ → ゲージ → 音の層 → 数値。
+ * 視線はトンネルの中心に集まる。情報はその真上に横一列で置き、
+ * 目を大きく動かさずに読めるようにする。
+ *
+ * 左から STAGE → GOAL → TIME → COMBO。変わる頻度が低いものから並べ、
+ * いちばん動くコンボを端に置くことで、他の数字が落ち着いて読める。
  */
 #panel {
   position: fixed;
-  left: var(--pad);
-  /* HUD のボタン列の下に置く */
-  top: calc(max(12px, env(safe-area-inset-top)) + 46px);
-  width: min(320px, calc(100% - 2 * var(--pad)));
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 2 * var(--pad));
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 9px;
-  padding: 14px 18px 15px;
+  align-items: center;
+  gap: 20px;
+  padding: 8px 18px;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 999px;
   background: rgba(4, 5, 10, 0.52);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   font-family: "Consolas", "SF Mono", monospace;
+  white-space: nowrap;
   pointer-events: none;
   /* 絵の邪魔をしないよう、出入りは静かに */
   transition: opacity 0.45s ease, transform 0.45s ease;
 }
 
+/* 消えるときは、真ん中に置いたまま上へ抜ける */
 #panel.hidden {
   opacity: 0;
-  transform: translateY(-10px);
+  transform: translate(-50%, -10px);
 }
 
-.comboRow {
+/* 見出しと数値は横に並べる。縦に積むと一列の高さが増えてしまう */
+.stat {
   display: flex;
   align-items: baseline;
-  gap: 9px;
-  line-height: 1;
+  gap: 7px;
 }
 
-.comboValue {
-  font-size: 52px;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  color: var(--accent);
+.statLabel {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: rgba(223, 229, 247, 0.45);
+}
+
+.statValue {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--fg);
+  /* 数字の幅を揃える。桁が変わるたびに並びが動くと読みにくい */
   font-variant-numeric: tabular-nums;
-  transition: transform 0.12s ease;
-  text-shadow: 0 0 24px rgba(122, 215, 255, 0.5);
+  line-height: 1.15;
 }
 
-/* コンボが伸びた瞬間だけ弾ませる */
-.comboValue.bump { transform: scale(1.28); }
+.statSep {
+  margin: 0 3px;
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(223, 229, 247, 0.3);
+}
+
+.statSub {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(223, 229, 247, 0.5);
+}
 
 /* 立体を取って時間が延びた瞬間の反応 */
 @keyframes timeGain {
@@ -375,17 +394,22 @@ body.on-title #panel { display: none; }
 
 .statValue.gain { animation: timeGain 0.6s ease-out; }
 
-.comboUnit {
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  color: rgba(223, 229, 247, 0.55);
+/* コンボだけは勢いを示す役なので、色を持たせてゲージを添える */
+.comboStat .statValue {
+  min-width: 2.2em;
+  text-align: right;
+  color: var(--accent);
+  text-shadow: 0 0 18px rgba(122, 215, 255, 0.45);
+  transition: transform 0.12s ease;
 }
+
+/* 伸びた瞬間だけ弾ませる（クラスは main.js が付け外しする） */
+.comboStat .statValue.bump { transform: scale(1.25); }
 
 .gauge {
   position: relative;
-  width: 100%;
-  height: 8px;
+  width: 110px;
+  height: 7px;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.09);
   overflow: hidden;
@@ -407,122 +431,6 @@ body.on-title #panel { display: none; }
   width: 2px;
   height: 100%;
   background: rgba(4, 5, 10, 0.85);
-}
-
-.layers {
-  display: flex;
-  gap: 5px;
-  width: 100%;
-}
-
-.layer {
-  flex: 1 1 0;
-  text-align: center;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  padding: 6px 2px;
-  border-radius: 4px;
-  border: 1px solid rgba(223, 229, 247, 0.14);
-  color: rgba(223, 229, 247, 0.32);
-  transition: color 0.25s ease, border-color 0.25s ease, background 0.25s ease;
-}
-
-.layer.on {
-  color: var(--accent);
-  border-color: rgba(122, 215, 255, 0.6);
-  background: rgba(122, 215, 255, 0.12);
-}
-
-.stageRow {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
-}
-
-.stageLabel {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  color: rgba(223, 229, 247, 0.45);
-}
-
-.stageValue {
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--fg);
-  font-variant-numeric: tabular-nums;
-}
-
-.stageOf {
-  font-size: 10px;
-  color: rgba(223, 229, 247, 0.35);
-}
-
-.stageBar {
-  flex: 1 1 auto;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.08);
-  overflow: hidden;
-}
-
-.stageFill {
-  display: block;
-  height: 100%;
-  width: 0%;
-  border-radius: 2px;
-  background: rgba(223, 229, 247, 0.55);
-  transition: width 0.2s ease;
-}
-
-.stats {
-  display: flex;
-  width: 100%;
-  margin-top: 3px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(223, 229, 247, 0.12);
-}
-
-.stat {
-  flex: 1 1 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-}
-
-.statLabel {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  color: rgba(223, 229, 247, 0.45);
-}
-
-.statValue {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--fg);
-  font-variant-numeric: tabular-nums;
-  line-height: 1.15;
-  white-space: nowrap;
-}
-
-/* 距離は「現在 / 最長」で並べる。比べる相手を同じ場所に置くため */
-.stat.wide { flex: 1.6 1 0; }
-
-.statSep {
-  margin: 0 4px;
-  font-size: 15px;
-  font-weight: 400;
-  color: rgba(223, 229, 247, 0.3);
-}
-
-.statSub {
-  font-size: 15px;
-  font-weight: 600;
-  color: rgba(223, 229, 247, 0.5);
 }
 
 /* --- FPS 表示（調整用） -------------------------------------------- */
@@ -1121,16 +1029,20 @@ body.on-title #titleBtn { display: none; }
   /* 狭い画面でも、唯一の入口は縮めない。横の余白だけ詰める */
   #hud button#menuBtn { padding: 7px 12px; font-size: 11px; }
 
+  /*
+   * 一列に収めるため、間隔と文字を詰める。
+   * 横幅が足りずメニューのボタンと重なるので、その下へ落とす。
+   */
   #panel {
-    padding: 8px 10px 9px;
-    gap: 5px;
-    width: min(210px, calc(100% - 2 * var(--pad)));
+    top: calc(max(12px, env(safe-area-inset-top)) + 44px);
+    gap: 10px;
+    padding: 6px 12px;
   }
-  .comboValue { font-size: 28px; }
-  .comboUnit { font-size: 9px; letter-spacing: 0.12em; }
-  .statLabel { font-size: 7px; letter-spacing: 0.08em; }
-  .statValue { font-size: 15px; }
-  .layer { font-size: 7px; letter-spacing: 0; padding: 3px 0; }
+  .stat { gap: 5px; }
+  .statLabel { font-size: 8px; letter-spacing: 0.1em; }
+  .statValue { font-size: 14px; }
+  .statSep, .statSub { font-size: 11px; }
+  .gauge { width: 70px; height: 6px; }
   .resultStats dd { font-size: 22px; }
   .brand { display: none; }
 
@@ -1146,21 +1058,12 @@ body.on-title #titleBtn { display: none; }
 /*
  * 横持ちのスマートフォンなど、背の低い画面。
  *
- * 縦に積んだ情報がそのまま画面の高さを食うので、遊ぶのに要らないものから
- * 畳む。音の層は「溜まると増える」ことがゲージと音で分かるため、
- * ここでは名前を出さなくても困らない。
+ * 高さが足りないので、上端の帯をさらに薄くする。
  */
 @media (max-height: 480px) {
-  #panel {
-    top: calc(max(8px, env(safe-area-inset-top)) + 40px);
-    padding: 7px 10px 8px;
-    gap: 4px;
-    width: min(190px, calc(100% - 2 * var(--pad)));
-  }
-  .layers { display: none; }
-  .comboValue { font-size: 24px; }
+  #panel { padding: 5px 12px; gap: 12px; }
   .statValue { font-size: 14px; }
-  .stageRow { font-size: 9px; }
+  .gauge { width: 80px; height: 6px; }
 }
 
 /* ボタンが3つ並ぶため、極端に狭い画面では作品名を畳んで場所を譲る */

@@ -15,7 +15,7 @@
 
   見た目や動きを直したら、この番号を1つ進めること。
 -->
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 
@@ -102,52 +102,42 @@
 </div>
 
 <!--
-  走行情報。視線が集まるトンネルの中心の真下に、1つの塊として置く。
-  上から順に コンボ → ゲージ → 数値 と、大きい情報から並べる。
+  走行情報。画面上の中央に、横一列で置く。
+
+  視線はトンネルの中心（画面中央）に集まる。そこから目を大きく外さずに
+  読めるよう、真上へ一列に並べる。左から「どこを走っているか（STAGE）」
+  「あとどれだけか（GOAL）」「残り時間（TIME）」「勢い（COMBO）」の順で、
+  変わる頻度が低いものから並べている。
 -->
 <div id="panel" class="hidden" aria-live="off">
-  <div class="comboRow">
-    <span class="comboValue" id="comboValue">0</span>
-    <span class="comboUnit">COMBO</span>
+  <div class="stat">
+    <span class="statLabel">STAGE</span>
+    <span class="statValue" id="stageValue">1</span>
   </div>
 
-  <div class="gauge">
-    <span class="gaugeFill" id="gaugeFill"></span>
-    <!-- 音の層が加わる位置。どこまで溜めれば何が増えるかを目で示す -->
-    <i class="gaugeTick" style="left:26%"></i>
-    <i class="gaugeTick" style="left:48%"></i>
-    <i class="gaugeTick" style="left:70%"></i>
-    <i class="gaugeTick" style="left:88%"></i>
+  <div class="stat">
+    <span class="statLabel">GOAL</span>
+    <span class="statValue">
+      <span id="scoreDist">0</span><span class="statSep">/</span><span class="statSub" id="scoreGoal">800</span>
+    </span>
   </div>
 
-  <div class="layers" id="comboLayers">
-    <span class="layer on">DRUM</span>
-    <span class="layer" data-layer="bass">BASS</span>
-    <span class="layer" data-layer="hat">HAT</span>
-    <span class="layer" data-layer="lead">LEAD</span>
-    <span class="layer" data-layer="arp">ARP</span>
-    <span class="layer" data-layer="pad">PAD</span>
+  <div class="stat">
+    <span class="statLabel">TIME</span>
+    <span class="statValue" id="scoreTime">2:00</span>
   </div>
 
-  <!-- ステージの進み具合。どこまで来たかが分かる -->
-  <div class="stageRow">
-    <span class="stageLabel">STAGE</span>
-    <span class="stageValue" id="stageValue">1</span>
-    <span class="stageOf">/ 6</span>
-    <span class="stageBar"><i class="stageFill" id="stageFill"></i></span>
-  </div>
-
-  <div class="stats">
-    <div class="stat wide">
-      <span class="statLabel">DISTANCE</span>
-      <span class="statValue">
-        <span id="scoreDist">0</span><span class="statSep">/</span><span class="statSub" id="scoreGoal">800</span>
-      </span>
-    </div>
-    <div class="stat">
-      <span class="statLabel">TIME</span>
-      <span class="statValue" id="scoreTime">2:00</span>
-    </div>
+  <div class="stat comboStat">
+    <span class="statLabel">COMBO</span>
+    <span class="statValue" id="comboValue">0</span>
+    <span class="gauge">
+      <i class="gaugeFill" id="gaugeFill"></i>
+      <!-- 音の層が加わる位置。どこまで溜めれば何が増えるかを目で示す -->
+      <i class="gaugeTick" style="left:26%"></i>
+      <i class="gaugeTick" style="left:48%"></i>
+      <i class="gaugeTick" style="left:70%"></i>
+      <i class="gaugeTick" style="left:88%"></i>
+    </span>
   </div>
 </div>
 
@@ -311,14 +301,14 @@
   <p class="noscript">この作品は JavaScript で描画しています。有効にしてご覧ください。</p>
 </noscript>
 
-<script src="src/store.js?v=4"></script>
-<script src="src/mathx.js?v=4"></script>
-<script src="src/raster.js?v=4"></script>
-<script src="src/mesh3d.js?v=4"></script>
-<script src="src/sound.js?v=4"></script>
-<script src="src/game.js?v=4"></script>
-<script src="src/scenes.js?v=4"></script>
-<script src="src/main.js?v=4"></script>
+<script src="src/store.js?v=5"></script>
+<script src="src/mathx.js?v=5"></script>
+<script src="src/raster.js?v=5"></script>
+<script src="src/mesh3d.js?v=5"></script>
+<script src="src/sound.js?v=5"></script>
+<script src="src/game.js?v=5"></script>
+<script src="src/scenes.js?v=5"></script>
+<script src="src/main.js?v=5"></script>
 <script>
   // 読み込み順に依存するため、起動はここで1度だけ行う。
   PULSAR.app.boot();
@@ -820,7 +810,7 @@
       // 結果を眺めている最中に消えて出直すことになる。
       if (open && !testsFrame.getAttribute('src')) {
         // 版番号は作品側と揃える（古いまま読み込まれるのを避ける）
-        testsFrame.setAttribute('src', 'test.html?v=4');
+        testsFrame.setAttribute('src', 'test.html?v=5');
       }
 
       if (open) {

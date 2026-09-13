@@ -923,7 +923,7 @@
     c.globalCompositeOperation = 'source-over';
     c.font = '700 ' + Math.min(f.W * 0.045, 22).toFixed(0) + 'px system-ui, sans-serif';
     c.fillStyle = 'rgba(236,243,255,' + alpha.toFixed(3) + ')';
-    c.fillText('なぞって操縦', cx, cy + radius + 42);
+    c.fillText('なぞって操作', cx, cy + radius + 42);
 
     c.restore();
   }
@@ -950,8 +950,7 @@
 
   /** @brief FPS の文字を最後に書き換えた時刻 [ms]。 @private */
   var fpsShownMs = 0;
-  var comboValueEl = null, gaugeFillEl = null, layerEls = null;
-  var stageValueEl = null, stageFillEl = null;
+  var comboValueEl = null, gaugeFillEl = null, stageValueEl = null;
   var resultEl = null;
 
   /** @brief 直前に描いた値。同じなら DOM を触らない。 @private */
@@ -1040,18 +1039,8 @@
       stageValueEl.textContent = String(st.stage);
       shownStage = st.stage;
     }
-    stageFillEl.style.width = (game.stageProgress() * 100).toFixed(1) + '%';
 
-    var g = game.gauge();
-    gaugeFillEl.style.width = (g * 100).toFixed(1) + '%';
-
-    // どの層まで鳴っているかを、音と同じ条件で表示する
-    var layers = global.PULSAR.sound.LAYER;
-    for (var i = 0; i < layerEls.length; i++) {
-      var key = layerEls[i].getAttribute('data-layer');
-      if (!key) continue;
-      layerEls[i].classList.toggle('on', g >= layers[key]);
-    }
+    gaugeFillEl.style.width = (game.gauge() * 100).toFixed(1) + '%';
   }
 
   /**
@@ -1632,11 +1621,8 @@
     goalEl.textContent = String(global.PULSAR.game.CONFIG.stageDistance);
 
     stageValueEl = document.getElementById('stageValue');
-    stageFillEl = document.getElementById('stageFill');
-
     comboValueEl = document.getElementById('comboValue');
     gaugeFillEl = document.getElementById('gaugeFill');
-    layerEls = document.getElementById('comboLayers').querySelectorAll('.layer');
 
     resultEl = document.getElementById('result');
     fpsEl = document.getElementById('fps');
