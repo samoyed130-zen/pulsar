@@ -41,6 +41,22 @@
     glareBlur: 5,
     /** @brief グレアに使う縮小率。小さいほど軽く、光が大きく広がる。 */
     glareScale: 0.25,
+    /**
+     * @brief ぼかしを使えない環境で重ねる、加算ライトの強さ [0..1]。
+     *
+     * こちらは暗部を切り落とさずに画面全体を加算するので、
+     * 同じ強さだと白く濁る。本来のグレアより弱めに入れる。
+     */
+    softGlare: 0.42,
+    /**
+     * @brief 加算ライトに使う縮小率。
+     *
+     * ぼかしの代わりに「思い切り縮めて、拡大して戻す」ことで光をにじませる。
+     * 縮小そのものが平均化なので、この値が小さいほど広がりが大きい。
+     */
+    softGlareScale: 0.08,
+    /** @brief 加算ライトを戻すときの拡大率。1 より大きいと光が外へ広がる。 */
+    softGlareSpread: 1.08,
     /** @brief この時間を超え続けたら描画を軽くする [ms]。戻すことはしない。 */
     slowMs: 22,
     /**
@@ -227,6 +243,10 @@
    * 光源そのものを明るくするのではなく「周囲へ光が漏れる」ことで、
    * 画面の輝度差が誇張され、金属や照明の眩しさが伝わる。
    *
+   * ぼかしが遅い環境では `filter` を一切使わず、思い切り縮めた画を
+   * 少し大きく引き伸ばして加算する。暗部は切り落とせないので眩しさの
+   * 誇張は弱まるが、加算ライトとして画面全体の明るさは取り戻せる。
+   *
    * @private
    * @param {number} amount 強さ [0..1]
    * @returns {void}
@@ -237,12 +257,16 @@
     var gw = glareBuf.width;
     var gh = glareBuf.height;
 
-    // 暗部を切り落として明るい部分だけを残す。
-    // brightness で持ち上げ、contrast で暗い側を潰すのが最も安い方法。
     glareCtx.setTransform(1, 0, 0, 1, 0, 0);
     glareCtx.globalCompositeOperation = 'source-over';
-    glareCtx.filter = 'brightness(2.1) contrast(2.6) saturate(1.25) blur(' +
-                      CONFIG.glareBlur + 'px)';
+
+    if (!slowFilter) {
+      // 暗部を切り落として明るい部分だけを残す。
+      // brightness で持ち上げ、contrast で暗い側を潰すのが最も安い方法。
+      glareCtx.filter = 'brightness(2.1) contrast(2.6) saturate(1.25) blur(' +
+                        CONFIG.glareBlur + 'px)';
+    }
+
     glareCtx.clearRect(0, 0, gw, gh);
     glareCtx.drawImage(canvas, 0, 0, gw, gh);
     glareCtx.filter = 'none';
@@ -251,7 +275,18 @@
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = amount;
     ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(glareBuf, 0, 0, W, H);
+
+    if (slowFilter) {
+      // ぼかしを使わない代わりに、少し大きく引き伸ばして戻す。
+      // 縮小のときの平均化と拡大の補間がぼかしの役目を果たし、
+      // はみ出した分だけ光が輪郭の外へ漏れる。
+      var ex = W * (CONFIG.softGlareSpread - 1) * 0.5;
+      var ey = H * (CONFIG.softGlareSpread - 1) * 0.5;
+      ctx.drawImage(glareBuf, -ex, -ey, W + ex * 2, H + ey * 2);
+    } else {
+      ctx.drawImage(glareBuf, 0, 0, W, H);
+    }
+
     ctx.restore();
   }
 
@@ -303,8 +338,10 @@
     lightMode = Math.sqrt(W * W + H * H) < CONFIG.lightModeDiagonal;
 
     if (glareBuf) {
-      glareBuf.width = Math.max(1, Math.round(W * CONFIG.glareScale));
-      glareBuf.height = Math.max(1, Math.round(H * CONFIG.glareScale));
+      // ぼかしを使えない環境では、縮小そのものがぼかしの代わりになる。
+      var gs = slowFilter ? CONFIG.softGlareScale : CONFIG.glareScale;
+      glareBuf.width = Math.max(1, Math.round(W * gs));
+      glareBuf.height = Math.max(1, Math.round(H * gs));
     }
 
     // バッファは画面比を保ったまま固定幅にする（拡大時に歪ませないため）。
@@ -1055,10 +1092,15 @@
     //
     // 描画が追いついていないときも止める。画面の縮小コピーとぼかしは
     // この作品でいちばん重く、しかも実装によって速度が桁で違う。
-    var glareScale = (global.PULSAR.scenes.isRaymarch() && quality > 0 && !slowFilter)
+    //
+    // ぼかしが遅い環境では止めずに、ぼかしを使わない加算ライトへ差し替える。
+    // 光を足すのをやめると画面が沈んでしまい、描く側の明るさを上げるだけでは
+    // 輝度差が出ないため、暗いままに見えてしまう。
+    var glareScale = (global.PULSAR.scenes.isRaymarch() && quality > 0)
       ? ((scene.glare === undefined) ? 1 : scene.glare)
       : 0;
-    drawGlare(CONFIG.glare * glareScale * (0.75 + kick * 0.45));
+    var glareBase = slowFilter ? CONFIG.softGlare : CONFIG.glare;
+    drawGlare(glareBase * glareScale * (0.75 + kick * 0.45));
 
     var playable = scene.name === CONFIG.playableScene;
     drawPrompt(f, playable);

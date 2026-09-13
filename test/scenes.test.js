@@ -348,6 +348,20 @@
     it('明るさの補正は白く飛ばない範囲に収める', function () {
       expect(app.CONFIG.noGlareBoost < 2).toBeTrue();
     });
+
+    it('ぼかし無しの加算ライトは本来のグレアより弱い', function () {
+      // 暗部を切り落とせないぶん、同じ強さで加算すると画面が白く濁る。
+      expect(app.CONFIG.softGlare < app.CONFIG.glare).toBeTrue();
+    });
+
+    it('ぼかし無しの加算ライトは、より小さく縮めてにじませる', function () {
+      // filter を使えないので、縮小と拡大の補間そのものがぼかしになる。
+      expect(app.CONFIG.softGlareScale < app.CONFIG.glareScale).toBeTrue();
+    });
+
+    it('加算ライトは外側へ広がる', function () {
+      expect(app.CONFIG.softGlareSpread > 1).toBeTrue();
+    });
   });
 
   describe('一時停止', function () {
