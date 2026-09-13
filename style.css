@@ -547,29 +547,68 @@ body.on-title #panel { display: none; }
 #resetBtn { color: rgba(255, 145, 160, 0.9); }
 #resetBtn:hover { background: rgba(255, 145, 160, 0.12); }
 
-/*
- * テストページへの入口。別のタブが開くことを矢印で示す以外は、
- * 他の項目とまったく同じ見た目にする。色を落とすと、押せないものだと
- * 誤解される。
- */
-.menuLink {
-  display: block;
-  padding: 13px 16px;
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  color: var(--fg);
-  text-decoration: none;
-  background: rgba(223, 229, 247, 0.05);
+/* --- 単体テストの結果 ---------------------------------------------- */
+
+#tests[hidden] { display: none; }
+
+#tests {
+  position: fixed;
+  inset: 0;
+  /* あそびかたと同じ高さに置く */
+  z-index: 16;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(4, 5, 10, 0.72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.testsPanel {
+  width: min(760px, 100%);
+  height: min(80vh, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 20px 18px;
   border: 1px solid var(--line);
-  border-radius: 11px;
+  border-radius: 18px;
+  background: rgba(9, 11, 20, 0.96);
 }
 
-.menuLink::after {
-  content: " ↗";
-  color: rgba(223, 229, 247, 0.45);
+.testsPanel h2 {
+  margin: 0;
+  font-family: "Consolas", monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.34em;
+  color: rgba(223, 229, 247, 0.55);
+  text-align: center;
 }
 
-.menuLink:hover { background: rgba(223, 229, 247, 0.1); }
+/* 結果は別の文書として読み込む。作品側の状態に触れさせないため */
+#testsFrame {
+  flex: 1;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+#testsClose {
+  align-self: center;
+  padding: 11px 30px;
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+#testsClose:hover { border-color: var(--accent); }
 
 /* 設定を変えていることが一目で分かるようにする */
 .menuList button.on {

@@ -43,7 +43,8 @@
   <h1>PULSAR — 単体テスト</h1>
   <p class="sub">
     外部テストフレームワークを使わない自作ランナーで実行しています。
-    &nbsp;/&nbsp; <a href="index.html">作品へ戻る</a>
+    <!-- 作品の中に枠として埋め込まれているときは出さない（下の script で消す） -->
+    <span id="backLink">&nbsp;/&nbsp; <a href="index.html">作品へ戻る</a></span>
   </p>
   <div id="out"></div>
 </div>
@@ -77,6 +78,12 @@
    * 保存はすでに止めてあるため、この消音が設定として残ることはない。
    */
   PULSAR.sound.setMuted(true);
+
+  // 作品の中に埋め込まれているときは、「作品へ戻る」は的外れになる。
+  // 押すと枠の中にもう1つ作品が開いてしまう。
+  if (window.top !== window.self) {
+    document.getElementById('backLink').style.display = 'none';
+  }
 </script>
 
 <script src="test/runner.js"></script>

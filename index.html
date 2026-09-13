@@ -72,9 +72,8 @@
       <button id="smoothBtn" type="button">なめらか あり</button>
       <button id="soundBtn" type="button">♪ 音 あり</button>
       <button id="helpBtn" type="button">あそびかた</button>
+      <button id="testsBtn" type="button">APIテスト</button>
       <button id="resetBtn" type="button">設定初期化</button>
-      <!-- 単体テストの結果ページ。別のタブで開き、遊びを中断させない -->
-      <a class="menuLink" href="test.html" target="_blank" rel="noopener">APIテスト</a>
     </div>
 
     <div class="menuFooter">
@@ -156,6 +155,25 @@
       <button id="retryBtn" type="button" class="primary">もう一度あそぶ</button>
       <button id="resultTitleBtn" type="button">タイトルへ</button>
     </div>
+  </div>
+</div>
+
+<!--
+  単体テストの結果。メニューの APIテストから開く。
+
+  別のタブで開くのをやめ、この画面の中で見せる。テストは作品と同じ
+  ファイルを読み込んで動かすため、別の窓に置くと「どちらのページの音か」
+  「どちらの設定が変わったのか」が分かりにくくなる。
+
+  中身は枠（iframe）に閉じて読み込む。テストは設定を切り替える関数も
+  そのまま呼ぶので、遊んでいるページと同じ場所で走らせるわけにはいかない。
+  読み込むのは初めて開いたときだけ。
+-->
+<div id="tests" hidden>
+  <div class="testsPanel" role="dialog" aria-modal="true" aria-labelledby="testsTitle">
+    <h2 id="testsTitle">APIテスト</h2>
+    <iframe id="testsFrame" title="単体テストの結果"></iframe>
+    <button id="testsClose" type="button">とじる</button>
   </div>
 </div>
 
@@ -399,6 +417,7 @@
       // 逃げ道。開いているものを閉じる
       if (k === 'Escape') {
         if (!confirmEl.hidden) { closeConfirm(true); return true; }
+        if (!testsEl.hidden) { setTests(false); return true; }
         if (!help.hidden) { setHelp(false); return true; }
         if (!menuEl.hidden) { setMenu(false); return true; }
         return false;
@@ -539,7 +558,8 @@
      * まとめることで、そういう隙間がなくなる。
      */
     function syncOverlayPause() {
-      var open = !menuEl.hidden || !help.hidden || !confirmEl.hidden;
+      var open = !menuEl.hidden || !help.hidden ||
+                 !confirmEl.hidden || !testsEl.hidden;
       var st = PULSAR.game.state;
 
       /*
@@ -715,6 +735,40 @@
     document.getElementById('helpClose').addEventListener('click', function () { setHelp(false); });
     help.addEventListener('click', function (e) {
       if (e.target === help) setHelp(false);
+    });
+
+    // --- 単体テストの結果 ---
+
+    var testsEl = document.getElementById('tests');
+    var testsFrame = document.getElementById('testsFrame');
+    var testsBtn = document.getElementById('testsBtn');
+
+    /**
+     * テストの結果の表示を切り替える。あそびかたと同じ扱いにする。
+     * @param {boolean} open 開くなら true
+     */
+    function setTests(open) {
+      testsEl.hidden = !open;
+      testsBtn.classList.toggle('on', open);
+
+      // 読み込むのは初めて開いたときだけ。開くたびに走らせ直すと、
+      // 結果を眺めている最中に消えて出直すことになる。
+      if (open && !testsFrame.getAttribute('src')) {
+        testsFrame.setAttribute('src', 'test.html');
+      }
+
+      if (open) {
+        menuEl.hidden = true;
+        syncOverlayPause();
+      } else {
+        setMenu(true);
+      }
+    }
+
+    testsBtn.addEventListener('click', function () { setTests(true); });
+    document.getElementById('testsClose').addEventListener('click', function () { setTests(false); });
+    testsEl.addEventListener('click', function (e) {
+      if (e.target === testsEl) setTests(false);
     });
   })();
 </script>
