@@ -266,11 +266,21 @@
     var titleHint = document.getElementById('titleHint');
 
     /**
+     * タイトル画面の表示を切り替える。
+     * 走行中にしか意味のないボタンは、ここで併せて出し入れする。
+     * @param {boolean} show 見せるなら true
+     */
+    function setTitle(show) {
+      title.hidden = !show;
+      document.body.classList.toggle('on-title', show);
+    }
+
+    /**
      * 指定したステージから遊び始める。
      * @param {number} stage ステージ番号
      */
     function startPlaying(stage) {
-      title.hidden = true;
+      setTitle(false);
       PULSAR.sound.turnOn();   // 操作を起点にしないと音は鳴らせない
       PULSAR.app.startGame(stage);
     }
@@ -313,6 +323,7 @@
     });
 
     buildStageSelect();
+    setTitle(true);   // 起動時はタイトル画面から始まる
 
     var pauseBtn = document.getElementById('pauseBtn');
 
@@ -400,7 +411,7 @@
       setConfirm(false);
       PULSAR.app.showAutoplay();
       buildStageSelect();   // 途中で開放されたステージを反映する
-      title.hidden = false;
+      setTitle(true);
     });
 
     confirmEl.addEventListener('click', function (e) {
@@ -411,7 +422,7 @@
     document.getElementById('resultTitleBtn').addEventListener('click', function () {
       PULSAR.app.showAutoplay();
       buildStageSelect();
-      title.hidden = false;
+      setTitle(true);
     });
 
     var help = document.getElementById('help');
