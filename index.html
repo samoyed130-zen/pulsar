@@ -31,7 +31,7 @@
 
   見た目や動きを直したら、この番号を1つ進めること。
 -->
-<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
 
@@ -266,11 +266,11 @@
         </tr>
         <tr><th>P / Space</th><td>メニューの開閉（走行中は一時停止）</td></tr>
         <tr><th>H / ?</th><td>この説明を開閉</td></tr>
-        <tr><th>M</th><td>音のオン・オフ</td></tr>
-        <tr><th>B</th><td>立体背景のオン・オフ</td></tr>
-        <tr><th>R</th><td>なめらかな塗りのオン・オフ</td></tr>
+        <tr><th>M</th><td>音のあり・なし</td></tr>
+        <tr><th>B</th><td>立体背景のあり・なし</td></tr>
+        <tr><th>R</th><td>なめらかな塗りのあり・なし</td></tr>
         <tr><th>F</th><td>フルスクリーンの切り替え</td></tr>
-        <tr><th>S</th><td>感度を次の段階へ</td></tr>
+        <tr><th>S</th><td>操作感度を次の段階へ</td></tr>
         <tr><th>T</th><td>タイトルへ戻る（確認あり）</td></tr>
         <tr><th>1〜6</th><td>タイトルで、そのステージから開始</td></tr>
         <tr><th>Enter</th><td>リザルトでもう一度あそぶ / 確認に「はい」</td></tr>
@@ -323,6 +323,10 @@
         <strong>なめらか</strong> で、立体背景の塗り方を切り替えられます。
         入れているときは、三角形を1画素ずつ塗る自前の描画を使います。
       </li>
+      <li>
+        <strong>設定初期化</strong> で、保存した設定と開放済みステージを消せます。
+        <strong>APIテスト</strong> では、この作品の単体テストをその場で実行できます。
+      </li>
       <li>外部ライブラリは一切使っていません。Canvas 2D と Web Audio のみです。</li>
     </ul>
 
@@ -334,14 +338,14 @@
   <p class="noscript">この作品は JavaScript で描画しています。有効にしてご覧ください。</p>
 </noscript>
 
-<script src="src/store.js?v=12"></script>
-<script src="src/mathx.js?v=12"></script>
-<script src="src/raster.js?v=12"></script>
-<script src="src/mesh3d.js?v=12"></script>
-<script src="src/sound.js?v=12"></script>
-<script src="src/game.js?v=12"></script>
-<script src="src/scenes.js?v=12"></script>
-<script src="src/main.js?v=12"></script>
+<script src="src/store.js?v=13"></script>
+<script src="src/mathx.js?v=13"></script>
+<script src="src/raster.js?v=13"></script>
+<script src="src/mesh3d.js?v=13"></script>
+<script src="src/sound.js?v=13"></script>
+<script src="src/game.js?v=13"></script>
+<script src="src/scenes.js?v=13"></script>
+<script src="src/main.js?v=13"></script>
 <script>
   // 読み込み順に依存するため、起動はここで1度だけ行う。
   PULSAR.app.boot();
@@ -922,7 +926,7 @@
       // 結果を眺めている最中に消えて出直すことになる。
       if (open && !testsFrame.getAttribute('src')) {
         // 版番号は作品側と揃える（古いまま読み込まれるのを避ける）
-        testsFrame.setAttribute('src', 'test.html?v=12');
+        testsFrame.setAttribute('src', 'test.html?v=13');
       }
 
       if (open) {
