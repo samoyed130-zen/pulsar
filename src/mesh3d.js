@@ -470,6 +470,7 @@
    * @param {number} o.cy 画面中心 y [px]
    * @param {number} o.hue 色相 [deg]
    * @param {number} o.alpha 不透明度 [0..1]
+   * @param {number} [o.satBoost] 彩度の倍率。グレアが弱い環境で色を補うのに使う
    * @returns {number} 実際に描いた面の数
    */
   function drawMesh(ctx, mesh, o) {
@@ -578,6 +579,13 @@
         vl0 = l + (v.e0 - v.env) * reflectivity;
         vl1 = l + (v.e1 - v.env) * reflectivity;
         vl2 = l + (v.e2 - v.env) * reflectivity;
+      }
+
+      // 彩度だけは掛けて持ち上げてよい。明るさと違って面の向きによる差を
+      // 作っていないので、上限で頭打ちになっても面の境目は生まれない。
+      if (o.satBoost !== undefined) {
+        sat = sat * o.satBoost;
+        if (sat > 100) sat = 100;
       }
 
       var dim = (o.dim === undefined ? 1 : o.dim);

@@ -340,6 +340,10 @@
       expect(app.CONFIG.fastMs === undefined).toBeTrue();
     });
 
+    it('彩度は持ち上げる（明るさと違い境目を作らないため）', function () {
+      expect(app.CONFIG.softGlareSat > 1).toBeTrue();
+    });
+
     it('塗る側の明るさは持ち上げない', function () {
       // 明るさには上限があるので、掛けて持ち上げると多くの面が上限で
       // 頭打ちになり、面と面の境目が段差として見えてしまう。
