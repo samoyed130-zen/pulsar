@@ -6,7 +6,16 @@
 <title>PULSAR</title>
 <meta name="description" content="外部ライブラリを使わず、Canvas 2D と Web Audio だけで書いたメガデモ。トンネルの区間では画面に触れると操縦できます。">
 <meta name="theme-color" content="#04050a">
-<link rel="stylesheet" href="style.css">
+<!--
+  末尾の ?v= は、直したものを確実に届けるための版番号。
+
+  GitHub Pages は 10 分間のキャッシュを指示するため、直後に開いた人は
+  古いままの見た目になる。文字が読めないといった不具合を直しても、
+  そのあいだは直っていないように見えてしまう。
+
+  見た目や動きを直したら、この番号を1つ進めること。
+-->
+<link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
 
@@ -302,14 +311,14 @@
   <p class="noscript">この作品は JavaScript で描画しています。有効にしてご覧ください。</p>
 </noscript>
 
-<script src="src/store.js"></script>
-<script src="src/mathx.js"></script>
-<script src="src/raster.js"></script>
-<script src="src/mesh3d.js"></script>
-<script src="src/sound.js"></script>
-<script src="src/game.js"></script>
-<script src="src/scenes.js"></script>
-<script src="src/main.js"></script>
+<script src="src/store.js?v=2"></script>
+<script src="src/mathx.js?v=2"></script>
+<script src="src/raster.js?v=2"></script>
+<script src="src/mesh3d.js?v=2"></script>
+<script src="src/sound.js?v=2"></script>
+<script src="src/game.js?v=2"></script>
+<script src="src/scenes.js?v=2"></script>
+<script src="src/main.js?v=2"></script>
 <script>
   // 読み込み順に依存するため、起動はここで1度だけ行う。
   PULSAR.app.boot();
@@ -810,7 +819,8 @@
       // 読み込むのは初めて開いたときだけ。開くたびに走らせ直すと、
       // 結果を眺めている最中に消えて出直すことになる。
       if (open && !testsFrame.getAttribute('src')) {
-        testsFrame.setAttribute('src', 'test.html');
+        // 版番号は作品側と揃える（古いまま読み込まれるのを避ける）
+        testsFrame.setAttribute('src', 'test.html?v=2');
       }
 
       if (open) {
