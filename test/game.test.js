@@ -667,6 +667,34 @@
       expect(later > first).toBeTrue();
     });
 
+    it('キーを押している間は、指の位置に引っ張られない', function () {
+      G.reset();
+      var f = makeFrame({ dt: 1 / 60, steer: 1, inputMode: 'key' });
+      f.pointer.everTouched = true;
+      f.pointer.x = 400;
+      f.pointer.y = 100;              // 指は上を指している
+
+      // キーで下方向へ回し続ける
+      for (var i = 0; i < 40; i++) G.update(f);
+
+      // 指の向き（-π/2）へ寄っていないこと
+      expect(M.angleDist(G.state.angle, -Math.PI / 2) > 0.5).toBeTrue();
+    });
+
+    it('左右を同時に押すと、その場に留まる', function () {
+      G.reset();
+      // 同時押しは打ち消し合って steer が 0 になる（main.js 側の扱い）
+      var f = makeFrame({ dt: 1 / 60, steer: 0, inputMode: 'key' });
+      f.pointer.everTouched = true;
+      f.pointer.x = 400;
+      f.pointer.y = 100;
+
+      G.state.angle = 1.0;
+      for (var i = 0; i < 60; i++) G.update(f);
+
+      expect(M.angleDist(G.state.angle, 1.0) < 0.05).toBeTrue();
+    });
+
     it('キーから手を離しても、指の位置へ戻らない', function () {
       G.reset();
       var f = makeFrame({ dt: 1 / 60 });

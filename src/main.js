@@ -211,6 +211,14 @@
   var inputMode = 'pointer';
 
   /**
+   * @brief マウスが「動かされた」とみなす距離 [px]。
+   *
+   * これ未満の揺れでは主導権を移さない。
+   * @private
+   */
+  var POINTER_WAKE = 4;
+
+  /**
    * @brief キャンバスと低解像度バッファを画面サイズに合わせる。
    * @returns {void}
    */
@@ -266,13 +274,25 @@
     });
 
     canvas.addEventListener('pointermove', function (e) {
+      var prevX = pointer.x;
+      var prevY = pointer.y;
       readPointer(e);
-      // 一度操作した後は、PC では押していなくてもマウスで操縦できる方が自然。
-      // ただし「初めての操作」とはみなさない（不用意なマウス移動でデモが飛ぶため）。
-      if (pointer.everTouched) {
-        lastInput = clock;
-        inputMode = 'pointer';
-      }
+
+      if (!pointer.everTouched) return;
+      lastInput = clock;
+
+      // キーを押している間は、マウスに主導権を渡さない。
+      // 渡してしまうと、キーで動かしている最中に手元のマウスが少し
+      // 揺れただけで、キーを離した瞬間にそちらへ飛んでしまう。
+      if (keys.left || keys.right) return;
+
+      // わずかな揺れは動かしたうちに入れない。机の振動などで
+      // 主導権が移ると、キーで操作している人には事故に見える。
+      var dx = pointer.x - prevX;
+      var dy = pointer.y - prevY;
+      if (dx * dx + dy * dy < POINTER_WAKE * POINTER_WAKE) return;
+
+      inputMode = 'pointer';
     });
 
     global.addEventListener('pointerup', function () { pointer.down = false; });
@@ -901,9 +921,15 @@
     // 拍の頭で 1、次の拍へ向かって減衰する値。キックの手応えを視覚に流用する。
     var kick = Math.exp(-phase * 5.5);
 
+    // 左右を同時に押したときは打ち消し合って 0 になる。
+    // その場に留まる扱いになり、マウスへ主導権が移らない（下の inputMode）。
     var steer = 0;
     if (keys.left) steer -= 1;
     if (keys.right) steer += 1;
+
+    // キーを押している間は、操作手段をキーに固定する。
+    // 押しっぱなしの最中にマウスへ移ると、離した瞬間に飛んでしまう。
+    if (keys.left || keys.right) inputMode = 'key';
 
     /**
      * @brief 1フレーム分の文脈。シーンはこれだけを見て描く。
