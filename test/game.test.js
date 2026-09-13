@@ -831,6 +831,40 @@
       expect(Math.abs(slow.dist - fast.dist) / fast.dist < 0.01).toBeTrue();
     });
 
+    it('抜ける条件を満たしたときは、進み具合がちょうど 1 になる', function () {
+      /*
+       * 表示は割合（%）なので、ここが 1 に届かないと 99% のまま
+       * ステージが切り替わってしまう。
+       *
+       * 距離は毎フレーム足し込むため、ぴったり 800 では止まらない。
+       * 超えた分がそのまま割り算に出ると 1 を超えるので、上で頭打ちに
+       * している。その2つが噛み合っていることを確かめる。
+       */
+      G.reset(1);
+      G.state.started = true;
+      G.state.dist = G.state.stageStartDist + G.CONFIG.stageDistance;
+
+      expect(G.goalReached()).toBeTrue();
+      expect(G.stageProgress()).toBe(1);
+      expect(Math.floor(G.stageProgress() * 100)).toBe(100);
+
+      // 少し超えても 1 のまま（100 を超える表示にならない）
+      G.state.dist += 37.5;
+      expect(G.stageProgress()).toBe(1);
+    });
+
+    it('抜ける手前では、進み具合が 1 に届かない', function () {
+      // 99.5% を四捨五入して 100 と出すと、走っているのに抜けたように
+      // 見える。表示側は切り捨てる前提なので、ここでは 1 未満であること。
+      G.reset(1);
+      G.state.started = true;
+      G.state.dist = G.state.stageStartDist + G.CONFIG.stageDistance - 0.5;
+
+      expect(G.goalReached()).toBeFalse();
+      expect(G.stageProgress() < 1).toBeTrue();
+      expect(Math.floor(G.stageProgress() * 100)).toBe(99);
+    });
+
     it('スマートフォンでも、リングの線が輪を塗り潰さない', function () {
       // 輪の半径は画面に比例して小さくなる。線の太さを据え置くと、
       // 小さい画面では線が輪の内側を埋めてしまい、切れ目が読めなくなる。
