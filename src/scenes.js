@@ -175,8 +175,11 @@
 
         // -4..4 を 0..1 へ写す
         var n = (v + 4) / 8;
-        var hue = (f.hue + n * 220) % 360;
-        var rgb = hslToRgb(hue / 360, 0.85, 0.28 + n * 0.42);
+
+        // 色相の幅を狭く取る。虹色に一周させると原色が並んで安っぽくなり、
+        // 他の場面とも噛み合わない。青から紫の範囲に収める。
+        var hue = (f.hue + 190 + n * 110) % 360;
+        var rgb = hslToRgb(hue / 360, 0.72, 0.10 + n * n * 0.42);
 
         var o = (y * bw + x) * 4;
         data[o] = rgb[0];
@@ -630,9 +633,11 @@
         var o = (y * bw + x) * 4;
         // しきい値の前後で色を切り替え、輪郭を帯として見せる。
         var v = M.clamp(field * 0.55, 0, 1.6);
-        var hue = (f.hue + 40 + v * 130) % 360;
-        var light = v < 0.85 ? v * 0.18 : 0.28 + (v - 0.85) * 0.55;
-        var rgb = hslToRgb(hue / 360, 0.9, M.clamp(light, 0, 0.78));
+
+        // こちらも色相の幅を絞り、他の場面と地続きに見せる。
+        var hue = (f.hue + 200 + v * 70) % 360;
+        var light = v < 0.85 ? v * 0.14 : 0.24 + (v - 0.85) * 0.5;
+        var rgb = hslToRgb(hue / 360, 0.8, M.clamp(light, 0, 0.7));
 
         data[o] = rgb[0];
         data[o + 1] = rgb[1];
@@ -661,23 +666,44 @@
     c.fillRect(0, 0, f.W, f.H);
 
     // --- コッパーバー ---
+    //
+    // 帯は画面の高さに等間隔で配り、そこから小さく揺らす。
+    // 全部を同じ正弦波で動かすと一箇所に集まり、加算合成で白く飽和して
+    // 何が映っているのか分からなくなる。
     var bars = f.light ? 5 : 8;
+    var h = f.H * 0.042 * (1 + f.kick * 0.35);
+
     c.globalCompositeOperation = 'lighter';
+
     for (var i = 0; i < bars; i++) {
-      var phase = f.t * 1.1 + i * 0.8;
-      var cy = f.H * (0.5 + Math.sin(phase) * 0.34);
-      var h = f.H * 0.055 * (1 + f.kick * 0.5);
-      var hue = f.hue + i * 26;
+      var slot = (i + 0.5) / bars;                       // 等間隔の定位置
+      var wobble = Math.sin(f.t * 1.1 + i * 0.9) * 0.055; // 定位置からの揺れ
+      var cy = f.H * (slot + wobble);
+
+      // 色相の幅を狭く保つ。広く散らすと重なった部分が白へ寄る。
+      var hue = f.hue + (i - bars * 0.5) * 9;
 
       // 中心が明るく端が暗い帯。縦方向のグラデーションで厚みを出す。
       var grad = c.createLinearGradient(0, cy - h, 0, cy + h);
-      grad.addColorStop(0, M.hsl(hue, 95, 8, 0));
-      grad.addColorStop(0.5, M.hsl(hue, 95, 62, 0.85));
-      grad.addColorStop(1, M.hsl(hue, 95, 8, 0));
+      grad.addColorStop(0, M.hsl(hue, 92, 6, 0));
+      grad.addColorStop(0.45, M.hsl(hue, 92, 46, 0.62));
+      grad.addColorStop(0.5, M.hsl(hue, 80, 62, 0.75));
+      grad.addColorStop(0.55, M.hsl(hue, 92, 46, 0.62));
+      grad.addColorStop(1, M.hsl(hue, 92, 6, 0));
       c.fillStyle = grad;
       c.fillRect(0, cy - h, f.W, h * 2);
     }
+
     c.globalCompositeOperation = 'source-over';
+
+    // 文字の帯だけ暗く落とし、背後の帯に埋もれないようにする。
+    var textY = f.H * 0.5;
+    var band = c.createLinearGradient(0, textY - f.H * 0.22, 0, textY + f.H * 0.22);
+    band.addColorStop(0, 'rgba(4,5,10,0)');
+    band.addColorStop(0.5, 'rgba(4,5,10,0.72)');
+    band.addColorStop(1, 'rgba(4,5,10,0)');
+    c.fillStyle = band;
+    c.fillRect(0, textY - f.H * 0.22, f.W, f.H * 0.44);
 
     drawScroller(f);
   }
