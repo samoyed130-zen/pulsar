@@ -258,18 +258,7 @@
     game.update(f);
     game.draw(f);
     game.drawScore(f);
-
-    // 開始直後だけ操作方法を薄く出す。読ませるためではなく、触れると気づかせるため。
-    var hint = M.clamp(1 - Math.abs(f.local - 1.6) / 1.6, 0, 1);
-    if (hint > 0.01 && !f.pointer.everTouched) {
-      var c = f.ctx;
-      c.save();
-      c.textAlign = 'center';
-      c.font = '600 12px system-ui, sans-serif';
-      c.fillStyle = 'rgba(230,238,255,' + (hint * 0.55).toFixed(3) + ')';
-      c.fillText('画面に触れると操縦できます', f.W / 2, f.H - 40);
-      c.restore();
-    }
+    // 操作方法の案内は main.js の drawPrompt が一括して担当する。
   }
 
   // -----------------------------------------------------------------

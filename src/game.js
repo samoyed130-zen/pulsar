@@ -282,19 +282,45 @@
     // 衝突直後は赤く点滅させ、何が起きたかを一目で分かるようにする。
     var hurt = M.clamp(1 - state.sinceHit * 2.2, 0, 1);
     var hue = M.lerp(f.hue + 150, 0, hurt);
-    var size = 9 + f.kick * 5;
+    var size = 14 + f.kick * 6;
 
     c.save();
+    c.globalCompositeOperation = 'lighter';
+
+    // 自機の軌跡。円周上をどう動いたかが残り、自分が動かしている実感を与える。
+    c.strokeStyle = M.hsl(hue, 100, 65, 0.28);
+    c.lineWidth = 3;
+    c.beginPath();
+    c.arc(cx, cy, radius, state.angle - 0.45, state.angle);
+    c.stroke();
+
+    // 後光。小さな三角形だけだと背景のリングに埋もれるため。
+    var glow = c.createRadialGradient(x, y, 0, x, y, size * 2.6);
+    glow.addColorStop(0, M.hsl(hue, 100, 72, 0.55));
+    glow.addColorStop(1, M.hsl(hue, 100, 72, 0));
+    c.fillStyle = glow;
+    c.beginPath();
+    c.arc(x, y, size * 2.6, 0, TAU);
+    c.fill();
+
     c.translate(x, y);
     c.rotate(state.angle + Math.PI / 2);
 
-    c.globalCompositeOperation = 'lighter';
-    c.fillStyle = M.hsl(hue, 100, 70, 0.9);
+    c.fillStyle = M.hsl(hue, 100, 78, 0.95);
     c.beginPath();
     c.moveTo(0, -size);
-    c.lineTo(size * 0.7, size * 0.7);
-    c.lineTo(0, size * 0.25);
-    c.lineTo(-size * 0.7, size * 0.7);
+    c.lineTo(size * 0.72, size * 0.72);
+    c.lineTo(0, size * 0.28);
+    c.lineTo(-size * 0.72, size * 0.72);
+    c.closePath();
+    c.fill();
+
+    // 白い芯を入れて、色が変わっても常に視認できるようにする。
+    c.fillStyle = 'rgba(255,255,255,0.9)';
+    c.beginPath();
+    c.moveTo(0, -size * 0.45);
+    c.lineTo(size * 0.26, size * 0.3);
+    c.lineTo(-size * 0.26, size * 0.3);
     c.closePath();
     c.fill();
 

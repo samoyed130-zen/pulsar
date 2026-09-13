@@ -26,7 +26,11 @@
     /** @brief 低解像度バッファの横幅 [px]。プラズマ等はここへ描いて拡大する。 */
     bufferWidth: 160,
     /** @brief 画面の対角がこれ未満なら描画量を落とす（スマートフォン想定）。 */
-    lightModeDiagonal: 900
+    lightModeDiagonal: 900,
+    /** @brief 触れたときに飛ぶ先のシーン名。作品の主張そのもの。 */
+    playableScene: 'tunnel',
+    /** @brief 最後の操作からこの秒数のあいだは、操作区間に留まる [s]。 */
+    holdSeconds: 7
   };
 
   /** @brief 表示用のキャンバスと文脈。 @private */
@@ -47,8 +51,23 @@
   /** @brief 前フレームの時刻 [ms]。 @private */
   var prevMs = 0;
 
-  /** @brief デモ開始からの経過時刻 [s]。 @private */
+  /**
+   * @brief デモ開始からの経過時刻 [s]。常に単調増加する。
+   *
+   * 色相・拍・音はこちらを見る。シーンの巻き戻しで色が飛ばないようにするため、
+   * シーン選択用の時計（`sceneTime`）とは分けている。
+   * @private
+   */
   var clock = 0;
+
+  /**
+   * @brief シーン選択に使う時刻 [s]。操作に応じて飛んだり巻き戻したりする。
+   * @private
+   */
+  var sceneTime = 0;
+
+  /** @brief 最後に操作された時刻 [s]（`clock` 基準）。 @private */
+  var lastInput = -999;
 
   /** @brief 衝突などで一時的に加わる画面の揺れの強さ [0..1]。 @private */
   var shake = 0;
@@ -108,22 +127,23 @@
     canvas.addEventListener('pointerdown', function (e) {
       readPointer(e);
       pointer.down = true;
-      pointer.everTouched = true;
+      noteInput();
       global.PULSAR.sound.start(); // 自動再生制限があるため、最初の操作で音を起こす
     });
 
     canvas.addEventListener('pointermove', function (e) {
       readPointer(e);
-      // マウスは押していなくても操作とみなす（PC では触れずに動かせた方が自然）
-      if (e.pointerType === 'mouse') pointer.everTouched = true;
+      // 一度操作した後は、PC では押していなくてもマウスで操縦できる方が自然。
+      // ただし「初めての操作」とはみなさない（不用意なマウス移動でデモが飛ぶため）。
+      if (pointer.everTouched) lastInput = clock;
     });
 
     global.addEventListener('pointerup', function () { pointer.down = false; });
     global.addEventListener('pointercancel', function () { pointer.down = false; });
 
     global.addEventListener('keydown', function (e) {
-      if (e.key === 'ArrowLeft') { keys.left = true; pointer.everTouched = true; }
-      if (e.key === 'ArrowRight') { keys.right = true; pointer.everTouched = true; }
+      if (e.key === 'ArrowLeft') { keys.left = true; noteInput(); }
+      if (e.key === 'ArrowRight') { keys.right = true; noteInput(); }
     });
     global.addEventListener('keyup', function (e) {
       if (e.key === 'ArrowLeft') keys.left = false;
@@ -135,6 +155,57 @@
       clearTimeout(t);
       t = setTimeout(resize, 150);
     });
+  }
+
+  /**
+   * @brief タイムライン上での、あるシーンの開始位置を求める。
+   * @private
+   * @param {string} name シーン名
+   * @returns {number} 1周の先頭からの秒数。見つからなければ 0
+   */
+  function sceneStartOf(name) {
+    var tl = global.PULSAR.scenes.timeline;
+    var acc = 0;
+    for (var i = 0; i < tl.length; i++) {
+      if (tl[i].name === name) return acc;
+      acc += tl[i].duration;
+    }
+    return 0;
+  }
+
+  /**
+   * @brief 操作可能なシーンへ飛ぶ。
+   *
+   * 「デモに触ると、ゲームになる」を成立させるための中核。
+   * どのシーンを見ていても、触れた瞬間に操作区間へ切り替わる。
+   * 飛ぶのは `sceneTime` だけで、色相と拍の時計は連続したまま保つ。
+   *
+   * @private
+   * @returns {void}
+   */
+  function jumpToPlayable() {
+    var tl = global.PULSAR.scenes.timeline;
+    var total = 0;
+    for (var i = 0; i < tl.length; i++) total += tl[i].duration;
+
+    var cycle = Math.floor(sceneTime / total) * total;
+    // 遷移演出の途中から始まらないよう、少しだけ内側に入れる。
+    sceneTime = cycle + sceneStartOf(CONFIG.playableScene) + CONFIG.fade;
+    hitFlash = 0;
+  }
+
+  /**
+   * @brief 操作があったことを記録し、必要なら操作区間へ飛ぶ。
+   * @private
+   * @returns {void}
+   */
+  function noteInput() {
+    var tl = global.PULSAR.scenes.timeline;
+    var current = tl[M.pickScene(tl, sceneTime).index];
+
+    lastInput = clock;
+    pointer.everTouched = true;
+    if (current.name !== CONFIG.playableScene) jumpToPlayable();
   }
 
   /**
@@ -177,6 +248,87 @@
   }
 
   /**
+   * @brief まだ一度も操作されていない間、遊び方を画面に示す。
+   *
+   * 「触れると操縦できる」ことは、作品の主張そのものでありながら
+   * 見ただけでは絶対に伝わらない。だから控えめにせず、はっきり出す。
+   * 一度でも操作されたら二度と出さない。
+   *
+   * @private
+   * @param {Object} f フレーム文脈
+   * @param {boolean} playable 今が操作可能な区間か
+   * @returns {void}
+   */
+  function drawPrompt(f, playable) {
+    if (pointer.everTouched) return;
+    // 開幕のタイトルと重ならないよう、少し待ってから出す。
+    var appear = M.clamp((clock - 2.2) / 0.8, 0, 1);
+    if (appear <= 0.01) return;
+
+    var c = f.ctx;
+    var pulse = 0.6 + 0.4 * Math.sin(clock * 2.6);
+    var alpha = appear * (0.55 + pulse * 0.45);
+
+    c.save();
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+
+    if (playable) {
+      // 操作区間では、指が円を描く動きそのものを見せる。
+      var cx = f.W / 2;
+      var cy = f.H / 2;
+      var radius = Math.min(f.W, f.H) * 0.29;
+      var a = clock * 1.5;
+
+      c.globalCompositeOperation = 'lighter';
+      c.strokeStyle = 'rgba(160,220,255,' + (alpha * 0.3).toFixed(3) + ')';
+      c.lineWidth = 1.5;
+      c.setLineDash([6, 10]);
+      c.beginPath();
+      c.arc(cx, cy, radius, 0, TAU_LOCAL);
+      c.stroke();
+      c.setLineDash([]);
+
+      // 円周をなぞる指先
+      var fx = cx + Math.cos(a) * radius;
+      var fy = cy + Math.sin(a) * radius;
+      var grad = c.createRadialGradient(fx, fy, 0, fx, fy, 26);
+      grad.addColorStop(0, 'rgba(190,235,255,' + (alpha * 0.75).toFixed(3) + ')');
+      grad.addColorStop(1, 'rgba(190,235,255,0)');
+      c.fillStyle = grad;
+      c.beginPath();
+      c.arc(fx, fy, 26, 0, TAU_LOCAL);
+      c.fill();
+
+      c.globalCompositeOperation = 'source-over';
+      c.font = '700 ' + Math.min(f.W * 0.045, 22).toFixed(0) + 'px system-ui, sans-serif';
+      c.fillStyle = 'rgba(236,243,255,' + alpha.toFixed(3) + ')';
+      c.fillText('なぞって操縦', cx, cy + radius + 42);
+    } else {
+      // 通常のシーンでは、触れれば操作区間へ飛べることだけを伝える。
+      var size = Math.min(f.W * 0.036, 16);
+      c.font = '600 ' + size.toFixed(0) + 'px system-ui, sans-serif';
+      var label = '画面に触れると、デモがゲームになる';
+      var w = c.measureText(label).width;
+      var y = f.H - 52;
+
+      c.fillStyle = 'rgba(4,5,10,0.55)';
+      c.fillRect(f.W / 2 - w / 2 - 16, y - 17, w + 32, 34);
+      c.strokeStyle = 'rgba(122,215,255,' + (alpha * 0.55).toFixed(3) + ')';
+      c.lineWidth = 1;
+      c.strokeRect(f.W / 2 - w / 2 - 16, y - 17, w + 32, 34);
+
+      c.fillStyle = 'rgba(236,243,255,' + alpha.toFixed(3) + ')';
+      c.fillText(label, f.W / 2, y);
+    }
+
+    c.restore();
+  }
+
+  /** @brief 円周。`mathx` の TAU をローカルに束縛して参照を短くする。 @private */
+  var TAU_LOCAL = M.TAU;
+
+  /**
    * @brief 1フレーム描画する。
    * @private
    * @param {number} ms `requestAnimationFrame` が渡す時刻 [ms]
@@ -187,10 +339,21 @@
     var dt = prevMs ? Math.min((ms - prevMs) / 1000, 0.05) : 0;
     prevMs = ms;
     clock += dt;
+    sceneTime += dt;
 
     var timeline = global.PULSAR.scenes.timeline;
-    var pick = M.pickScene(timeline, clock);
+    var pick = M.pickScene(timeline, sceneTime);
     var scene = timeline[pick.index];
+
+    // 操作中に区間が終わってしまうと「遊べていたのに取り上げられた」と感じる。
+    // 直近に操作があるあいだは、終わり際で少し巻き戻して操作区間に留める。
+    var engaged = (clock - lastInput) < CONFIG.holdSeconds;
+    if (engaged && scene.name === CONFIG.playableScene &&
+        pick.local > scene.duration - CONFIG.fade) {
+      sceneTime -= scene.duration * 0.5;
+      pick = M.pickScene(timeline, sceneTime);
+      scene = timeline[pick.index];
+    }
 
     var phase = M.beatPhase(CONFIG.bpm, clock);
     // 拍の頭で 1、次の拍へ向かって減衰する値。キックの手応えを視覚に流用する。
@@ -236,6 +399,8 @@
     scene.draw(f);
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    drawPrompt(f, scene.name === CONFIG.playableScene);
 
     if (hitFlash > 0.002) {
       ctx.fillStyle = 'rgba(255,60,80,' + (hitFlash * 0.5).toFixed(3) + ')';
