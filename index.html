@@ -99,7 +99,6 @@
 
     <div class="resultButtons">
       <button id="retryBtn" type="button" class="primary">もう一度あそぶ</button>
-      <button id="watchBtn" type="button">デモを見る</button>
     </div>
   </div>
 </div>
@@ -128,6 +127,13 @@
           <th>触れずに待つ</th>
           <td>自動操縦に戻り、デモとして流れ続けます。</td>
         </tr>
+        <tr>
+          <th>スマートフォン</th>
+          <td>
+            <strong>縦持ちを推奨します。</strong>
+            自機は画面中心のまわりを回るため、縦持ちの方が指の動きと自機の動きが一致します。
+          </td>
+        </tr>
       </tbody>
     </table>
 
@@ -146,7 +152,10 @@
     <h3>デモについて</h3>
     <ul class="helpList">
       <li>5つの場面が約53秒で一周します。触れるといつでもトンネルへ飛びます。</li>
-      <li>音は右上のボタンから。音源ファイルは使わず、その場で合成しています。</li>
+      <li>
+        音は右上のボタンから。音源ファイルは使わず、その場で合成しています。
+        鳴らない場合は端末がマナーモードになっていないかご確認ください。
+      </li>
       <li>
         <strong>背景 3D</strong> ボタンで、トンネルの立体背景を切り替えられます。
         1ピクセルずつ光線を進めて描いているため、動きが重い端末では切ってください。
@@ -177,9 +186,13 @@
 
     var soundBtn = document.getElementById('soundBtn');
 
-    /** ボタンの見た目を、実際の音の状態に合わせる。 */
+    /**
+     * ボタンの見た目を合わせる。
+     * 実際に鳴っているかではなく「音を出したい状態か」で判断する。
+     * 端末が一時的に音声を中断しても、表示が勝手に戻らないようにするため。
+     */
     function syncSoundButton() {
-      var on = PULSAR.sound.isPlaying();
+      var on = PULSAR.sound.isOn();
       soundBtn.textContent = on ? '♪ 音を止める' : '♪ 音を出す';
       soundBtn.classList.toggle('on', on);
     }
@@ -213,9 +226,6 @@
     });
     document.getElementById('startBtn').addEventListener('click', startPlaying);
 
-    // タイトルへ戻す操作は app 側から呼ばれる（リザルトの「デモを見る」など）
-    PULSAR.app.onShowTitle = function () { title.hidden = false; };
-
     var bgBtn = document.getElementById('bgBtn');
 
     /** 背景ボタンの見た目を現在の設定に合わせる。 */
@@ -233,9 +243,6 @@
 
     document.getElementById('retryBtn').addEventListener('click', function () {
       PULSAR.app.retry();
-    });
-    document.getElementById('watchBtn').addEventListener('click', function () {
-      PULSAR.app.watchDemo();
     });
 
     var help = document.getElementById('help');

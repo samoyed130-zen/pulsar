@@ -173,8 +173,22 @@
     });
 
     it('未起動の状態は「消音」として扱われる（ボタンが必ず起動側に働く）', function () {
-      // AudioContext が無い環境では起動できないが、状態の判定は破綻しない
-      expect(typeof S2.isMuted()).toBe('boolean');
+      S2.setMuted(true);
+      expect(S2.isMuted()).toBeTrue();
+      expect(S2.isOn()).toBeFalse();
+    });
+
+    it('消音すると「音を出したい状態」も解除される', function () {
+      S2.turnOn();
+      S2.setMuted(true);
+      expect(S2.isOn()).toBeFalse();
+    });
+
+    it('中断からの復帰処理は、音声が使えない環境でも例外を投げない', function () {
+      S2.keepAlive();
+      S2.setMuted(true);
+      S2.keepAlive();
+      expect(typeof S2.isOn()).toBe('boolean');
     });
 
     it('テンポ倍率は極端な値に丸められる', function () {

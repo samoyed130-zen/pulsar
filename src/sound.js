@@ -65,6 +65,18 @@
   var muted = false;
 
   /**
+   * @brief 利用者が音を出したいと思っているか。
+   *
+   * 実際に鳴っているかとは別に持つ。スマートフォンでは、
+   * 画面を触らない時間が続いたりタブが隠れたりすると、ブラウザが
+   * 音声を勝手に中断することがある。そのたびにボタンの表示が
+   * 「音を出す」へ戻ってしまうと、利用者には壊れて見える。
+   * 意思はここに保ち、中断されたら黙って再開を試みる。
+   * @private
+   */
+  var wanted = false;
+
+  /**
    * @brief 曲の厚み [0..1]。コンボゲージがそのまま入る。
    *
    * 0 ではキックだけが鳴り、上がるにつれてベース・ハイハット・リード・
@@ -269,8 +281,10 @@
    * @returns {void}
    */
   function start() {
+    wanted = true;
+
     if (ac) {
-      if (ac.state === 'suspended') ac.resume();
+      if (ac.state !== 'running') ac.resume();
       return;
     }
 
@@ -278,6 +292,11 @@
     if (!AC) return; // 非対応環境では無音のまま続行する
 
     ac = new AC();
+
+    // 端末側の都合で中断されたら、その場で再開を試みる。
+    ac.onstatechange = function () {
+      if (wanted && !muted && ac && ac.state === 'suspended') ac.resume();
+    };
     master = ac.createGain();
     master.gain.value = muted ? 0 : CONFIG.masterGain;
     master.connect(ac.destination);
@@ -295,9 +314,24 @@
    */
   function setMuted(v) {
     muted = !!v;
+    if (muted) wanted = false;
     if (master && ac) {
       master.gain.setTargetAtTime(muted ? 0 : CONFIG.masterGain, ac.currentTime, 0.02);
     }
+  }
+
+  /**
+   * @brief 中断されていたら再開を試みる。毎フレーム呼んでよい。
+   *
+   * スマートフォンでは、操作が途切れたりタブが隠れたりしたあとに
+   * 音声が中断されたままになることがある。利用者が音を出したいままなら、
+   * 気づかれないうちに復帰させる。
+   *
+   * @returns {void}
+   */
+  function keepAlive() {
+    if (!wanted || muted || !ac) return;
+    if (ac.state === 'suspended') ac.resume();
   }
 
   /**
@@ -318,9 +352,23 @@
    * @returns {void}
    */
   function turnOn() {
+    muted = false;
     start();
     setMuted(false);
-    if (ac && ac.state === 'suspended') ac.resume();
+    wanted = true;
+    if (ac && ac.state !== 'running') ac.resume();
+  }
+
+  /**
+   * @brief 利用者が音を出したい状態か（実際に鳴っているかとは別）。
+   *
+   * ボタンの表示にはこちらを使う。端末側の一時的な中断で
+   * 表示が勝手に戻らないようにするため。
+   *
+   * @returns {boolean} 音を出す意思があるなら true
+   */
+  function isOn() {
+    return wanted && !muted;
   }
 
   /**
@@ -336,7 +384,14 @@
    * @returns {boolean} 消音中なら true
    */
   function isMuted() {
-    return !ac || muted;
+    return !isOn();
+  }
+
+  // タブへ戻ったときに中断されたままにしない。
+  if (global.document && global.document.addEventListener) {
+    global.document.addEventListener('visibilitychange', function () {
+      if (!global.document.hidden) keepAlive();
+    });
   }
 
   global.PULSAR = global.PULSAR || {};
@@ -347,7 +402,9 @@
     turnOn: turnOn,
     setMuted: setMuted,
     toggleMute: toggleMute,
+    keepAlive: keepAlive,
     isPlaying: isPlaying,
+    isOn: isOn,
     isMuted: isMuted,
     setIntensity: setIntensity,
     getIntensity: getIntensity,

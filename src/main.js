@@ -201,7 +201,9 @@
       readPointer(e);
       pointer.down = true;
       noteInput();
-      global.PULSAR.sound.start(); // 自動再生制限があるため、最初の操作で音を起こす
+      // 自動再生制限があるため、操作を起点に音を起こす。
+      // 中断されていた場合もここで復帰する（操作のたびに試すのが最も確実）。
+      global.PULSAR.sound.keepAlive();
     });
 
     canvas.addEventListener('pointermove', function (e) {
@@ -531,21 +533,6 @@
     startGame();
   }
 
-  /**
-   * @brief リザルトを閉じ、タイトル画面（デモ）へ戻す。
-   * @returns {void}
-   */
-  function watchDemo() {
-    resultEl.hidden = true;
-    resultShown = false;
-    global.PULSAR.game.reset();
-
-    // 引き留めを解除し、デモを次のシーンへ進ませる
-    lastInput = -999;
-    pointer.everTouched = false;
-
-    if (typeof api.onShowTitle === 'function') api.onShowTitle();
-  }
 
   /**
    * @brief 1フレーム描画する。
@@ -647,6 +634,9 @@
       playing ? game.gauge() : 0.35 + 0.35 * Math.sin(clock * 0.12)
     );
 
+    // 端末側の都合で音が中断されていたら、気づかれないうちに戻す。
+    global.PULSAR.sound.keepAlive();
+
     if (game.state.finished && !resultShown) showResult();
 
     if (hitFlash > 0.002) {
@@ -713,19 +703,12 @@
 
   /**
    * @brief 外部へ公開する窓口。
-   *
-   * `onShowTitle` はタイトル画面を出し直すための差し込み口で、
-   * `index.html` 側が実装を入れる（DOM の扱いをこの層に持ち込まないため）。
    */
-  var api = {
+  global.PULSAR.app = {
     CONFIG: CONFIG,
     boot: boot,
     impact: impact,
     startGame: startGame,
-    retry: retry,
-    watchDemo: watchDemo,
-    onShowTitle: null
+    retry: retry
   };
-
-  global.PULSAR.app = api;
 })(typeof window !== 'undefined' ? window : this);
