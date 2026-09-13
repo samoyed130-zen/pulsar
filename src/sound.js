@@ -559,11 +559,32 @@
   }
 
   /**
+   * @brief 今、音を出してよい状態か。
+   *
+   * 3つの「出さない理由」をここに集める。散らばっていると、どれかを
+   * 見落とした経路が音を起こしてしまい、止めたはずの音が鳴る。
+   *
+   * @private
+   * @returns {boolean} 出してよいなら true
+   */
+  function canPlay() {
+    if (!wanted || muted || suspended) return false;
+    // 見えていないページで鳴らさない。別のページを開いたつもりでも
+    // 裏で鳴り続け、そちらの音と重なって聞こえてしまう。
+    if (global.document && global.document.hidden) return false;
+    return true;
+  }
+
+  /**
    * @brief 音を開始する。ブラウザの自動再生制限があるため、必ず操作を起点に呼ぶ。
    * @returns {void}
    */
   function start() {
     wanted = true;
+
+    // 見えていないページでは起こさない。テストのページのように
+    // 音を必要としない画面で、勝手に鳴り始めるのを防ぐ。
+    if (global.document && global.document.hidden) return;
 
     if (ac) {
       if (ac.state !== 'running') ac.resume();
@@ -576,8 +597,13 @@
     ac = new AC();
 
     // 端末側の都合で中断されたら、その場で再開を試みる。
+    //
+    // ただし、こちらの都合で止めたものまで起こしてはいけない。
+    // この見張りが無条件だと、タブが隠れて止めた音声をその場で
+    // 復帰させてしまい、裏で鳴り続ける。
     ac.onstatechange = function () {
-      if (wanted && !muted && ac && ac.state === 'suspended') ac.resume();
+      if (!canPlay()) return;
+      if (ac && ac.state === 'suspended') ac.resume();
     };
     master = ac.createGain();
     master.gain.value = muted ? 0 : CONFIG.masterGain;
@@ -638,7 +664,7 @@
    * @returns {void}
    */
   function keepAlive() {
-    if (!wanted || muted) return;
+    if (!canPlay()) return;
 
     // まだ音声を起こしていなければ、ここで起こす。
     // 自動再生の制限があるため、この関数は必ず操作を起点に呼ぶこと。

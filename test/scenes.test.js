@@ -320,6 +320,18 @@
       expect(S2.getIntensity()).toBeCloseTo(0.4);
     });
 
+    it('見えていないページでは音を起こさない', function () {
+      // 別のページを開いたのに裏で鳴り続けると、音が重なって聞こえる。
+      var real = window.document;
+      window.document = { hidden: true, addEventListener: function () {} };
+
+      S2.turnOn();
+      var playing = S2.isPlaying();
+
+      window.document = real;
+      expect(playing).toBeFalse();
+    });
+
     it('遅れの許容は先読みの幅で決まる', function () {
       // タブが隠れている間に予約が止まり、戻ったときにまとめて鳴るのを
       // 防ぐため、先読みより遅れていたら現在へ飛ばしている。
