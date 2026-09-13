@@ -351,7 +351,7 @@
   function drawPrompt(f, playable) {
     // デモとして流れている間はタイトル画面が案内を担うため、ここでは描かない。
     // 遊び始めた直後の数秒だけ、操作の仕方を図で示す。
-    if (!playable) return;
+    if (!playable || !global.PULSAR.game.state.started) return;
 
     var c = f.ctx;
     var pulse = 0.6 + 0.4 * Math.sin(clock * 2.6);
@@ -716,17 +716,22 @@
     }
 
     // 立体を取ったときの反応。衝突の赤に対して、こちらは暖色で「良いこと」を示す。
+    //
+    // 画面全体に広がる輪にすると、取るたびに視界を覆って鬱陶しい。
+    // 自機のいる場所で小さく弾けさせ、「拾ったのは自分」と分かるようにする。
     if (game.state.collectFlash > 0.01) {
       var cf = game.state.collectFlash;
+      var g = game.CONFIG;
+      var shipR = Math.min(W, H) * g.focal / g.shipZ * g.shipRadiusRatio;
+      var sxp = W / 2 + Math.cos(game.state.angle) * shipR;
+      var syp = H / 2 + Math.sin(game.state.angle) * shipR;
+
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = 'rgba(255,206,110,' + (cf * 0.18).toFixed(3) + ')';
-      ctx.fillRect(0, 0, W, H);
-
-      ctx.strokeStyle = 'rgba(255,224,150,' + (cf * 0.7).toFixed(3) + ')';
-      ctx.lineWidth = 2 + cf * 3;
+      ctx.strokeStyle = 'rgba(255,214,130,' + (cf * 0.75).toFixed(3) + ')';
+      ctx.lineWidth = 1.5 + cf * 2.5;
       ctx.beginPath();
-      ctx.arc(W / 2, H / 2, Math.min(W, H) * (0.12 + (1 - cf) * 0.42), 0, TAU_LOCAL);
+      ctx.arc(sxp, syp, 12 + (1 - cf) * 46, 0, TAU_LOCAL);
       ctx.stroke();
       ctx.restore();
     }
