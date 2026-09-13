@@ -54,7 +54,7 @@
   <button id="titleBtn" type="button">タイトルへ</button>
   <button id="pauseBtn" type="button">❙❙ 一時停止</button>
   <button id="sensBtn" type="button">感度 ×1</button>
-  <button id="guideBtn" type="button">ガイド</button>
+  <button id="guideBtn" type="button">ガイド あり</button>
   <button id="helpBtn" type="button">あそびかた</button>
   <button id="bgBtn" type="button">背景 3D</button>
   <button id="soundBtn" type="button">♪ 音を出す</button>
@@ -458,7 +458,7 @@
     /** ガイドボタンの表示を今の設定に合わせる。 */
     function syncGuideButton() {
       var on = PULSAR.game.isGuide();
-      guideBtn.textContent = on ? 'ガイド' : 'ガイド なし';
+      guideBtn.textContent = on ? 'ガイド あり' : 'ガイド なし';
       guideBtn.classList.toggle('on', on);
     }
 

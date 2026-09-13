@@ -327,6 +327,36 @@
   }
 
   /**
+   * @brief 長三和音の構成音の比。根音・長三度・完全五度。
+   *
+   * 純正律の比をそのまま使う。平均律より響きが澄むうえ、
+   * 掛け算だけで求まるので表を持たずに済む。
+   * @private
+   */
+  var MAJOR_CHORD = [1, 5 / 4, 3 / 2];
+
+  /**
+   * @brief 長三和音を鳴らす。
+   *
+   * 刻む音が休んでいる隙間に差し込む。旋律を足すと詰め込みすぎになるが、
+   * 和音なら隙間を埋めながらも前へ出てこない。
+   *
+   * @private
+   * @param {number} root 根音の周波数 [Hz]
+   * @param {number} at 発音時刻 [s]
+   * @param {number} dur 長さ [s]
+   * @param {number} level 音量 [0..1]
+   * @param {OscillatorType} type 波形
+   * @returns {void}
+   */
+  function chord(root, at, dur, level, type) {
+    for (var i = 0; i < MAJOR_CHORD.length; i++) {
+      // 上の音ほど控えめにして、根音が土台として残るようにする
+      tone(root * MAJOR_CHORD[i], at, dur, type, level * (1 - i * 0.22), 2200);
+    }
+  }
+
+  /**
    * @brief 16分音符1つ分の音を予約する。
    * @private
    * @param {number} n 通し番号
@@ -362,15 +392,27 @@
       tone(p.lead[i] * 2, at, 0.10, 'triangle', 0.05, 5200);
     }
 
-    // 最後の層。小節の頭で、2小節ぶん伸びる和音を敷く。
-    // 刻む音をさらに重ねても忙しくなるだけなので、締めは厚みで聴かせる。
-    if (v >= LAYER.pad && i === 0 && bar % 2 === 0) {
+    // --- 最後の層：伸びる音と、隙間を埋める和音 ---
+    if (v >= LAYER.pad) {
       var beat = 60 / (CONFIG.bpm * tempoScale);
-      var dur = beat * 8;               // 2小節
       var root = p.bass[0] || 55;
 
-      pad(root * 2, at, dur, 0.06);     // 根音（ベースの1オクターブ上）
-      pad(root * 3, at, dur, 0.045);    // 5度
+      // 小節の頭で、2小節ぶん伸びる長三和音を敷く。
+      if (i === 0 && bar % 2 === 0) {
+        for (var n = 0; n < MAJOR_CHORD.length; n++) {
+          pad(root * 2 * MAJOR_CHORD[n], at, beat * 8, 0.055 - n * 0.011);
+        }
+      }
+
+      // 拍の終わりの16分が空いていれば、そこへ和音を差し込む。
+      //
+      // 旋律や打点と重なる位置を避ける。ベースは音域が離れているので
+      // 重なっても濁らないが、リードやキックと同時に鳴らすと団子になる。
+      // 拍の裏に置くことで、隙間が埋まりつつ前へ出てこない。
+      var quiet = (p.lead[i] === null) && !p.kick[i];
+      if (quiet && i % 4 === 3) {
+        chord(root * 4, at, beat * 0.75, 0.04, 'triangle');
+      }
     }
   }
 
