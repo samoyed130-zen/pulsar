@@ -40,7 +40,11 @@
     /** @brief グレアのぼかし半径 [px]（縮小後のバッファ上での値）。 */
     glareBlur: 5,
     /** @brief グレアに使う縮小率。小さいほど軽く、光が大きく広がる。 */
-    glareScale: 0.25
+    glareScale: 0.25,
+    /** @brief この時間を超え続けたら描画を軽くする [ms]。 */
+    slowMs: 22,
+    /** @brief この時間を下回り続けたら元に戻す [ms]。 */
+    fastMs: 13
   };
 
   /** @brief 表示用のキャンバスと文脈。 @private */
@@ -148,6 +152,48 @@
 
   /** @brief グレアが使えるか（`filter` 未対応の環境では諦める）。 @private */
   var glareOk = false;
+
+  /**
+   * @brief 1フレームにかかっている時間の移動平均 [ms]。
+   * @private
+   */
+  var frameMs = 16;
+
+  /**
+   * @brief 描画の重さの段階。1 = そのまま、0 = 落とす。
+   *
+   * 端末やブラウザによって得意不得意が大きく違う。特に Canvas の
+   * ぼかし（filter）は、実装によって桁で速度が変わる。
+   * 事前に見分けるのは無理なので、実際にかかった時間を見て落とす。
+   * @private
+   */
+  var quality = 1;
+
+  /** @brief 段階を切り替えるまでの連続フレーム数。 @private */
+  var slowFrames = 0, fastFrames = 0;
+
+  /**
+   * @brief 実測に基づいて描画の重さを上下させる。
+   *
+   * すぐ切り替えると行ったり来たりするので、一定数続いたときだけ動かす。
+   *
+   * @private
+   * @param {number} ms 今回のフレームにかかった時間 [ms]
+   * @returns {void}
+   */
+  function tuneQuality(ms) {
+    frameMs += (ms - frameMs) * 0.1;
+
+    if (frameMs > CONFIG.slowMs) {
+      slowFrames++;
+      fastFrames = 0;
+      if (slowFrames > 45) { quality = 0; slowFrames = 0; }
+    } else if (frameMs < CONFIG.fastMs) {
+      fastFrames++;
+      slowFrames = 0;
+      if (fastFrames > 240) { quality = 1; fastFrames = 0; }
+    }
+  }
 
   /**
    * @brief 明るい部分をにじませて重ねる（グレア）。
@@ -885,6 +931,8 @@
     } else {
       prevMs = ms;
     }
+
+    var t0 = (global.performance && global.performance.now) ? global.performance.now() : 0;
     clock += dt;
     sceneTime += dt;
 
@@ -954,6 +1002,8 @@
       inputMode: inputMode,
       // ガイド輪を切っている人にも、走り始めだけは見せて自然に消す
       guideIntro: fadeOutHint(),
+      // 描画が追いついていないときは、シーン側も手を抜く
+      quality: quality,
       impact: impact
     };
 
@@ -977,7 +1027,10 @@
     // 光が全面に回って白く飛び、何が映っているのか分からなくなる。
     // 背景を切っているときはグレアも止める。動作が重い端末向けの逃げ道として
     // 用意したボタンなので、重い処理がもう一つ残っていては意味がない。
-    var glareScale = global.PULSAR.scenes.isRaymarch()
+    //
+    // 描画が追いついていないときも止める。画面の縮小コピーとぼかしは
+    // この作品でいちばん重く、しかも実装によって速度が桁で違う。
+    var glareScale = (global.PULSAR.scenes.isRaymarch() && quality > 0)
       ? ((scene.glare === undefined) ? 1 : scene.glare)
       : 0;
     drawGlare(CONFIG.glare * glareScale * (0.75 + kick * 0.45));
@@ -1073,6 +1126,9 @@
 
     shake = M.approach(shake, 0, 7, dt);
     hitFlash = M.approach(hitFlash, 0, 6, dt);
+
+    // 実際にかかった時間を見て、次のフレームの重さを決める。
+    if (t0) tuneQuality(global.performance.now() - t0);
 
     global.requestAnimationFrame(frame);
   }

@@ -326,6 +326,23 @@
     });
   });
 
+  describe('描画の重さの調整', function () {
+    var app = window.PULSAR.app;
+
+    it('落とす基準は、戻す基準より緩い（行き来しないように）', function () {
+      expect(app.CONFIG.slowMs > app.CONFIG.fastMs).toBeTrue();
+    });
+
+    it('落とす基準は 60fps の枠より大きい', function () {
+      // 16.6ms を少し超えた程度で落とすと、一瞬の重さで画質が変わってしまう
+      expect(app.CONFIG.slowMs > 16.6).toBeTrue();
+    });
+
+    it('戻す基準は 60fps の枠に収まっている', function () {
+      expect(app.CONFIG.fastMs < 16.6).toBeTrue();
+    });
+  });
+
   describe('一時停止', function () {
     var app = window.PULSAR.app;
 

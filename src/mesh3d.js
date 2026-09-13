@@ -233,6 +233,13 @@
   /** @brief 描画対象の面。 @private */
   var visible = [];
 
+  /**
+   * @brief この大きさ未満の面は、グラデーションを作らず単色で塗る [px]。
+   *
+   * グラデーションは面ごとに作り直すため、数が増えると生成だけで重くなる。
+   */
+  var GRADIENT_MIN_SIZE = 26;
+
   /** @brief 一時領域。 @private */
   var tmpNormal = [0, 0, 0];
   var tmpCenter = [0, 0, 0];
@@ -281,6 +288,21 @@
    * @returns {CanvasGradient|string} 塗りに使う値
    */
   function faceGradient(ctx, s0, s1, s2, l0, l1, l2, hue, sat, alpha) {
+    // 画面上で小さい面は単色で塗る。
+    //
+    // グラデーションは面ごとに作り直すため、数が増えるとそれだけで重い。
+    // 小さく映っている面では、作っても違いが見えない。
+    var minX = Math.min(s0[0], s1[0], s2[0]);
+    var maxX = Math.max(s0[0], s1[0], s2[0]);
+    var minY = Math.min(s0[1], s1[1], s2[1]);
+    var maxY = Math.max(s0[1], s1[1], s2[1]);
+
+    if ((maxX - minX) < GRADIENT_MIN_SIZE && (maxY - minY) < GRADIENT_MIN_SIZE) {
+      var avg = (l0 + l1 + l2) / 3;
+      return 'hsla(' + hue.toFixed(0) + ',' + sat.toFixed(0) + '%,' +
+             avg.toFixed(1) + '%,' + alpha.toFixed(3) + ')';
+    }
+
     // 明るさの差が小さければ、単色で塗って余計な処理を省く。
     var lo = l0, hi = l0, loS = s0, hiS = s0;
     if (l1 < lo) { lo = l1; loS = s1; }

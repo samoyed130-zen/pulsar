@@ -478,7 +478,13 @@
     var look = currentLook();
     var period = HALL.period;
     var offset = travel % period;
-    var cells = f.light ? HALL.cells - 3 : HALL.cells;
+
+    // 見通す区画の数が、そのまま描く面の数になる。
+    // 画面が小さいときと、描画が追いついていないときは減らす。
+    var cells = HALL.cells;
+    if (f.light) cells -= 3;
+    if (f.quality === 0) cells -= 2;
+    cells = Math.max(3, cells);
 
     parts.length = 0;
     partCount = 0;
@@ -510,11 +516,13 @@
 
       // 壁・床・天井は奥行きに長いので、短く割って並べる。
       // カメラに掛かった区画だけが消えるようになり、黒い抜けが出にくい。
-      var segLen = period / HALL.segments;
+      // 重いときは割る数を減らす（手前の抜けは出やすくなるが、動きを優先する）。
+      var segments = f.quality === 0 ? 2 : HALL.segments;
+      var segLen = period / segments;
       var segHalf = segLen * 0.5;
 
-      for (var s = 0; s < HALL.segments; s++) {
-        var zs = z + (s - (HALL.segments - 1) * 0.5) * segLen;
+      for (var s = 0; s < segments; s++) {
+        var zs = z + (s - (segments - 1) * 0.5) * segLen;
         hallBend(zs, f.t, look, bendOut);
         var sx = bendOut[0] - camX;
         var sy = bendOut[1] - camY;
