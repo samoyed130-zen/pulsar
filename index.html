@@ -25,7 +25,7 @@
     <h1 class="titleLogo">PULSAR</h1>
     <!-- 開放済みのステージぶんだけボタンが並ぶ（起動時に組み立てる） -->
     <div class="stageSelect" id="stageSelect"></div>
-    <p class="titleHint" id="titleHint"></p>
+    <p class="titleHint" id="titleHint">♪ 音を出して遊んでください</p>
   </div>
 
   <!-- テストページへの入口。タイトル画面にだけ置く -->
@@ -327,7 +327,8 @@
         stageSelect.appendChild(btn);
       }
 
-      titleHint.textContent = '';
+      // 音はこの作品の半分を占めるので、遊ぶ前に必ず伝える。
+      titleHint.textContent = '♪ 音を出して遊んでください';
     }
 
     stageSelect.addEventListener('click', function (e) {

@@ -357,6 +357,41 @@
   }
 
   /**
+   * @brief 立方体を拾ったときの音を鳴らす。
+   *
+   * 曲の進行とは切り離して、その場ですぐ鳴らす。拍を待つと
+   * 「拾った瞬間」から音がずれ、自分の操作の結果に聞こえない。
+   *
+   * @returns {void}
+   */
+  function playPickup() {
+    if (!ac || muted || suspended) return;
+
+    var at = ac.currentTime + 0.01;
+
+    // 上へ駆け上がる3音。曲のどの場面でも浮くよう、高い音域を使う。
+    var steps = [0, 1, 2];
+    for (var i = 0; i < steps.length; i++) {
+      var freq = 880 * MAJOR_CHORD[i];
+      var t = at + i * 0.045;
+
+      var osc = ac.createOscillator();
+      var gain = ac.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.09, t + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+
+      osc.connect(gain).connect(master);
+      osc.start(t);
+      osc.stop(t + 0.32);
+    }
+  }
+
+  /**
    * @brief その位置で鳴らす和音の根音を求める。
    *
    * ベースの音型をそのまま和音の進行として使う。別に進行表を持つと、
@@ -688,6 +723,7 @@
     getTempoScale: getTempoScale,
     setStage: setStage,
     getStage: getStage,
-    stageCount: stageCount
+    stageCount: stageCount,
+    playPickup: playPickup
   };
 })(typeof window !== 'undefined' ? window : this);

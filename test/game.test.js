@@ -636,6 +636,37 @@
       expect(G.getSensitivity()).toBe(1);
     });
 
+    it('軽く叩いた程度では大きく回らない', function () {
+      G.reset();
+      G.setSensitivity(4);          // 最も機敏な設定でも確かめる
+      var f = makeFrame({ dt: 1 / 60, steer: 1, inputMode: 'key' });
+      var before = G.state.angle;
+
+      // 約 0.1 秒だけ押す
+      for (var i = 0; i < 6; i++) G.update(f);
+
+      // 4分の1回転（π/2）より十分小さいこと
+      expect(M.angleDist(G.state.angle, before) < Math.PI / 6).toBeTrue();
+      G.setSensitivity(1);
+    });
+
+    it('押し続けると、だんだん速く回る', function () {
+      G.reset();
+      var f = makeFrame({ dt: 1 / 60, steer: 1, inputMode: 'key' });
+
+      var a0 = G.state.angle;
+      for (var i = 0; i < 6; i++) G.update(f);
+      var first = M.angleDist(G.state.angle, a0);   // 最初の 0.1 秒
+
+      for (var j = 0; j < 60; j++) G.update(f);     // しばらく押し続ける
+
+      var a1 = G.state.angle;
+      for (var k = 0; k < 6; k++) G.update(f);
+      var later = M.angleDist(G.state.angle, a1);   // 後半の 0.1 秒
+
+      expect(later > first).toBeTrue();
+    });
+
     it('キーから手を離しても、指の位置へ戻らない', function () {
       G.reset();
       var f = makeFrame({ dt: 1 / 60 });

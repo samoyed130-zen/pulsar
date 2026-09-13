@@ -55,8 +55,12 @@
      * 「輪に入っているのに当たった」という食い違いが起きない。
      */
     shipZ: 4.15,
-    /** @brief キー操作時の角速度 [rad/s]。 */
+    /** @brief キー操作時の角速度 [rad/s]（押し続けたときの最大）。 */
     keyTurnRate: 3.4,
+    /** @brief 押し始めの速さの割合。小さいほど、軽く叩いたときの動きが小さい。 */
+    keyRampStart: 0.25,
+    /** @brief 最大の速さに達するまでの時間 [s]。 */
+    keyRampTime: 0.45,
     /** @brief 自動操縦が切れ目へ向かう追従の速さ。 */
     autoRate: 4.5,
     /** @brief 手動操作の追従の速さ。自動より機敏にする。 */
@@ -246,6 +250,8 @@
     score: 0,
     /** @brief 直近の衝突からの経過時間 [s]。 */
     sinceHit: 99,
+    /** @brief 左右キーを押し続けている時間 [s]。離すと 0 に戻る。 */
+    keyHold: 0,
     /** @brief 連続通過数。衝突で 0 に戻る。 */
     combo: 0,
     /** @brief この挑戦での最大コンボ。 */
@@ -388,6 +394,11 @@
   function takeItem(r) {
     r.itemTaken = true;
     state.collectFlash = 1;
+
+    // 拾った手応えは、目と耳の両方で返す。
+    if (global.PULSAR.sound && global.PULSAR.sound.playPickup) {
+      global.PULSAR.sound.playPickup();
+    }
 
     if (!state.started || state.finished) return;
 
@@ -579,9 +590,18 @@
       // 目標角を一定量だけ先へ置く方式にすると、感度を上げたときに
       // 1フレームの差が π を超え、最短で回る計算が逆向きを選んで
       // 半周してしまう。経過時間を掛けて回せば、その事故が起きない。
+      //
+      // さらに、押し始めは遅く、押し続けるほど速くする。
+      // 最初から全速だと、軽く叩いただけで大きく回ってしまう。
+      var ramp = Math.min(1, CONFIG.keyRampStart + state.keyHold / CONFIG.keyRampTime);
+
+      // 感度は指の操作のためのもの。キーにそのまま掛けると効きすぎるので、
+      // 平方根で穏やかにする（×4 でも 2 倍まで）。
+      var keyScale = Math.sqrt(sensitivity);
+
       return {
         target: M.wrapAngle(state.angle +
-                            f.steer * CONFIG.keyTurnRate * sensitivity * f.dt),
+                            f.steer * CONFIG.keyTurnRate * keyScale * ramp * f.dt),
         rate: 999   // 目標そのものが毎フレーム進むので、遅れずに追う
       };
     }
@@ -624,6 +644,9 @@
     }
 
     state.stageFlash = M.approach(state.stageFlash, 0, 2.2, dt);
+
+    // キーを押し続けている時間。離した瞬間に 0 へ戻す。
+    state.keyHold = (f.steer !== 0) ? state.keyHold + dt : 0;
 
     // 速度はコンボゲージに従う。繋げば速くなり、ぶつかれば元の速さへ戻る。
     // 「上手くなるほど手強くなる」関係を、時間経過ではなく腕前に結びつける。

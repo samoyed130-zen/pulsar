@@ -248,11 +248,12 @@ body.on-title #titleBtn { display: none; }
 }
 
 .titleHint {
-  margin: 18px 0 0;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: rgba(223, 229, 247, 0.75);
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+  margin: 20px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.95);
 }
 
 /* テストページへの入口。タイトル画面の左下に控えめに置く */
