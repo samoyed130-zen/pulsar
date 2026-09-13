@@ -561,7 +561,8 @@
      * まとめることで、そういう隙間がなくなる。
      */
     function syncOverlayPause() {
-      var open = !menuEl.hidden || !help.hidden || !confirmEl.hidden;
+      var open = !menuEl.hidden || !help.hidden ||
+                 !confirmEl.hidden || !testsEl.hidden;
       var st = PULSAR.game.state;
 
       /*
@@ -571,16 +572,14 @@
        * それどころか、止めてしまうと背景や音の設定を変えても画面が
        * 固まったままで、何が変わったのか分からなくなる。
        *
-       * ただしテストの結果だけは、タイトルでも止める。画面いっぱいの
-       * 文字を読んでいる最中に、裏でデモが動いて音が鳴り続ける理由がない。
-       *
-       * 音を止めるのも再開するのも、この1か所（と closeDialog）だけが
-       * 行う。あちこちで直接止めると、どれかが解除し忘れて
-       * 「音が戻らない」という形で残る。
+       * 走行中かどうかは、タイトルが出ているかで決める。
+       * `state.started` は「画面に触れたか」で立つため、タイトルで
+       * デモに触れただけでも真になってしまう。それを走行中と見なすと、
+       * タイトルでメニューを開いただけでデモが止まる。
        */
-      var pause = !testsEl.hidden || (open && st.started && !st.finished);
+      var playing = title.hidden && st.started && !st.finished;
 
-      if (pause) PULSAR.app.setPaused('dialog', true);
+      if (open && playing) PULSAR.app.setPaused('dialog', true);
       else PULSAR.app.closeDialog();   // 閉じたときは合図を挟んでから戻る
     }
 
@@ -606,8 +605,10 @@
       menuBtn.classList.toggle('on', open);
 
       // 走行中に開いたときだけ、戻るボタンが「再開」の意味になる。
+      // 走行中の見分け方は syncOverlayPause と揃える。
       var st = PULSAR.game.state;
-      menuCloseBtn.textContent = (st.started && !st.finished) ? '再開する' : 'もどる';
+      var playing = title.hidden && st.started && !st.finished;
+      menuCloseBtn.textContent = playing ? '再開する' : 'もどる';
 
       syncOverlayPause();
     }
