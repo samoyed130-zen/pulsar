@@ -141,7 +141,27 @@
    * 意思はここに保ち、中断されたら黙って再開を試みる。
    * @private
    */
-  var wanted = false;
+  var wanted = true;
+
+  /**
+   * @brief 音を出したいかどうかを端末に覚えさせる。
+   * @private
+   * @returns {void}
+   */
+  function savePreference() {
+    try {
+      global.localStorage.setItem('pulsar.sound', (wanted && !muted) ? '1' : '0');
+    } catch (e) { /* 保存できなくても遊べる */ }
+  }
+
+  // 前回の選択を復元する。既定は「出したい」。
+  // ブラウザの自動再生制限があるため、実際に鳴り始めるのは最初の操作のとき。
+  try {
+    if (global.localStorage.getItem('pulsar.sound') === '0') {
+      wanted = false;
+      muted = true;
+    }
+  } catch (e) { /* 既定のまま */ }
 
   /**
    * @brief 曲の厚み [0..1]。コンボゲージがそのまま入る。
@@ -411,6 +431,7 @@
     if (master && ac) {
       master.gain.setTargetAtTime(muted ? 0 : CONFIG.masterGain, ac.currentTime, 0.02);
     }
+    savePreference();
   }
 
   /**
@@ -423,7 +444,15 @@
    * @returns {void}
    */
   function keepAlive() {
-    if (!wanted || muted || !ac) return;
+    if (!wanted || muted) return;
+
+    // まだ音声を起こしていなければ、ここで起こす。
+    // 自動再生の制限があるため、この関数は必ず操作を起点に呼ぶこと。
+    if (!ac) {
+      start();
+      return;
+    }
+
     if (ac.state === 'suspended') ac.resume();
   }
 
@@ -450,6 +479,7 @@
     setMuted(false);
     wanted = true;
     if (ac && ac.state !== 'running') ac.resume();
+    savePreference();
   }
 
   /**

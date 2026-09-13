@@ -242,6 +242,13 @@
       expect(1 >= S2.LAYER.arp).toBeTrue();
     });
 
+    it('既定では音を出したい状態になっている', function () {
+      // 実際に鳴り始めるのは最初の操作のとき（自動再生の制限があるため）。
+      // ここで見ているのは「出したいと思っているか」の既定値。
+      S2.turnOn();
+      expect(S2.isOn()).toBeTrue();
+    });
+
     it('未起動の状態は「消音」として扱われる（ボタンが必ず起動側に働く）', function () {
       S2.setMuted(true);
       expect(S2.isMuted()).toBeTrue();

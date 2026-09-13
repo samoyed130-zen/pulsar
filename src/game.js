@@ -774,13 +774,23 @@
 
     c.save();
     c.globalCompositeOperation = 'lighter';
-    c.strokeStyle = 'rgba(150,200,255,0.16)';
-    c.lineWidth = 1.2;
-    c.setLineDash([5, 9]);
+
+    // 下地の太い輪と、その上に破線。太さがあると「この線の上を動く」と
+    // 分かりやすく、リングと重なる瞬間も掴みやすい。
+    c.strokeStyle = 'rgba(150,200,255,0.10)';
+    c.lineWidth = 9;
+    c.beginPath();
+    c.arc(cx, cy, radius, 0, TAU);
+    c.stroke();
+
+    c.strokeStyle = 'rgba(170,215,255,0.34)';
+    c.lineWidth = 3.5;
+    c.setLineDash([10, 12]);
     c.beginPath();
     c.arc(cx, cy, radius, 0, TAU);
     c.stroke();
     c.setLineDash([]);
+
     c.restore();
     c.globalCompositeOperation = 'source-over';
   }
