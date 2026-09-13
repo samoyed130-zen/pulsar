@@ -27,9 +27,6 @@
     <div class="stageSelect" id="stageSelect"></div>
     <p class="titleHint" id="titleHint">♪ 音を出して遊んでください</p>
   </div>
-
-  <!-- テストページへの入口。タイトル画面にだけ置く -->
-  <a class="testLink" href="test.html" target="_blank" rel="noopener">TESTS</a>
 </div>
 
 <!-- ステージ踏破などの知らせ -->
@@ -75,6 +72,8 @@
       <button id="smoothBtn" type="button">なめらか あり</button>
       <button id="soundBtn" type="button">♪ 音 あり</button>
       <button id="helpBtn" type="button">あそびかた</button>
+      <!-- 単体テストの結果ページ。別のタブで開き、遊びを中断させない -->
+      <a class="menuLink" href="test.html" target="_blank" rel="noopener">APIテスト</a>
     </div>
 
     <div class="menuFooter">
@@ -376,10 +375,7 @@
     // タイトル画面でどこかを押したら、自動操縦の場面へ戻す。
     // 幾何学的な場面を眺めている途中でも、作品の中身をすぐ見せられる。
     title.addEventListener('pointerdown', function (e) {
-      if (e.target && e.target.closest &&
-          (e.target.closest('.testLink') || e.target.closest('button'))) {
-        return;
-      }
+      if (e.target && e.target.closest && e.target.closest('button')) return;
       PULSAR.app.showAutoplay();
     });
 

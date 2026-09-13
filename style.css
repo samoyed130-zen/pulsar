@@ -264,31 +264,6 @@ body.on-title #panel { display: none; }
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.95);
 }
 
-/* テストページへの入口。タイトル画面の左下に控えめに置く */
-.testLink {
-  position: fixed;
-  left: var(--pad);
-  bottom: max(14px, env(safe-area-inset-bottom));
-  pointer-events: auto;
-  font-family: "Consolas", monospace;
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  color: rgba(223, 229, 247, 0.45);
-  text-decoration: none;
-  padding: 7px 12px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: rgba(4, 5, 10, 0.4);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  transition: color 0.2s ease, border-color 0.2s ease;
-}
-
-.testLink:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
 /* --- 走行パネル ----------------------------------------------------- */
 
 /*
@@ -567,6 +542,26 @@ body.on-title #panel { display: none; }
 }
 
 .menuList button:hover { background: rgba(223, 229, 247, 0.1); }
+
+/*
+ * テストページへの入口。押すと別のタブが開くので、他の項目と
+ * 同じ形にしつつ、色は控えめにして設定と区別する。
+ */
+.menuLink {
+  display: block;
+  padding: 13px 16px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: rgba(223, 229, 247, 0.5);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+}
+
+.menuLink:hover {
+  color: var(--accent);
+  border-color: rgba(122, 214, 255, 0.55);
+}
 
 /* 設定を変えていることが一目で分かるようにする */
 .menuList button.on {
