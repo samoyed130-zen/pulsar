@@ -48,6 +48,15 @@
   <div id="out"></div>
 </div>
 
+<script src="src/store.js"></script>
+<script>
+  /*
+   * テストは設定を切り替える関数もそのまま呼ぶ。素通しにすると、
+   * このページを開いただけで感度や開放済みステージが書き換わってしまう。
+   * 作品側を読み込む前に、保存だけを止めておく。
+   */
+  PULSAR.store.setEnabled(false);
+</script>
 <script src="src/mathx.js"></script>
 <script src="src/raster.js"></script>
 <script src="src/mesh3d.js"></script>

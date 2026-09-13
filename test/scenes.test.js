@@ -472,6 +472,59 @@
     });
   });
 
+  describe('設定の保存', function () {
+    var store = window.PULSAR.store;
+
+    it('テスト中は保存しない', function () {
+      // これが効いていないと、テストのページを開くだけで
+      // 遊び手の設定や開放済みステージが書き換わってしまう。
+      var wrote = false;
+      var real = window.localStorage;
+
+      window.localStorage = {
+        getItem: function () { return null; },
+        setItem: function () { wrote = true; }
+      };
+
+      store.set('pulsar.test', '1');
+      window.localStorage = real;
+
+      expect(wrote).toBeFalse();
+    });
+
+    it('読み取りは止めない（復元の挙動を試せなくなるため）', function () {
+      var read = false;
+      var real = window.localStorage;
+
+      window.localStorage = {
+        getItem: function () { read = true; return '1'; },
+        setItem: function () {}
+      };
+
+      var v = store.get('pulsar.test');
+      window.localStorage = real;
+
+      expect(read).toBeTrue();
+      expect(v).toBe('1');
+    });
+
+    it('保存できない環境でも例外を投げない', function () {
+      var real = window.localStorage;
+      window.localStorage = null;
+
+      var ok = true;
+      try {
+        store.set('pulsar.test', '1');
+        expect(store.get('pulsar.test')).toBe(null);
+      } catch (e) {
+        ok = false;
+      }
+
+      window.localStorage = real;
+      expect(ok).toBeTrue();
+    });
+  });
+
   describe('一時停止', function () {
     var app = window.PULSAR.app;
 

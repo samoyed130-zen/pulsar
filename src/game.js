@@ -150,10 +150,7 @@
       }
     }
     sensitivity = best;
-
-    try {
-      global.localStorage.setItem('pulsar.sens', String(best));
-    } catch (e) { /* 保存できなくても遊べる */ }
+    global.PULSAR.store.set('pulsar.sens', String(best));
   }
 
   /**
@@ -165,10 +162,8 @@
   }
 
   // 前回の選択を復元する。
-  try {
-    var saved = parseFloat(global.localStorage.getItem('pulsar.sens'));
-    if (!isNaN(saved)) setSensitivity(saved);
-  } catch (e) { /* 既定のまま */ }
+  var saved = parseFloat(global.PULSAR.store.get('pulsar.sens'));
+  if (!isNaN(saved)) setSensitivity(saved);
 
   /**
    * @brief カーソルのガイド輪を常に出すか。
@@ -189,9 +184,7 @@
    */
   function setGuide(on) {
     guideOn = !!on;
-    try {
-      global.localStorage.setItem('pulsar.guide', guideOn ? '1' : '0');
-    } catch (e) { /* 保存できなくても遊べる */ }
+    global.PULSAR.store.set('pulsar.guide', guideOn ? '1' : '0');
   }
 
   /**
@@ -203,12 +196,10 @@
   }
 
   // 前回の選択を復元する。
-  try {
-    if (global.localStorage.getItem('pulsar.guide') === '0') {
-      guideOn = false;
-      guideAlpha = 0;
-    }
-  } catch (e) { /* 既定のまま */ }
+  if (global.PULSAR.store.get('pulsar.guide') === '0') {
+    guideOn = false;
+    guideAlpha = 0;
+  }
 
   /**
    * @brief ステージごとの難しさ。
@@ -306,13 +297,9 @@
    * @returns {number} 開放済みの最大ステージ番号（最低 1）
    */
   function loadUnlocked() {
-    try {
-      var v = parseInt(global.localStorage.getItem('pulsar.unlocked'), 10);
-      if (isNaN(v)) return 1;
-      return M.clamp(v, 1, CONFIG.stageCount);
-    } catch (e) {
-      return 1;
-    }
+    var v = parseInt(global.PULSAR.store.get('pulsar.unlocked'), 10);
+    if (isNaN(v)) return 1;
+    return M.clamp(v, 1, CONFIG.stageCount);
   }
 
   /**
@@ -322,9 +309,7 @@
    * @returns {void}
    */
   function saveUnlocked(v) {
-    try {
-      global.localStorage.setItem('pulsar.unlocked', String(v));
-    } catch (e) { /* 保存できなくても遊べる */ }
+    global.PULSAR.store.set('pulsar.unlocked', String(v));
   }
 
   /**

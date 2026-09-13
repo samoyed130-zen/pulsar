@@ -158,19 +158,15 @@
    * @returns {void}
    */
   function savePreference() {
-    try {
-      global.localStorage.setItem('pulsar.sound', (wanted && !muted) ? '1' : '0');
-    } catch (e) { /* 保存できなくても遊べる */ }
+    global.PULSAR.store.set('pulsar.sound', (wanted && !muted) ? '1' : '0');
   }
 
   // 前回の選択を復元する。既定は「出したい」。
   // ブラウザの自動再生制限があるため、実際に鳴り始めるのは最初の操作のとき。
-  try {
-    if (global.localStorage.getItem('pulsar.sound') === '0') {
-      wanted = false;
-      muted = true;
-    }
-  } catch (e) { /* 既定のまま */ }
+  if (global.PULSAR.store.get('pulsar.sound') === '0') {
+    wanted = false;
+    muted = true;
+  }
 
   /**
    * @brief 曲の厚み [0..1]。コンボゲージがそのまま入る。

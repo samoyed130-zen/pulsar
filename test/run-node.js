@@ -35,6 +35,12 @@ function load(rel) {
 }
 
 // 作品側。DOM に触れるのは起動関数の中だけなので、読み込むだけなら通る。
+//
+// 設定の保存はテストの前に止める。ブラウザで同じテストを開いたときに、
+// 遊び手の設定や開放済みステージを書き換えてしまわないようにするため。
+load('src/store.js');
+vm.runInContext('PULSAR.store.setEnabled(false)', context);
+
 load('src/mathx.js');
 load('src/raster.js');
 load('src/mesh3d.js');

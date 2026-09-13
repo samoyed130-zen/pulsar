@@ -236,9 +236,7 @@
    */
   function setRaymarch(on) {
     backgroundOn = !!on;
-    try {
-      global.localStorage.setItem('pulsar.bg', backgroundOn ? '1' : '0');
-    } catch (e) { /* 保存できなくても動作には影響しない */ }
+    global.PULSAR.store.set('pulsar.bg', backgroundOn ? '1' : '0');
   }
 
   /**
@@ -250,9 +248,7 @@
   }
 
   // 前回の選択を復元する。設定が読めない環境では既定（描く）のままにする。
-  try {
-    if (global.localStorage.getItem('pulsar.bg') === '0') backgroundOn = false;
-  } catch (e) { /* 既定のまま */ }
+  if (global.PULSAR.store.get('pulsar.bg') === '0') backgroundOn = false;
 
   /**
    * @brief 建造物を自前のラスタライザで描くかどうか。
@@ -270,9 +266,7 @@
    */
   function setSmooth(on) {
     smoothOn = !!on;
-    try {
-      global.localStorage.setItem('pulsar.smooth', smoothOn ? '1' : '0');
-    } catch (e) { /* 保存できなくても動作には影響しない */ }
+    global.PULSAR.store.set('pulsar.smooth', smoothOn ? '1' : '0');
   }
 
   /**
@@ -283,9 +277,7 @@
     return smoothOn;
   }
 
-  try {
-    if (global.localStorage.getItem('pulsar.smooth') === '0') smoothOn = false;
-  } catch (e) { /* 既定のまま */ }
+  if (global.PULSAR.store.get('pulsar.smooth') === '0') smoothOn = false;
 
   /**
    * @brief 建造物の寸法。
