@@ -320,6 +320,14 @@
       expect(S2.getIntensity()).toBeCloseTo(0.4);
     });
 
+    it('遅れの許容は先読みの幅で決まる', function () {
+      // タブが隠れている間に予約が止まり、戻ったときにまとめて鳴るのを
+      // 防ぐため、先読みより遅れていたら現在へ飛ばしている。
+      expect(S2.CONFIG.lookahead > 0).toBeTrue();
+      // 刻み1つぶんより広くないと、通常の予約まで飛ばしてしまう
+      expect(S2.CONFIG.lookahead > 60 / S2.CONFIG.bpm / 4).toBeTrue();
+    });
+
     it('層のしきい値は 0..1 に入り、順番どおりに並んでいる', function () {
       var L = S2.LAYER;
       expect(L.bass < L.hat).toBeTrue();

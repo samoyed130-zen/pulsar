@@ -548,24 +548,28 @@ body.on-title #panel { display: none; }
 #resetBtn:hover { background: rgba(255, 145, 160, 0.12); }
 
 /*
- * テストページへの入口。押すと別のタブが開くので、他の項目と
- * 同じ形にしつつ、色は控えめにして設定と区別する。
+ * テストページへの入口。別のタブが開くことを矢印で示す以外は、
+ * 他の項目とまったく同じ見た目にする。色を落とすと、押せないものだと
+ * 誤解される。
  */
 .menuLink {
   display: block;
   padding: 13px 16px;
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.06em;
-  color: rgba(223, 229, 247, 0.5);
+  color: var(--fg);
   text-decoration: none;
+  background: rgba(223, 229, 247, 0.05);
   border: 1px solid var(--line);
   border-radius: 11px;
 }
 
-.menuLink:hover {
-  color: var(--accent);
-  border-color: rgba(122, 214, 255, 0.55);
+.menuLink::after {
+  content: " ↗";
+  color: rgba(223, 229, 247, 0.45);
 }
+
+.menuLink:hover { background: rgba(223, 229, 247, 0.1); }
 
 /* 設定を変えていることが一目で分かるようにする */
 .menuList button.on {

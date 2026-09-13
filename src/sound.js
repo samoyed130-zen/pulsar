@@ -521,6 +521,17 @@
   function schedule() {
     if (!ac) return;
 
+    /*
+     * 大きく遅れていたら、追いつこうとせず現在へ飛ばす。
+     *
+     * タブが隠れている間、予約のループは間引かれるのに音声の時計は
+     * 進み続ける。そのまま再開すると、遅れたぶんの音符をまとめて
+     * 予約してしまい、戻った瞬間に固まって鳴る（二重に聞こえる）。
+     */
+    if (nextTime < ac.currentTime - CONFIG.lookahead) {
+      nextTime = ac.currentTime + 0.05;
+    }
+
     while (nextTime < ac.currentTime + CONFIG.lookahead) {
       scheduleStep(step, nextTime);
       step++;
@@ -693,10 +704,17 @@
     return !isOn();
   }
 
-  // タブへ戻ったときに中断されたままにしない。
+  // 隠れている間は音声そのものを止め、戻ったら中断から復帰させる。
+  //
+  // 音量を 0 にするだけでは足りない。別のページを開いたつもりでも
+  // 裏で鳴り続け、そちらの音と重なって聞こえてしまう。
   if (global.document && global.document.addEventListener) {
     global.document.addEventListener('visibilitychange', function () {
-      if (!global.document.hidden) keepAlive();
+      if (global.document.hidden) {
+        if (ac && ac.state === 'running') ac.suspend();
+      } else {
+        keepAlive();
+      }
     });
   }
 
