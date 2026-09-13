@@ -107,6 +107,8 @@
      * わずかな誤差で1枚おきに落ちて 30 回/秒に見えてしまう。
      */
     minFrameMs: 15.5,
+    /** @brief FPS 表示を書き換える間隔 [ms]。速すぎると数字が読めない。 */
+    fpsUpdateMs: 250,
     /** @brief この時間を超え続けたら描画を軽くする [ms]。 */
     slowMs: 22,
     /**
@@ -387,7 +389,9 @@
   function setFps(on) {
     showFps = !!on;
     global.PULSAR.store.set('pulsar.fps', showFps ? '1' : '0');
-    needsRender = true;
+
+    // 止まっている最中に切り替えても、その場で出入りさせる
+    if (fpsEl) fpsEl.hidden = !showFps;
   }
 
   /**
@@ -940,6 +944,12 @@
   /** @brief 走行パネルとリザルトの DOM 参照。 @private */
   var panelEl = null, distEl = null, goalEl = null, timeEl = null;
   var countdownEl = null, countdownNumEl = null, bannerEl = null;
+
+  /** @brief FPS を出す要素。 @private */
+  var fpsEl = null;
+
+  /** @brief FPS の文字を最後に書き換えた時刻 [ms]。 @private */
+  var fpsShownMs = 0;
   var comboValueEl = null, gaugeFillEl = null, layerEls = null;
   var stageValueEl = null, stageFillEl = null;
   var resultEl = null;
@@ -1544,7 +1554,7 @@
 
     drawTransition(ctx, scene.transition, M.edgeFade(pick.local, scene.duration, CONFIG.fade));
 
-    if (showFps) drawFps();
+    updateFps(ms);
 
     shake = M.approach(shake, 0, 7, dt);
     hitFlash = M.approach(hitFlash, 0, 6, dt);
@@ -1556,47 +1566,37 @@
   }
 
   /**
-   * @brief 毎秒の枚数と、今の描画の状態を隅に出す。
+   * @brief 毎秒の枚数と、今の描画の状態を画面の隅に出す。
+   *
+   * 絵の中ではなく DOM に出す。絵に描くとグレアでにじみ、メニューを
+   * 開けばぼかしの向こう側になって読めない。測るための数字なので、
+   * 後処理の一切かからない場所に置く。
    *
    * 数字は移動平均から求める。1フレームごとの生の値は上下に大きく振れ、
    * 読めないうえに「重い」と誤解させる。
    *
-   * 絵の邪魔をしないよう、左下に小さく置く。
-   *
    * @private
+   * @param {number} ms 今の時刻 [ms]
    * @returns {void}
    */
-  function drawFps() {
+  function updateFps(ms) {
+    if (!fpsEl) return;
+
+    fpsEl.hidden = !showFps;
+    if (!showFps) return;
+
+    // 毎フレーム書き換えると、数字が目まぐるしく変わって読めない。
+    // 文字を差し替える処理そのものも無駄になる。
+    if (ms - fpsShownMs < CONFIG.fpsUpdateMs) return;
+    fpsShownMs = ms;
+
     var fps = intervalMs > 0 ? (1000 / intervalMs) : 0;
     if (fps > 999) fps = 999;
 
     // 「毎秒の枚数」と「1枚にかかった時間」は別物。後者が短くても、
     // 間隔が空いていれば枚数は出ない。両方を並べて出す。
-    var text = fps.toFixed(0) + ' fps  描画 ' + frameMs.toFixed(1) + ' ms' +
-               (quality === 0 ? '  [軽量]' : '');
-
-    // 画面の大きさに合わせる。小さい端末ほど画素は細かいので、
-    // 固定の大きさだと読めないほど小さくなる。
-    var size = Math.max(16, Math.round(Math.min(W, H) * 0.045));
-    var pad = Math.round(size * 0.5);
-
-    ctx.save();
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.font = '700 ' + size + 'px Consolas, "SF Mono", monospace';
-    ctx.textBaseline = 'bottom';
-
-    // 明るい場面でも読めるよう、暗い下敷きを敷く
-    var w = ctx.measureText(text).width;
-    var h = size + pad;
-    var x = pad;
-    var y = H - pad;
-
-    ctx.fillStyle = 'rgba(4, 5, 10, 0.6)';
-    ctx.fillRect(x, y - h, w + pad * 2, h);
-
-    ctx.fillStyle = 'rgba(223, 229, 247, 0.85)';
-    ctx.fillText(text, x + pad, y - pad * 0.4);
-    ctx.restore();
+    fpsEl.textContent = fps.toFixed(0) + ' fps  描画 ' + frameMs.toFixed(1) + ' ms' +
+                        (quality === 0 ? '  [軽量]' : '');
   }
 
   /**
@@ -1639,6 +1639,8 @@
     layerEls = document.getElementById('comboLayers').querySelectorAll('.layer');
 
     resultEl = document.getElementById('result');
+    fpsEl = document.getElementById('fps');
+    if (fpsEl) fpsEl.hidden = !showFps;
     countdownEl = document.getElementById('countdown');
     countdownNumEl = document.getElementById('countdownNum');
     bannerEl = document.getElementById('banner');

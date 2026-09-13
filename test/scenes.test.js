@@ -547,6 +547,11 @@
       app.setSoftGlare(before);
     });
 
+    it('FPS の文字は目で追える間隔で書き換える', function () {
+      // 毎フレーム書き換えると数字が目まぐるしく変わって読めない。
+      expect(app.CONFIG.fpsUpdateMs >= 100).toBeTrue();
+    });
+
     it('FPS 表示を切り替えられる', function () {
       var before = app.isFps();
 

@@ -477,6 +477,31 @@ body.on-title #panel { display: none; }
   color: rgba(223, 229, 247, 0.5);
 }
 
+/* --- FPS 表示（調整用） -------------------------------------------- */
+
+#fps[hidden] { display: none; }
+
+/*
+ * 何よりも手前に置く。グレアのにじみも、メニューのぼかしも通さない。
+ * 押せてしまうと絵に触れられなくなるので、当たり判定は持たせない。
+ */
+#fps {
+  position: fixed;
+  left: var(--pad);
+  bottom: max(14px, env(safe-area-inset-bottom));
+  z-index: 30;
+  pointer-events: none;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(4, 5, 10, 0.72);
+  font-family: "Consolas", "SF Mono", monospace;
+  font-size: clamp(15px, 3.4vmin, 26px);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #dfe5f7;
+  white-space: nowrap;
+}
+
 /* --- メニュー（走行中は一時停止を兼ねる） -------------------------- */
 
 #menu[hidden] { display: none; }
