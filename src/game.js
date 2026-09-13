@@ -388,18 +388,22 @@
       if (!it.judged && it.z <= CONFIG.shipZ) {
         it.judged = true;
 
-        // 自動操縦で流れている間は拾わない。持ち時間は挑戦中だけ動かす。
-        if (state.started && !state.finished &&
-            M.angleDist(state.angle, it.angle) <= CONFIG.itemCatchAngle) {
+        if (M.angleDist(state.angle, it.angle) <= CONFIG.itemCatchAngle) {
+          // 重なれば、いつでも取得として扱う。自動操縦で流れている最中に
+          // すり抜けてしまうと、拾える物だと伝わらないため。
           it.taken = true;
-          state.collected++;
-
-          // 上限を超えない範囲で時間を足す。実際に増えた分だけを記録する。
-          var before = state.timeLeft;
-          state.timeLeft = Math.min(CONFIG.maxSeconds,
-                                    state.timeLeft + CONFIG.itemBonusSeconds);
-          state.timeGained += state.timeLeft - before;
           state.collectFlash = 1;
+
+          // 記録と持ち時間が動くのは、挑戦が始まっている間だけ。
+          if (state.started && !state.finished) {
+            state.collected++;
+
+            // 上限を超えない範囲で時間を足す。実際に増えた分だけを記録する。
+            var before = state.timeLeft;
+            state.timeLeft = Math.min(CONFIG.maxSeconds,
+                                      state.timeLeft + CONFIG.itemBonusSeconds);
+            state.timeGained += state.timeLeft - before;
+          }
         }
       }
 

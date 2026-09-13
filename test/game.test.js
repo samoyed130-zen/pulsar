@@ -365,7 +365,24 @@
       expect(G.state.timeLeft <= G.CONFIG.maxSeconds).toBeTrue();
     });
 
-    it('終了後は拾えない', function () {
+    it('自動操縦中も取得の見た目にはなるが、持ち時間は動かない', function () {
+      G.reset();
+      var f = makeFrame();           // まだ触れていない＝自動操縦
+      var before = G.state.timeLeft;
+
+      var it = G.state.items[0];
+      it.z = G.CONFIG.shipZ + 0.001;
+      it.judged = false;
+      G.state.angle = it.angle;
+
+      G.update(f);
+      expect(it.taken).toBeTrue();            // 消える
+      expect(G.state.collectFlash > 0).toBeTrue(); // 反応も出る
+      expect(G.state.timeLeft).toBe(before);  // 時間は動かない
+      expect(G.state.collected).toBe(0);      // 記録にも残らない
+    });
+
+    it('終了後も取得の見た目にはなるが、持ち時間は動かない', function () {
       G.reset();
       var f = makeFrame();
       f.pointer.everTouched = true;
