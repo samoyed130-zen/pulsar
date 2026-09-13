@@ -566,6 +566,19 @@ body.on-title #panel { display: none; }
   background: rgba(9, 11, 20, 0.94);
 }
 
+/* 走行中だけ見出しの上に出る、今のステージ */
+.menuStage[hidden] { display: none; }
+
+.menuStage {
+  margin: 0;
+  font-family: "Consolas", "Hiragino Sans", system-ui, sans-serif;
+  font-size: var(--fs-value);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--accent);
+  text-align: center;
+}
+
 .menuPanel h2 {
   margin: 0;
   font-family: "Consolas", monospace;
@@ -722,8 +735,10 @@ body.on-title #titleBtn { display: none; }
   position: fixed;
   inset: 0;
   z-index: 13;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   padding: var(--pad);
   text-align: center;
   font-family: "Consolas", monospace;
@@ -748,6 +763,27 @@ body.on-title #titleBtn { display: none; }
 
 #banner.pop { animation: bannerPop 2s ease-out; }
 
+/*
+ * 合図に添える小さい行（STAGE 2 など）。
+ *
+ * 主役はあくまで下の大きな文字なので、こちらは控えめにする。
+ * 同じ大きさで2行並べると、どちらを読めばよいのか迷う。
+ */
+.signHead[hidden] { display: none; }
+
+.signHead {
+  display: block;
+  margin-bottom: 0.4em;
+  font-family: "Consolas", monospace;
+  font-size: clamp(16px, 4vw, 34px);
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  /* 字間を空けた分だけ右に寄るので、その半分を戻して中央に見せる */
+  text-indent: 0.3em;
+  color: rgba(223, 229, 247, 0.8);
+  text-shadow: 0 4px 22px rgba(0, 0, 0, 0.85);
+}
+
 /* --- カウントダウン ------------------------------------------------ */
 
 #countdown[hidden] { display: none; }
@@ -760,8 +796,10 @@ body.on-title #titleBtn { display: none; }
   position: fixed;
   inset: 0;
   z-index: 13;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;
   background: rgba(4, 5, 10, 0.45);
   /* 文字として選択できると、カーソルや選択範囲が見えてしまう */

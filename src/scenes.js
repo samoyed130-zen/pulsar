@@ -19,7 +19,7 @@
     '  PULSAR  —  a megademo written in plain javascript  ' +
     '***  外部ライブラリなし。canvas 2d と web audio だけで書いています  ' +
     '***  トンネルの区間では画面に触れると操縦できます  ' +
-    '***  code + music by samoyed130-zen  ' +
+    '***  code + music by samoyed130  ' +
     '***  ZEN Study プログラミングコンテスト 2026 夏  ' +
     '***  greetings to everyone still writing demos in 2026  ';
 

@@ -942,18 +942,16 @@
   var TAU_LOCAL = M.TAU;
 
   /** @brief 走行パネルとリザルトの DOM 参照。 @private */
-  var panelEl = null, distEl = null, goalEl = null, timeEl = null;
-
-  /** @brief 目標距離の桁数。走行距離もこの桁に揃える。 @private */
-  var goalDigits = 3;
-  var countdownEl = null, countdownNumEl = null, bannerEl = null;
+  var panelEl = null, distEl = null, timeEl = null;
+  var countdownEl = null, countdownNumEl = null, countdownHeadEl = null;
+  var bannerEl = null, bannerTextEl = null, bannerHeadEl = null;
 
   /** @brief FPS を出す要素。 @private */
   var fpsEl = null;
 
   /** @brief FPS の文字を最後に書き換えた時刻 [ms]。 @private */
   var fpsShownMs = 0;
-  var comboValueEl = null, gaugeFillEl = null, stageValueEl = null;
+  var comboValueEl = null, gaugeFillEl = null;
 
   /** @brief 桁を埋める見えない 0 を入れる要素。 @private */
   var distPadEl = null, comboPadEl = null;
@@ -971,8 +969,6 @@
    * 一致していると判断され、表示が更新されなくなる。
    * @private
    */
-  var shownStage = -1;
-
   /** @brief リザルトを表示済みか。 @private */
   var resultShown = false;
 
@@ -1036,12 +1032,16 @@
 
     // 距離は「このステージで進んだぶん / 抜けるのに必要なぶん」で出す。
     // 通算の距離より、あとどれだけでクリアかの方が今の判断に効く。
-    var run = Math.floor(st.dist - st.stageStartDist);
-    if (run < 0) run = 0;
+    /*
+     * 進み具合は割合で出す。
+     *
+     * 「あと何メートル」は、この作品の距離の単位を知らないと意味を持たない。
+     * 「何パーセント」なら、初めて見た人にも残りが分かる。
+     */
+    var run = Math.round(game.stageProgress() * 100);
     if (run !== shownDist) {
-      // 目標と同じ桁数の位置に置く。桁が増えるたびに幅が変わると、
-      // 走っている最中に数字が横へずれて読み取れない。
-      showNumber(distPadEl, distEl, run, goalDigits);
+      // 桁が増えるたびに幅が変わると、走っている最中に数字が横へずれる。
+      showNumber(distPadEl, distEl, run, 3);
       shownDist = run;
     }
 
@@ -1068,11 +1068,6 @@
         comboValueEl.classList.add('bump');
       }
       shownCombo = st.combo;
-    }
-
-    if (st.stage !== shownStage) {
-      stageValueEl.textContent = String(st.stage);
-      shownStage = st.stage;
     }
 
     gaugeFillEl.style.width = (game.gauge() * 100).toFixed(1) + '%';
@@ -1160,17 +1155,23 @@
    * 手を止めさせて結果を伝えてから、次へ渡す。
    *
    * @private
+   * @param {string} head 上に小さく添える文字（無ければ空）
    * @param {string} text 出す文字
    * @param {number} ms 見せている時間 [ms]
    * @param {Function} done 消した後に行う処理
    * @returns {void}
    */
-  function showBanner(text, ms, done) {
+  function showBanner(head, text, ms, done) {
     global.clearTimeout(bannerTimer);
     setPaused('banner', true);
 
     if (bannerEl) {
-      bannerEl.textContent = text;
+      if (bannerHeadEl) {
+        bannerHeadEl.textContent = head;
+        bannerHeadEl.hidden = !head;
+      }
+      if (bannerTextEl) bannerTextEl.textContent = text;
+
       bannerEl.hidden = false;
       bannerEl.classList.remove('pop');
       void bannerEl.offsetWidth;
@@ -1190,11 +1191,20 @@
    * 止まった状態からいきなり動き出すと、身構える間もなくリングが来る。
    * 数えるあいだに指の位置を決められるようにする。
    *
-   * @param {number} [from=3] 数え始める数
+   * ステージの頭では番号を添える。同じ合図でも「新しいステージが
+   * 始まる」のか「さっきの続きに戻る」のかで意味が違うためで、
+   * メニューから戻るときは添えない。
+   *
+   * @param {string} [head] 上に小さく添える文字（例: `STAGE 2`）
    * @returns {void}
    */
-  function startCountdown() {
+  function startCountdown(head) {
     var i = 0;
+
+    if (countdownHeadEl) {
+      countdownHeadEl.textContent = head || '';
+      countdownHeadEl.hidden = !head;
+    }
 
     /**
      * @brief 表示を1つ進め、弾むアニメーションを掛け直す。
@@ -1277,7 +1287,7 @@
 
     // 合図の裏に、これから走るステージの景色を描いておく。
     needsRender = true;
-    startCountdown();
+    startCountdown('STAGE ' + global.PULSAR.game.state.stage);
   }
 
   /**
@@ -1511,17 +1521,21 @@
       bannerBusy = true;
 
       if (game.isLastStage()) {
-        showBanner('GAME COMPLETED!', 2000, function () {
+        // 踏破は作品そのものの結びなので、ステージ番号は添えない
+        showBanner('', 'GAME COMPLETED!', 2000, function () {
           game.completeGame();
           bannerBusy = false;
         });
       } else {
-        showBanner('STAGE CLEAR!', 2000, function () {
+        var cleared = game.state.stage;
+
+        showBanner('STAGE ' + cleared, 'CLEAR!', 2000, function () {
           game.advanceStage();
           lastStage = game.state.stage;
           needsRender = true;   // 合図の裏に次のステージの景色を描く
           bannerBusy = false;
-          startCountdown();
+          // 次のステージの頭なので、番号を添えて数え直す
+          startCountdown('STAGE ' + game.state.stage);
         });
       }
     }
@@ -1649,16 +1663,8 @@
 
     panelEl = document.getElementById('panel');
     distEl = document.getElementById('scoreDist');
-    goalEl = document.getElementById('scoreGoal');
     timeEl = document.getElementById('scoreTime');
 
-    // 目標の距離は変わらないので、一度だけ入れておく。
-    // その桁数が、走行距離を 0 で埋めるときの基準になる。
-    var goal = global.PULSAR.game.CONFIG.stageDistance;
-    goalEl.textContent = String(goal);
-    goalDigits = String(goal).length;
-
-    stageValueEl = document.getElementById('stageValue');
     comboValueEl = document.getElementById('comboValue');
     gaugeFillEl = document.getElementById('gaugeFill');
 
@@ -1670,7 +1676,10 @@
     if (fpsEl) fpsEl.hidden = !showFps;
     countdownEl = document.getElementById('countdown');
     countdownNumEl = document.getElementById('countdownNum');
+    countdownHeadEl = document.getElementById('countdownHead');
     bannerEl = document.getElementById('banner');
+    bannerTextEl = document.getElementById('bannerText');
+    bannerHeadEl = document.getElementById('bannerHead');
 
     // タブが隠れている間は止める。戻ったときに時間だけ進んでいる事故を防ぐ。
     document.addEventListener('visibilitychange', function () {

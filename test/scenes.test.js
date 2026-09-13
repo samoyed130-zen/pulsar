@@ -124,7 +124,7 @@
       expect(S.SCROLL_TEXT.length > 0).toBeTrue();
     });
     it('作者名が含まれている', function () {
-      expect(S.SCROLL_TEXT.indexOf('samoyed130-zen') >= 0).toBeTrue();
+      expect(S.SCROLL_TEXT.indexOf('samoyed130') >= 0).toBeTrue();
     });
   });
 
@@ -670,6 +670,15 @@
       window.PULSAR.game.state.started = true;
       expect(app.isPlaying()).toBeFalse();
       window.PULSAR.game.state.started = false;
+    });
+
+    it('進み具合は 0〜100 の割合で出せる', function () {
+      // HUD は距離ではなく割合で見せる。作品の距離の単位を知らなくても
+      // 残りが分かるようにするため。
+      var G = window.PULSAR.game;
+      G.reset(1);
+      expect(Math.round(G.stageProgress() * 100)).toBe(0);
+      expect(G.stageProgress() <= 1).toBeTrue();
     });
 
     it('止まっていても1枚だけ描き直せる', function () {
