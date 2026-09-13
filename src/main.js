@@ -401,7 +401,7 @@
   var resultEl = null;
 
   /** @brief 直前に描いた値。同じなら DOM を触らない。 @private */
-  var shownDist = -1, shownBest = -1, shownTime = '', shownCombo = -1;
+  var shownDist = -1, shownBest = -1, shownTime = '', shownCombo = -1, shownCollected = -1;
 
   /** @brief リザルトを表示済みか。 @private */
   var resultShown = false;
@@ -452,6 +452,14 @@
       shownTime = tm;
     }
 
+    // 立体を取った瞬間だけ TIME を弾ませる。どこで時間が増えたか分かる。
+    if (st.collected !== shownCollected) {
+      timeEl.classList.remove('gain');
+      void timeEl.offsetWidth;
+      timeEl.classList.add('gain');
+      shownCollected = st.collected;
+    }
+
     if (st.combo !== shownCombo) {
       comboValueEl.textContent = String(st.combo);
       // 伸びた瞬間だけ弾ませる。次のフレームでクラスを外して再生し直せるようにする。
@@ -487,6 +495,8 @@
     document.getElementById('rsDist').textContent = String(st.score);
     document.getElementById('rsBest').textContent = String(st.best);
     document.getElementById('rsCombo').textContent = String(st.maxCombo);
+    document.getElementById('rsItems').textContent = String(st.collected);
+    document.getElementById('rsGained').textContent = Math.round(st.timeGained) + 's';
     document.getElementById('rsPassed').textContent = String(st.passed);
     document.getElementById('rsHits').textContent = String(st.hits);
 
@@ -642,6 +652,22 @@
     if (hitFlash > 0.002) {
       ctx.fillStyle = 'rgba(255,60,80,' + (hitFlash * 0.5).toFixed(3) + ')';
       ctx.fillRect(0, 0, W, H);
+    }
+
+    // 立体を取ったときの反応。衝突の赤に対して、こちらは暖色で「良いこと」を示す。
+    if (game.state.collectFlash > 0.01) {
+      var cf = game.state.collectFlash;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = 'rgba(255,206,110,' + (cf * 0.18).toFixed(3) + ')';
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.strokeStyle = 'rgba(255,224,150,' + (cf * 0.7).toFixed(3) + ')';
+      ctx.lineWidth = 2 + cf * 3;
+      ctx.beginPath();
+      ctx.arc(W / 2, H / 2, Math.min(W, H) * (0.12 + (1 - cf) * 0.42), 0, TAU_LOCAL);
+      ctx.stroke();
+      ctx.restore();
     }
 
     drawTransition(ctx, scene.transition, M.edgeFade(pick.local, scene.duration, CONFIG.fade));

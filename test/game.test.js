@@ -251,6 +251,7 @@
 
     it('持ち時間を使い切ると finished になり、残り時間は負にならない', function () {
       G.reset();
+      G.state.items = []; // 時間延長の影響を除き、計時だけを見る
       var f = makeFrame({ dt: 10 });
       f.pointer.everTouched = true;
       for (var i = 0; i < 25; i++) G.update(f);
@@ -288,6 +289,112 @@
       expect(G.state.started).toBeFalse();
       expect(G.state.hits).toBe(0);
       expect(G.state.timeLeft).toBe(G.CONFIG.sessionSeconds);
+    });
+  });
+
+  describe('時間を延ばす立体', function () {
+    it('開始時に立体が並んでいる', function () {
+      G.reset();
+      expect(G.state.items.length > 0).toBeTrue();
+    });
+
+    it('立体の角度は [0, 2π) に入る', function () {
+      G.reset();
+      for (var i = 0; i < G.state.items.length; i++) {
+        var a = G.state.items[i].angle;
+        expect(a >= 0 && a < M.TAU).toBeTrue();
+      }
+    });
+
+    it('立体の種類は3種のいずれか', function () {
+      G.reset();
+      for (var i = 0; i < G.state.items.length; i++) {
+        var k = G.state.items[i].kind;
+        expect(k === 0 || k === 1 || k === 2).toBeTrue();
+      }
+    });
+
+    it('重なった状態で通過すると時間が延びる', function () {
+      G.reset();
+      var f = makeFrame();
+      f.pointer.everTouched = true;
+      G.update(f); // 計測を開始させる
+
+      var it = G.state.items[0];
+      it.z = G.CONFIG.shipZ + 0.001;
+      it.judged = false;
+      G.state.angle = it.angle;
+      G.state.timeLeft = 100;
+
+      G.update(f);
+      expect(G.state.collected).toBe(1);
+      expect(G.state.timeLeft > 100).toBeTrue();
+      expect(G.state.timeGained > 0).toBeTrue();
+    });
+
+    it('外れた位置を通過しても時間は延びない', function () {
+      G.reset();
+      var f = makeFrame();
+      f.pointer.everTouched = true;
+      G.update(f);
+
+      var it = G.state.items[0];
+      it.z = G.CONFIG.shipZ + 0.001;
+      it.judged = false;
+      G.state.angle = M.wrapAngle(it.angle + Math.PI);
+      var before = G.state.timeLeft;
+
+      G.update(f);
+      expect(G.state.collected).toBe(0);
+      expect(G.state.timeLeft <= before).toBeTrue();
+    });
+
+    it('持ち時間は上限を超えない', function () {
+      G.reset();
+      var f = makeFrame();
+      f.pointer.everTouched = true;
+      G.update(f);
+
+      G.state.timeLeft = G.CONFIG.maxSeconds;
+      var it = G.state.items[0];
+      it.z = G.CONFIG.shipZ + 0.001;
+      it.judged = false;
+      G.state.angle = it.angle;
+
+      G.update(f);
+      expect(G.state.timeLeft <= G.CONFIG.maxSeconds).toBeTrue();
+    });
+
+    it('終了後は拾えない', function () {
+      G.reset();
+      var f = makeFrame();
+      f.pointer.everTouched = true;
+      G.state.finished = true;
+
+      var it = G.state.items[0];
+      it.z = G.CONFIG.shipZ + 0.001;
+      it.judged = false;
+      G.state.angle = it.angle;
+
+      G.update(f);
+      expect(G.state.collected).toBe(0);
+    });
+
+    it('立体の数は増え続けない（使い回している）', function () {
+      G.reset();
+      var n = G.state.items.length;
+      var f = makeFrame({ dt: 1 / 30 });
+      f.pointer.everTouched = true;
+      for (var i = 0; i < 1500; i++) G.update(f);
+      expect(G.state.items.length).toBe(n);
+    });
+
+    it('上限は初期の持ち時間以上', function () {
+      expect(G.CONFIG.maxSeconds >= G.CONFIG.sessionSeconds).toBeTrue();
+    });
+
+    it('取れる角度の幅はリングの切れ目より狭い（拾うのに狙いが要る）', function () {
+      expect(G.CONFIG.itemCatchAngle < G.CONFIG.gapWidth).toBeTrue();
     });
   });
 

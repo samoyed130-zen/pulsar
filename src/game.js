@@ -70,7 +70,23 @@
     /** @brief コンボゲージが満タンになる連続通過数。 */
     comboForMax: 20,
     /** @brief 1回の挑戦の持ち時間 [s]。 */
-    sessionSeconds: 180
+    sessionSeconds: 180,
+
+    /** @brief 時間を延ばす立体が並ぶ間隔（奥行き）。 */
+    itemPeriod: 5.2,
+    /** @brief 立体を置く円の半径（トンネル半径を 1 とする）。 */
+    itemOrbit: 0.52,
+    /** @brief 立体に触れたとみなす角度の幅 [rad]。 */
+    itemCatchAngle: 0.62,
+    /** @brief 取ったときに延びる時間 [s]。 */
+    itemBonusSeconds: 5,
+    /**
+     * @brief 持ち時間の上限 [s]。
+     *
+     * 取り続ければ無限に遊べてしまうため、上限を設ける。
+     * 初期値より少しだけ高くして、貯金できる余地を残す。
+     */
+    maxSeconds: 210
   };
 
   /**
@@ -107,7 +123,15 @@
     /** @brief 持ち時間を使い切ったか。 */
     finished: false,
     /** @brief 残り時間 [s]。 */
-    timeLeft: CONFIG.sessionSeconds
+    timeLeft: CONFIG.sessionSeconds,
+    /** @brief 時間を延ばす立体の一覧。 */
+    items: [],
+    /** @brief 取った立体の数。 */
+    collected: 0,
+    /** @brief 立体で延ばした合計時間 [s]。 */
+    timeGained: 0,
+    /** @brief 取った直後の演出用の値 [0..1]。時間とともに減る。 */
+    collectFlash: 0
   };
 
   /**
@@ -151,6 +175,34 @@
   }
 
   /**
+   * @brief 時間を延ばす立体を1つ作る。
+   *
+   * 置く角度は、その位置にあるリングの切れ目の近くを狙う。
+   * 切れ目を通る動きと、立体を取る動きが噛み合い、
+   * 「避けながら拾う」1つの流れになる。
+   *
+   * @private
+   * @param {number} z 生成位置の奥行き
+   * @returns {{z: number, angle: number, kind: number, judged: boolean, taken: boolean}}
+   */
+  function makeItem(z) {
+    var near = null;
+    for (var i = 0; i < state.rings.length; i++) {
+      var r = state.rings[i];
+      if (near === null || Math.abs(r.z - z) < Math.abs(near.z - z)) near = r;
+    }
+
+    var base = near ? near.gap : Math.random() * TAU;
+    return {
+      z: z,
+      angle: M.wrapAngle(base + (Math.random() - 0.5) * 1.2),
+      kind: Math.floor(Math.random() * 3),
+      judged: false,
+      taken: false
+    };
+  }
+
+  /**
    * @brief 走行状態を初期化する。
    * @returns {void}
    */
@@ -170,11 +222,20 @@
     state.timeLeft = CONFIG.sessionSeconds;
     state.best = loadBest();
 
+    state.items = [];
+    state.collected = 0;
+    state.timeGained = 0;
+    state.collectFlash = 0;
+
     // 最初のリングは自機の正面に切れ目を置く。開幕でいきなり轢かれないように。
     var gap = state.angle;
     for (var z = CONFIG.shipZ + 4; z < CONFIG.farZ; z += CONFIG.spacing) {
       state.rings.push({ z: z, gap: gap, judged: false });
       gap = M.wrapAngle(gap + (Math.random() - 0.5) * 2 * CONFIG.gapDrift);
+    }
+
+    for (var iz = CONFIG.shipZ + 6; iz < CONFIG.farZ; iz += CONFIG.itemPeriod) {
+      state.items.push(makeItem(iz));
     }
   }
 
@@ -293,10 +354,65 @@
       }
     }
 
+    updateItems(f, dt);
+
     state.score = M.scoreFromDistance(state.dist);
     if (state.score > state.best) {
       state.best = state.score;
       saveBest(state.best);
+    }
+  }
+
+  /**
+   * @brief 時間を延ばす立体を動かし、取得を判定する。
+   *
+   * @private
+   * @param {Object} f フレーム文脈
+   * @param {number} dt 経過時間 [s]
+   * @returns {void}
+   */
+  function updateItems(f, dt) {
+    state.collectFlash = M.approach(state.collectFlash, 0, 5, dt);
+
+    var farthest = -Infinity;
+    var i;
+    for (i = 0; i < state.items.length; i++) {
+      if (state.items[i].z > farthest) farthest = state.items[i].z;
+    }
+
+    for (i = 0; i < state.items.length; i++) {
+      var it = state.items[i];
+      it.z -= state.speed * dt;
+
+      // 自機の位置を通過する瞬間に一度だけ判定する。
+      if (!it.judged && it.z <= CONFIG.shipZ) {
+        it.judged = true;
+
+        // 自動操縦で流れている間は拾わない。持ち時間は挑戦中だけ動かす。
+        if (state.started && !state.finished &&
+            M.angleDist(state.angle, it.angle) <= CONFIG.itemCatchAngle) {
+          it.taken = true;
+          state.collected++;
+
+          // 上限を超えない範囲で時間を足す。実際に増えた分だけを記録する。
+          var before = state.timeLeft;
+          state.timeLeft = Math.min(CONFIG.maxSeconds,
+                                    state.timeLeft + CONFIG.itemBonusSeconds);
+          state.timeGained += state.timeLeft - before;
+          state.collectFlash = 1;
+        }
+      }
+
+      // 通り過ぎたら奥へ戻して使い回す。
+      if (it.z < -1.5) {
+        farthest += CONFIG.itemPeriod;
+        var fresh = makeItem(farthest);
+        it.z = fresh.z;
+        it.angle = fresh.angle;
+        it.kind = fresh.kind;
+        it.judged = false;
+        it.taken = false;
+      }
     }
   }
 

@@ -490,17 +490,11 @@
    * @brief トンネルに浮かぶ立体の配置。
    */
   var SOLIDS = {
-    /** @brief 何個を同時に出すか。 */
-    count: 6,
-    /** @brief 奥行き方向の間隔（トンネルのリングと同じ単位）。 */
-    period: 3.4,
-    /** @brief 中心軸から離す距離（トンネル半径を 1 とする）。 */
-    orbit: 0.52,
     /** @brief 立体の大きさ。 */
-    scale: 0.17,
-    /** @brief 最も手前に置く位置。これより手前は描かない。 */
-    nearZ: 1.1,
-    /** @brief 立体の種類。区画ごとに順番に使う。 */
+    scale: 0.19,
+    /** @brief 立体の色相 [deg]。建造物と補色の関係にして、拾う対象だと分かるようにする。 */
+    hue: 42,
+    /** @brief 立体の種類。`game` 側が持つ番号で選ぶ。 */
     shapes: null
   };
 
@@ -515,8 +509,10 @@
    * @param {number} travel 走行距離（奥行きの基準）
    * @returns {void}
    */
-  function drawSolids(f, travel) {
+  function drawSolids(f) {
     var mesh3d = global.PULSAR.mesh3d;
+    var game = global.PULSAR.game;
+
     if (!SOLIDS.shapes) {
       SOLIDS.shapes = [mesh3d.OCTAHEDRON, mesh3d.CUBE, mesh3d.TETRAHEDRON];
     }
@@ -524,39 +520,43 @@
     var c = f.ctx;
     var cx = f.W / 2;
     var cy = f.H / 2;
-    var focal = Math.min(f.W, f.H) * global.PULSAR.game.CONFIG.focal;
+    var focal = Math.min(f.W, f.H) * game.CONFIG.focal;
+    var orbit = game.CONFIG.itemOrbit;
 
-    // 手前から奥へ、一定間隔で並べる。走行に合わせて全体を手前へ流す。
-    var offset = travel % SOLIDS.period;
+    var items = game.state.items;
     var pos = [0, 0, 0];
+
+    // 奥から手前へ描く。近い立体が上に重なる。
+    var order = items.slice().sort(function (a, b) { return b.z - a.z; });
 
     c.save();
     c.lineJoin = 'round';
 
-    for (var i = 0; i < SOLIDS.count; i++) {
-      var z = SOLIDS.nearZ + i * SOLIDS.period - offset + SOLIDS.period;
-      if (z < SOLIDS.nearZ * 0.5) continue;
+    for (var i = 0; i < order.length; i++) {
+      var it = order[i];
+      if (it.taken || it.z <= 0.35) continue;
 
-      // 区画ごとに固有の番号を作り、位置と種類をばらけさせる。
-      var index = Math.floor((travel + z) / SOLIDS.period);
-      var angle = index * 1.7 + f.t * 0.35;
-
-      pos[0] = Math.cos(angle) * SOLIDS.orbit;
-      pos[1] = Math.sin(angle) * SOLIDS.orbit;
-      pos[2] = z;
+      pos[0] = Math.cos(it.angle) * orbit;
+      pos[1] = Math.sin(it.angle) * orbit;
+      pos[2] = it.z;
 
       // 奥ほど薄く。手前の立体だけが主張するようにする。
-      var alpha = M.clamp(1.25 - z / (SOLIDS.period * SOLIDS.count), 0.12, 0.95);
+      var alpha = M.clamp(1.3 - it.z / game.CONFIG.farZ, 0.15, 1);
 
-      mesh3d.drawMesh(c, SOLIDS.shapes[index % SOLIDS.shapes.length], {
+      mesh3d.drawMesh(c, SOLIDS.shapes[it.kind], {
         pos: pos,
-        scale: SOLIDS.scale * (1 + f.kick * 0.12),
-        rx: f.t * 0.9 + index,
-        ry: f.t * 0.6 + index * 2.1,
+        scale: SOLIDS.scale * (1 + f.kick * 0.18),
+        rx: f.t * 1.1 + it.z,
+        ry: f.t * 0.7 + it.z * 0.6,
         focal: focal,
         cx: cx,
         cy: cy,
-        hue: (f.hue + 168 + index * 9) % 360,
+        hue: SOLIDS.hue,
+        sat: 95,
+        metal: 0.5,
+        // 拾う対象だと一目で分かるよう、自ら光らせて背景から浮かせる
+        emissive: true,
+        phase: f.t,
         alpha: alpha
       });
     }
@@ -584,7 +584,7 @@
 
     // 立体はリングより先に描く。リングと自機が常に手前に見える方が、
     // 避ける対象を見失わずに済む。
-    drawSolids(f, game.state.dist);
+    drawSolids(f);
 
     game.draw(f);
     // スコア表示と操作案内は main.js が DOM 側でまとめて担当する。

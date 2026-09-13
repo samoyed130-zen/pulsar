@@ -266,6 +266,15 @@ body {
 /* コンボが伸びた瞬間だけ弾ませる */
 .comboValue.bump { transform: scale(1.28); }
 
+/* 立体を取って時間が延びた瞬間の反応 */
+@keyframes timeGain {
+  0%   { transform: scale(1); color: var(--fg); }
+  20%  { transform: scale(1.3); color: #ffce6e; }
+  100% { transform: scale(1); color: var(--fg); }
+}
+
+.statValue.gain { animation: timeGain 0.6s ease-out; }
+
 .comboUnit {
   font-size: 15px;
   font-weight: 700;
