@@ -339,6 +339,15 @@
       // 戻した途端にまた遅くなる往復に陥る。落とすだけにしている。
       expect(app.CONFIG.fastMs === undefined).toBeTrue();
     });
+
+    it('グレアを止める環境では明るさを持ち上げる', function () {
+      // グレアは光を加算するので、止めると画面全体が沈む。
+      expect(app.CONFIG.noGlareBoost > 1).toBeTrue();
+    });
+
+    it('明るさの補正は白く飛ばない範囲に収める', function () {
+      expect(app.CONFIG.noGlareBoost < 2).toBeTrue();
+    });
   });
 
   describe('一時停止', function () {

@@ -42,7 +42,14 @@
     /** @brief グレアに使う縮小率。小さいほど軽く、光が大きく広がる。 */
     glareScale: 0.25,
     /** @brief この時間を超え続けたら描画を軽くする [ms]。戻すことはしない。 */
-    slowMs: 22
+    slowMs: 22,
+    /**
+     * @brief グレアを使わないときに、明るさを持ち上げる倍率。
+     *
+     * グレアは光を加算するので、止めると画面全体が沈む。
+     * 同じ見え方に近づけるには、描く側の明るさで補う必要がある。
+     */
+    noGlareBoost: 1.35
   };
 
   /** @brief 表示用のキャンバスと文脈。 @private */
@@ -1020,6 +1027,8 @@
       guideIntro: fadeOutHint(),
       // 描画が追いついていないときは、シーン側も手を抜く
       quality: quality,
+      // グレアを使えない環境では、描く側の明るさで補う
+      boost: (quality > 0 && !slowFilter) ? 1 : CONFIG.noGlareBoost,
       impact: impact
     };
 
