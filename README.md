@@ -6,6 +6,8 @@ PULSAR は、ブラウザ上で動く **メガデモ**（自動再生される�
 👉 [こちらから見る / 遊べます](https://samoyed130-zen.github.io/pulsar/)
 👉 [単体テストの実行結果はこちら](https://samoyed130-zen.github.io/pulsar/test.html)
 
+![PULSAR](assets/screenshot.jpg)
+
 ---
 
 ## 作品概要
