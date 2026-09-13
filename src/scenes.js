@@ -706,6 +706,8 @@
         metal: 0.5,
         // 拾う対象だと一目で分かるよう、自ら光らせて背景から浮かせる
         emissive: true,
+        // 稜線を描かない。色の面だけの方が、光の塊として見える
+        edges: false,
         phase: f.t,
         alpha: alpha
       });

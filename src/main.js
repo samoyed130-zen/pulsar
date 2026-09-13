@@ -108,8 +108,23 @@
    */
   var pauseReasons = { manual: false, dialog: false, hidden: false, countdown: false };
 
-  /** @brief カウントダウンの残り秒数を進めるタイマー。 @private */
+  /** @brief カウントダウンの表示を進めるタイマー。 @private */
   var countdownTimer = 0;
+
+  /**
+   * @brief カウントダウンの並びと、それぞれを見せる時間 [ms]。
+   *
+   * 「READY」で構えさせ、数字で間合いを取らせ、「START」で走り出す。
+   * 最後だけ短いのは、合図を見てから動くまでの間を詰めるため。
+   * @private
+   */
+  var COUNT_STEPS = [
+    { text: 'READY', ms: 800 },
+    { text: '3', ms: 600 },
+    { text: '2', ms: 600 },
+    { text: '1', ms: 600 },
+    { text: 'START', ms: 450 }
+  ];
 
   /** @brief 一時停止に入る前、音が鳴っていたか。再開時に戻すため。 @private */
   var soundWasOn = false;
@@ -503,7 +518,7 @@
       // 難しさと景色が変わるので、構える時間を挟む。
       if (shownStage > 0 && st.stage > shownStage) {
         lastStage = st.stage;
-        startCountdown(3);
+        startCountdown();
       }
       shownStage = st.stage;
     }
@@ -614,18 +629,20 @@
    * @param {number} [from=3] 数え始める数
    * @returns {void}
    */
-  function startCountdown(from) {
-    var left = from || 3;
+  function startCountdown() {
+    var i = 0;
 
     /**
-     * @brief 数字を出し、弾むアニメーションを掛け直す。
-     * @param {number} n 表示する数
+     * @brief 表示を1つ進め、弾むアニメーションを掛け直す。
+     * @param {string} label 表示する文字
      * @returns {void}
      */
-    var showCount = function (n) {
+    var show = function (label) {
       if (!countdownEl || !countdownNumEl) return;
       countdownEl.hidden = false;
-      countdownNumEl.textContent = String(n);
+      countdownNumEl.textContent = label;
+      // 数字と単語では収まる大きさが違うので、字数で切り替える
+      countdownNumEl.classList.toggle('word', label.length > 1);
       countdownNumEl.classList.remove('tick');
       void countdownNumEl.offsetWidth;   // 再フローさせてアニメーションを作り直す
       countdownNumEl.classList.add('tick');
@@ -634,14 +651,14 @@
     global.clearTimeout(countdownTimer);
     setPaused('countdown', true);
 
-    showCount(left);
+    show(COUNT_STEPS[0].text);
 
     var step = function () {
-      left--;
+      i++;
 
-      if (left > 0) {
-        showCount(left);
-        countdownTimer = global.setTimeout(step, 700);
+      if (i < COUNT_STEPS.length) {
+        show(COUNT_STEPS[i].text);
+        countdownTimer = global.setTimeout(step, COUNT_STEPS[i].ms);
         return;
       }
 
@@ -649,7 +666,7 @@
       setPaused('countdown', false);
     };
 
-    countdownTimer = global.setTimeout(step, 700);
+    countdownTimer = global.setTimeout(step, COUNT_STEPS[0].ms);
   }
 
   /**
@@ -674,7 +691,7 @@
     // 解除するときは、いきなり動き出さずに数えてから戻す。
     if (!next && global.PULSAR.game.state.started &&
         !global.PULSAR.game.state.finished) {
-      startCountdown(3);
+      startCountdown();
     }
     return next;
   }
@@ -690,7 +707,7 @@
     lastInput = clock;
     startedAt = clock;
     jumpToPlayable();
-    startCountdown(3);
+    startCountdown();
   }
 
   /**

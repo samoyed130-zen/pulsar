@@ -549,6 +549,14 @@ body {
   text-shadow: 0 0 60px rgba(122, 215, 255, 0.6), 0 6px 30px rgba(0, 0, 0, 0.8);
 }
 
+/* READY と START は字数があるぶん小さくする */
+#countdownNum.word {
+  font-size: clamp(38px, 11vw, 96px);
+  letter-spacing: 0.24em;
+  /* 字間を空けると右に余白が寄るので、その分だけ戻して中央に見せる */
+  text-indent: 0.24em;
+}
+
 /* 数字が変わるたびに一度だけ弾ませる */
 @keyframes countTick {
   0%   { transform: scale(1.5); opacity: 0; }
