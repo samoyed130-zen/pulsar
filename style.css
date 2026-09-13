@@ -86,12 +86,15 @@ body {
   pointer-events: none;
 }
 
+/* スコアを左上へ置いたため、作品名は場所を譲って右側のボタン列にまとめる */
 .brand {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
+  margin-right: auto;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.42em;
   color: var(--dim);
+  opacity: 0.55;
 }
 
 #hud button,
@@ -218,15 +221,15 @@ body {
  */
 #panel {
   position: fixed;
-  left: 50%;
-  bottom: max(18px, env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  width: min(540px, calc(100% - 2 * var(--pad)));
+  left: var(--pad);
+  /* HUD のボタン列の下に置く */
+  top: calc(max(12px, env(safe-area-inset-top)) + 46px);
+  width: min(320px, calc(100% - 2 * var(--pad)));
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 11px;
-  padding: 18px 24px 20px;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 14px 18px 15px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: rgba(4, 5, 10, 0.52);
@@ -240,7 +243,7 @@ body {
 
 #panel.hidden {
   opacity: 0;
-  transform: translateX(-50%) translateY(10px);
+  transform: translateY(-10px);
 }
 
 .comboRow {
@@ -251,7 +254,7 @@ body {
 }
 
 .comboValue {
-  font-size: 68px;
+  font-size: 52px;
   font-weight: 800;
   letter-spacing: 0.01em;
   color: var(--accent);
@@ -334,8 +337,8 @@ body {
   flex: 1 1 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 3px;
+  align-items: flex-start;
+  gap: 2px;
 }
 
 .statLabel {
@@ -346,7 +349,7 @@ body {
 }
 
 .statValue {
-  font-size: 32px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--fg);
   font-variant-numeric: tabular-nums;
@@ -589,13 +592,18 @@ body {
   #hud .link { padding: 6px 10px; font-size: 10px; }
   #hud .link { display: none; }
 
-  #panel { padding: 13px 14px 15px; gap: 9px; }
-  .comboValue { font-size: 50px; }
-  .comboUnit { font-size: 12px; letter-spacing: 0.16em; }
-  .statLabel { font-size: 9px; letter-spacing: 0.12em; }
-  .statValue { font-size: 24px; }
-  .layer { font-size: 10px; letter-spacing: 0.04em; padding: 5px 1px; }
+  #panel {
+    padding: 11px 13px 12px;
+    gap: 7px;
+    width: min(260px, calc(100% - 2 * var(--pad)));
+  }
+  .comboValue { font-size: 40px; }
+  .comboUnit { font-size: 11px; letter-spacing: 0.14em; }
+  .statLabel { font-size: 8px; letter-spacing: 0.1em; }
+  .statValue { font-size: 19px; }
+  .layer { font-size: 9px; letter-spacing: 0.02em; padding: 4px 1px; }
   .resultStats dd { font-size: 22px; }
+  .brand { display: none; }
 
   .helpPanel { padding: 20px 18px 18px; }
   .helpTable th { width: auto; display: block; padding-bottom: 0; border-top: none; }
