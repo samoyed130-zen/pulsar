@@ -18,6 +18,9 @@
   /** @brief 書き込みを許すか。テスト中だけ false にする。 @private */
   var enabled = true;
 
+  /** @brief この作品が使う鍵の頭。まとめて消すときの目印になる。 @private */
+  var PREFIX = 'pulsar.';
+
   /**
    * @brief 保存された文字列を読む。
    * @param {string} key 鍵
@@ -46,6 +49,31 @@
   }
 
   /**
+   * @brief この作品が保存したものをすべて消す。
+   *
+   * 同じ端末で他のページも `localStorage` を使っているため、全部を
+   * 消すわけにはいかない。鍵の頭文字で自分のものだけを選ぶ。
+   *
+   * @returns {void}
+   */
+  function clear() {
+    if (!enabled) return;
+
+    try {
+      var store = global.localStorage;
+      var keys = [];
+
+      for (var i = 0; i < store.length; i++) {
+        var key = store.key(i);
+        if (key && key.indexOf(PREFIX) === 0) keys.push(key);
+      }
+
+      // 消しながら数えると番号がずれるので、集めてから消す
+      for (var k = 0; k < keys.length; k++) store.removeItem(keys[k]);
+    } catch (e) { /* 消せなくても遊べる */ }
+  }
+
+  /**
    * @brief 書き込みの可否を切り替える。
    *
    * 単体テストから呼ぶ。読み取りは止めない。設定の復元まで
@@ -59,5 +87,11 @@
   }
 
   global.PULSAR = global.PULSAR || {};
-  global.PULSAR.store = { get: get, set: set, setEnabled: setEnabled };
+  global.PULSAR.store = {
+    PREFIX: PREFIX,
+    get: get,
+    set: set,
+    clear: clear,
+    setEnabled: setEnabled
+  };
 })(typeof window !== 'undefined' ? window : this);

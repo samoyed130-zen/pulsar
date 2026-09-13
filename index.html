@@ -35,7 +35,7 @@
 <!-- 3・2・1 のカウントダウン -->
 <div id="countdown" hidden aria-hidden="true"><span id="countdownNum">3</span></div>
 
-<!-- タイトルへ戻るかどうかの確認 -->
+<!-- 取り消せない操作の確認。訊く内容は開くときに差し替える -->
 <div id="confirm" hidden>
   <div class="confirmPanel" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
     <h2 id="confirmTitle">タイトルへ戻りますか</h2>
@@ -72,6 +72,7 @@
       <button id="smoothBtn" type="button">なめらか あり</button>
       <button id="soundBtn" type="button">♪ 音 あり</button>
       <button id="helpBtn" type="button">あそびかた</button>
+      <button id="resetBtn" type="button">設定初期化</button>
       <!-- 単体テストの結果ページ。別のタブで開き、遊びを中断させない -->
       <a class="menuLink" href="test.html" target="_blank" rel="noopener">APIテスト</a>
     </div>
@@ -568,27 +569,66 @@
       if (e.target === menuEl) setMenu(false);
     });
 
-    // --- タイトルへ戻る（確認してから） ---
+    // --- 取り消せない操作の確認 ---
 
     var confirmEl = document.getElementById('confirm');
     var confirmYesBtn = document.getElementById('confirmYes');
+    var confirmTitleEl = document.getElementById('confirmTitle');
     var titleBtn = document.getElementById('titleBtn');
     var resultEl = document.getElementById('result');
 
+    /** 「はい」を選んだときに行うこと。閉じるまで覚えておく。 */
+    var confirmAction = null;
+
     /**
      * 確認の表示を切り替える。開いている間はゲームを止める。
+     *
+     * 訊く内容と、承諾されたときの処理を毎回渡す形にしている。
+     * 確認が要る操作はこれから増えるので、画面を作り分けるより
+     * 1つを使い回すほうが、見た目も受け答えも揃う。
+     *
      * @param {boolean} open 開くなら true
+     * @param {string} [message] 訊く内容
+     * @param {Function} [action] 「はい」を選んだときの処理
      */
-    function setConfirm(open) {
+    function setConfirm(open, message, action) {
       confirmEl.hidden = !open;
 
-      // 確認はメニューから開くので、開くときはメニューを畳む
-      if (open) menuEl.hidden = true;
+      if (open) {
+        confirmTitleEl.textContent = message;
+        confirmAction = action || null;
+        // 確認はメニューから開くので、開くときはメニューを畳む
+        menuEl.hidden = true;
+      } else {
+        confirmAction = null;
+      }
+
       syncOverlayPause();
     }
 
     titleBtn.addEventListener('click', function () {
-      setConfirm(true);
+      setConfirm(true, 'タイトルへ戻りますか', function () {
+        PULSAR.app.showAutoplay();
+        buildStageSelect();   // 途中で開放されたステージを反映する
+        setTitle(true);
+      });
+    });
+
+    // --- 設定を初期化する ---
+
+    document.getElementById('resetBtn').addEventListener('click', function () {
+      setConfirm(true, '初期化後タイトルに戻ります。本当によろしいですか？', function () {
+        PULSAR.store.clear();
+
+        /*
+         * 消したあとは読み込み直す。
+         *
+         * 各所が持っている今の設定を1つずつ既定へ戻して回ることもできるが、
+         * 戻し忘れが1つあると「消したのに直らない」という分かりにくい形で
+         * 残る。読み込み直せば、起動時と同じ経路を必ず通る。
+         */
+        location.reload();
+      });
     });
 
     document.getElementById('confirmNo').addEventListener('click', function () {
@@ -596,10 +636,10 @@
     });
 
     confirmYesBtn.addEventListener('click', function () {
+      // 閉じる処理で消えてしまうので、先に受け取っておく
+      var act = confirmAction;
       setConfirm(false);
-      PULSAR.app.showAutoplay();
-      buildStageSelect();   // 途中で開放されたステージを反映する
-      setTitle(true);
+      if (act) act();
     });
 
     confirmEl.addEventListener('click', function (e) {

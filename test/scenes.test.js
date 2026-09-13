@@ -508,6 +508,32 @@
       expect(v).toBe('1');
     });
 
+    it('初期化は、この作品の鍵だけを消す', function () {
+      var real = window.localStorage;
+      var data = { 'pulsar.sens': '2', 'pulsar.bg': '0', 'other.app': 'keep' };
+      var keys = Object.keys(data);
+
+      window.localStorage = {
+        get length() { return Object.keys(data).length; },
+        key: function (i) { return Object.keys(data)[i]; },
+        getItem: function (k) { return data[k] === undefined ? null : data[k]; },
+        setItem: function (k, v) { data[k] = v; },
+        removeItem: function (k) { delete data[k]; }
+      };
+
+      // clear は書き込みを止めている間は動かないので、一時的に戻す
+      store.setEnabled(true);
+      store.clear();
+      store.setEnabled(false);
+
+      var left = Object.keys(data);
+      window.localStorage = real;
+
+      expect(keys.length).toBe(3);
+      expect(left.length).toBe(1);
+      expect(left[0]).toBe('other.app');
+    });
+
     it('保存できない環境でも例外を投げない', function () {
       var real = window.localStorage;
       window.localStorage = null;

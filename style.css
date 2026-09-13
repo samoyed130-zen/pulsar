@@ -543,6 +543,10 @@ body.on-title #panel { display: none; }
 
 .menuList button:hover { background: rgba(223, 229, 247, 0.1); }
 
+/* 取り消せない操作なので、色で他の設定と区別する */
+#resetBtn { color: rgba(255, 145, 160, 0.9); }
+#resetBtn:hover { background: rgba(255, 145, 160, 0.12); }
+
 /*
  * テストページへの入口。押すと別のタブが開くので、他の項目と
  * 同じ形にしつつ、色は控えめにして設定と区別する。
