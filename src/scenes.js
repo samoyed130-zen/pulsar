@@ -322,19 +322,45 @@
     return imageCache.img;
   }
 
+  /**
+   * @brief 建造物の寸法。
+   *
+   * すべて「カメラの大きさを 1 とする」単位。通路を大きく取ることが
+   * そのまま規模感になるため、ここの値が見た目の印象を決める。
+   */
+  var HALL = {
+    /** @brief 通路の半幅。 */
+    halfWidth: 5.4,
+    /** @brief 通路の半分の高さ。 */
+    halfHeight: 3.8,
+    /** @brief 柱や梁が並ぶ間隔。広いほど構造物が大きく感じられる。 */
+    period: 7.0,
+    /** @brief 柱を置く位置（中心からの距離）。 */
+    columnX: 4.3,
+    /** @brief 柱の太さ（半径）。 */
+    columnSize: 0.62,
+    /** @brief 照明帯の間隔。柱より細かくして、速さが読み取れるようにする。 */
+    lightPeriod: 2.4,
+    /** @brief 照明帯1本の長さ（半径）。 */
+    lightLength: 0.85
+  };
+
   /** @brief 光の向き（正規化済み）。斜めから当てて、面の傾きを読み取りやすくする。 */
   var LIGHT = [0.48, 0.62, -0.62];
 
   /**
-   * @brief 物体ごとの色相のずらし幅 [deg]。内壁と輪を描き分ける。
+   * @brief 部材ごとの色相のずらし幅 [deg]。壁・柱・梁・桁・床。
    *
-   * 背景は近い色でまとめて沈める。主役（三角形で描く立体と自機）が
+   * 建造物は同系色でまとめ、背景として沈める。主役（自機とリング）が
    * 前に出るよう、ここでは色を散らさない。
    */
-  var MAT_HUE = [0, 34];
+  var MAT_HUE = [0, 18, 30, 12, 6, 46];
 
-  /** @brief 物体ごとの彩度 [0..1]。 */
-  var MAT_SAT = [0.55, 0.7];
+  /** @brief 部材ごとの彩度 [0..1]。柱と梁をわずかに鮮やかにして分ける。 */
+  var MAT_SAT = [0.42, 0.62, 0.68, 0.5, 0.38, 0.85];
+
+  /** @brief 照明帯を表す材質番号。自ら光るため、陰影計算の対象外にする。 */
+  var MAT_LIGHT = 5;
 
   /** @brief 法線の計算結果を受け取る配列。毎回の確保を避けるため使い回す。 @private */
   var normal = [0, 0, 0];
@@ -355,30 +381,104 @@
    * @param {number} t 時刻 [s]
    * @returns {number} 距離（正なら物体の外側）
    */
+  /**
+   * @brief 直方体までの距離。
+   *
+   * 建造物は箱の組み合わせで作れる。三角関数を使わないため非常に軽い。
+   *
+   * @private
+   * @param {number} px 箱の中心を原点とした座標 x
+   * @param {number} py 座標 y
+   * @param {number} pz 座標 z
+   * @param {number} bx 箱の半径 x（中心から面まで）
+   * @param {number} by 半径 y
+   * @param {number} bz 半径 z
+   * @returns {number} 箱の外側なら正、内側なら負の距離
+   */
+  function boxDistance(px, py, pz, bx, by, bz) {
+    var qx = (px < 0 ? -px : px) - bx;
+    var qy = (py < 0 ? -py : py) - by;
+    var qz = (pz < 0 ? -pz : pz) - bz;
+
+    // 外側成分（負の軸は 0 として長さを測る）
+    var ox = qx > 0 ? qx : 0;
+    var oy = qy > 0 ? qy : 0;
+    var oz = qz > 0 ? qz : 0;
+    var outside = Math.sqrt(ox * ox + oy * oy + oz * oz);
+
+    // 内側成分（3軸のうち最も面に近い距離）
+    var m = qx > qy ? qx : qy;
+    if (qz > m) m = qz;
+    var inside = m < 0 ? m : 0;
+
+    return outside + inside;
+  }
+
+  /**
+   * @brief 建造物の内部を表す距離関数。
+   *
+   * 表現したいのは「巨大な構造物の中を潜り抜ける」感覚。そのために、
+   * 小さな物体を散らすのではなく、通路そのものを大きく取り、
+   * 柱・梁・段差といった**人の背丈より遥かに大きい部材**を並べている。
+   *
+   * 構成:
+   * - 左右の壁と床・天井で囲まれた大きな通路
+   * - 一定間隔で並ぶ太い角柱（奥行きの繰り返しで無限に続く）
+   * - 天井を渡る梁
+   * - 壁面から突き出す桁
+   *
+   * 奥行き方向の繰り返し（`z` を周期で折り返す）により、
+   * 何キロ分の構造物を置いても計算量は変わらない。
+   *
+   * @param {number} x 座標 x（右が正）
+   * @param {number} y 座標 y（下が正）
+   * @param {number} z 座標 z（奥が正）
+   * @param {number} t 時刻 [s]
+   * @returns {number} 最も近い面までの距離（通路の中では正）
+   */
   function sceneDistance(x, y, z, t) {
-    // 空間を回転させても中心軸からの距離は変わらないため、回転の計算は要らない。
-    // 代わりに筒の中心を奥行きに応じてずらすことで、曲がりくねった通路にする。
-    // 三角関数の呼び出しはここの2回だけ。1ピクセルあたり何十回も通るため効く。
-    var s1 = Math.sin(z * 0.55 + t * 1.2);
-    var c1 = Math.cos(z * 0.23 - t * 0.7);
+    // 通路がゆっくりうねる。全体が直線だと、進んでいる実感が乏しくなる。
+    var bend = Math.sin(z * 0.045 + t * 0.12) * 2.6;
+    var px = x - bend;
 
-    var dx = x - s1 * 1.15;
-    var dy = y - c1 * 1.15;
-    var rad = Math.sqrt(dx * dx + dy * dy);
+    // 通路の内側。左右の壁・床・天井のうち、最も近い面までの距離。
+    var ax = px < 0 ? -px : px;
+    var ay = y < 0 ? -y : y;
+    var hall = HALL.halfWidth - ax;
+    var vert = HALL.halfHeight - ay;
+    var d = hall < vert ? hall : vert;
 
-    // 内壁までの距離。半径も波打たせて、脈打つ洞窟のようにする。
-    var wall = 3.5 + s1 * 0.3 + c1 * 0.25 - rad;
+    // 奥行き方向の繰り返し。ここから先は1区画分の座標で考える。
+    var zr = z - Math.floor(z / HALL.period) * HALL.period - HALL.period * 0.5;
 
-    // 一定間隔で並ぶ輪。繰り返しで表現するので、何個置いても計算量は変わらない。
-    var period = 2.8;
-    var cell = Math.floor(z / period);
-    var zz = z - cell * period - period * 0.5;
-    var qx = rad - 2.9;
-    var ring = Math.sqrt(qx * qx + zz * zz) - 0.13;
+    // 角柱。左右に1本ずつ、床から天井まで通す。
+    var col = boxDistance(ax - HALL.columnX, y, zr,
+                          HALL.columnSize, HALL.halfHeight, HALL.columnSize);
+    if (col < d) d = col;
 
-    // 立体（八面体など）はここでは扱わない。面の数が少ない物体を
-    // 1ピクセルずつ探すのは割に合わないため、三角形として mesh3d.js が描く。
-    return wall < ring ? wall : ring;
+    // 天井を渡る梁。
+    var beam = boxDistance(px, y + HALL.halfHeight * 0.82, zr,
+                           HALL.halfWidth, 0.42, 0.55);
+    if (beam < d) d = beam;
+
+    // 壁から突き出す桁。高さを変えて2段にし、規模感を出す。
+    var ledge = boxDistance(ax - HALL.halfWidth, y - HALL.halfHeight * 0.35,
+                            zr * 0.001, 0.9, 0.3, HALL.period);
+    if (ledge < d) d = ledge;
+
+    // 床の段差。奥行き方向に連続させ、走っている面を見せる。
+    var floorStep = boxDistance(px, y - HALL.halfHeight, zr * 0.001,
+                                HALL.halfWidth * 0.55, 0.35, HALL.period);
+    if (floorStep < d) d = floorStep;
+
+    // 照明帯。柱より短い間隔で並べることで、奥行きの目盛りになる。
+    // 等間隔に光が続くと、通路の長さと自分の速さが一目で分かる。
+    var zl = z - Math.floor(z / HALL.lightPeriod) * HALL.lightPeriod - HALL.lightPeriod * 0.5;
+    var strip = boxDistance(ax - HALL.halfWidth * 0.99, y + HALL.halfHeight * 0.45, zl,
+                            0.12, 0.14, HALL.lightLength);
+    if (strip < d) d = strip;
+
+    return d;
   }
 
   /**
@@ -395,21 +495,36 @@
    * @returns {number} 0=内壁 / 1=輪 / 2=八面体
    */
   function sceneMaterial(x, y, z, t) {
-    var s1 = Math.sin(z * 0.55 + t * 1.2);
-    var c1 = Math.cos(z * 0.23 - t * 0.7);
-    var dx = x - s1 * 1.15;
-    var dy = y - c1 * 1.15;
-    var rad = Math.sqrt(dx * dx + dy * dy);
+    var bend = Math.sin(z * 0.045 + t * 0.12) * 2.6;
+    var px = x - bend;
+    var ax = px < 0 ? -px : px;
+    var ay = y < 0 ? -y : y;
+    var zr = z - Math.floor(z / HALL.period) * HALL.period - HALL.period * 0.5;
 
-    var wall = 3.5 + s1 * 0.3 + c1 * 0.25 - rad;
+    var hall = HALL.halfWidth - ax;
+    var vert = HALL.halfHeight - ay;
+    var shell = hall < vert ? hall : vert;
 
-    var period = 2.8;
-    var cell = Math.floor(z / period);
-    var zz = z - cell * period - period * 0.5;
-    var qx = rad - 2.9;
-    var ring = Math.sqrt(qx * qx + zz * zz) - 0.13;
+    var col = boxDistance(ax - HALL.columnX, y, zr,
+                          HALL.columnSize, HALL.halfHeight, HALL.columnSize);
+    var beam = boxDistance(px, y + HALL.halfHeight * 0.82, zr,
+                           HALL.halfWidth, 0.42, 0.55);
+    var ledge = boxDistance(ax - HALL.halfWidth, y - HALL.halfHeight * 0.35,
+                            zr * 0.001, 0.9, 0.3, HALL.period);
+    var floorStep = boxDistance(px, y - HALL.halfHeight, zr * 0.001,
+                                HALL.halfWidth * 0.55, 0.35, HALL.period);
 
-    return ring <= wall ? 1 : 0;
+    var zl = z - Math.floor(z / HALL.lightPeriod) * HALL.lightPeriod - HALL.lightPeriod * 0.5;
+    var strip = boxDistance(ax - HALL.halfWidth * 0.99, y + HALL.halfHeight * 0.45, zl,
+                            0.12, 0.14, HALL.lightLength);
+
+    var best = shell, id = 0;
+    if (col < best) { best = col; id = 1; }
+    if (beam < best) { best = beam; id = 2; }
+    if (ledge < best) { best = ledge; id = 3; }
+    if (floorStep < best) { best = floorStep; id = 4; }
+    if (strip < best) { id = 5; }
+    return id;
   }
 
   /**
@@ -459,6 +574,11 @@
     var t = f.t;
     var aspect = bw / bh;
     var hueBase = f.hue;
+    var kick = f.kick || 0;
+
+    // 何にも当たらなかった画素の色。真っ黒だと奥が「抜けている」ように見え、
+    // 構造物の中にいる感じが失われる。薄い霧を置いて奥行きを残す。
+    var fogRgb = hslToRgb(((((hueBase + 10) % 360) + 360) % 360) / 360, 0.5, 0.055);
 
     for (var py = 0; py < bh; py++) {
       // 画面座標を -1..1 に写す
@@ -491,7 +611,7 @@
           if (dist > RAY.far) break;
         }
 
-        var r = 0, g = 0, b = 0;
+        var r = fogRgb[0], g = fogRgb[1], b = fogRgb[2];
 
         if (hit) {
           var hx = dx * dist, hy = dy * dist, hz = camZ + dz * dist;
@@ -511,8 +631,16 @@
 
           var mat = sceneMaterial(hx, hy, hz, t);
           var hue = hueBase + MAT_HUE[mat];
-          var light = (0.10 + lambert * 0.42 + rim * 0.34) * fog * brightness;
-          if (light > 0.72) light = 0.72;
+          var light;
+
+          if (mat === MAT_LIGHT) {
+            // 照明帯は自ら光るので、面の向きで暗くしない。
+            // 遠くでも見えることで、通路の奥行きがそのまま伝わる。
+            light = (0.62 + kick * 0.1) * (0.35 + fog * 0.65);
+          } else {
+            light = (0.10 + lambert * 0.42 + rim * 0.34) * fog * brightness;
+            if (light > 0.72) light = 0.72;
+          }
 
           var rgb = hslToRgb((((hue % 360) + 360) % 360) / 360, MAT_SAT[mat], light);
           r = rgb[0]; g = rgb[1]; b = rgb[2];
