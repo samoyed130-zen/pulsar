@@ -51,12 +51,14 @@
     /**
      * @brief 加算ライトに使う縮小率。
      *
-     * ぼかしの代わりに「思い切り縮めて、拡大して戻す」ことで光をにじませる。
-     * 縮小そのものが平均化なので、この値が小さいほど広がりが大きい。
+     * ずらし加算の1回あたりのずれ幅は、縮小後の1画素が拡大されて
+     * そのまま光の広がりになる。小さいほど少ない回数で大きく広がる。
      */
-    softGlareScale: 0.08,
-    /** @brief 加算ライトを戻すときの拡大率。1 より大きいと光が外へ広がる。 */
-    softGlareSpread: 1.08,
+    softGlareScale: 0.10,
+    /** @brief ずらし加算のずれ幅 [縮小バッファ上の px]。 */
+    softGlareSpread: 1.4,
+    /** @brief ずらし加算の回数（縦横それぞれ）。奇数にして中心を含める。 */
+    softGlareTaps: 3,
     /** @brief この時間を超え続けたら描画を軽くする [ms]。戻すことはしない。 */
     slowMs: 22,
     /**
@@ -171,7 +173,16 @@
   /** @brief グレア用の縮小バッファ。 @private */
   var glareBuf = null, glareCtx = null;
 
-  /** @brief グレアが使えるか（`filter` 未対応の環境では諦める）。 @private */
+  /**
+   * @brief ずらし加算に使う、もう1枚の縮小バッファ。
+   *
+   * 同じ画を「元」と「積み上げ先」の両方に使うことはできないため、
+   * ぼかしを自前で作る経路では2枚を行き来させる。
+   * @private
+   */
+  var glareTmp = null, glareTmpCtx = null;
+
+  /** @brief グレアが使えるか（描画先を作れたか）。 @private */
   var glareOk = false;
 
   /**
@@ -243,9 +254,10 @@
    * 光源そのものを明るくするのではなく「周囲へ光が漏れる」ことで、
    * 画面の輝度差が誇張され、金属や照明の眩しさが伝わる。
    *
-   * ぼかしが遅い環境では `filter` を一切使わず、思い切り縮めた画を
-   * 少し大きく引き伸ばして加算する。暗部は切り落とせないので眩しさの
-   * 誇張は弱まるが、加算ライトとして画面全体の明るさは取り戻せる。
+   * ぼかしが遅い環境では `filter` を使わずに同じ形を組み立てる。
+   * 暗部潰しは縮小バッファ同士の乗算（明るさが2乗になるので、
+   * 暗いところほど強く沈む）、ぼかしは縦横にずらしながらの加算で作る。
+   * 縮小後は数十 px 四方しかないため、何度重ねても安い。
    *
    * @private
    * @param {number} amount 強さ [0..1]
@@ -259,35 +271,81 @@
 
     glareCtx.setTransform(1, 0, 0, 1, 0, 0);
     glareCtx.globalCompositeOperation = 'source-over';
+    glareCtx.globalAlpha = 1;
 
-    if (!slowFilter) {
+    if (slowFilter) {
+      buildSoftGlare(gw, gh);
+    } else {
       // 暗部を切り落として明るい部分だけを残す。
       // brightness で持ち上げ、contrast で暗い側を潰すのが最も安い方法。
       glareCtx.filter = 'brightness(2.1) contrast(2.6) saturate(1.25) blur(' +
                         CONFIG.glareBlur + 'px)';
+      glareCtx.clearRect(0, 0, gw, gh);
+      glareCtx.drawImage(canvas, 0, 0, gw, gh);
+      glareCtx.filter = 'none';
     }
-
-    glareCtx.clearRect(0, 0, gw, gh);
-    glareCtx.drawImage(canvas, 0, 0, gw, gh);
-    glareCtx.filter = 'none';
 
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = amount;
     ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(glareBuf, 0, 0, W, H);
+    ctx.restore();
+  }
 
-    if (slowFilter) {
-      // ぼかしを使わない代わりに、少し大きく引き伸ばして戻す。
-      // 縮小のときの平均化と拡大の補間がぼかしの役目を果たし、
-      // はみ出した分だけ光が輪郭の外へ漏れる。
-      var ex = W * (CONFIG.softGlareSpread - 1) * 0.5;
-      var ey = H * (CONFIG.softGlareSpread - 1) * 0.5;
-      ctx.drawImage(glareBuf, -ex, -ey, W + ex * 2, H + ey * 2);
-    } else {
-      ctx.drawImage(glareBuf, 0, 0, W, H);
+  /**
+   * @brief `filter` を使わずに、縮小バッファ上でグレアの素を作る。
+   *
+   * 手順は3つ。
+   *
+   * 1. 画面を縮小して写す
+   * 2. その画を自分自身に乗算で重ねる。明るさが2乗になるので、
+   *    暗いところほど大きく沈む。`contrast` の代わりになる
+   * 3. 縦横にずらしながら加算で積む。等間隔のずらし加算は
+   *    そのまま矩形のぼかしなので、`blur` の代わりになる
+   *
+   * 積むときに回数で割らず、そのまま足しているのは、
+   * `brightness` に当たる持ち上げを兼ねさせるため。
+   *
+   * 結果は `glareBuf` に入る。
+   *
+   * @private
+   * @param {number} gw 縮小バッファの幅 [px]
+   * @param {number} gh 縮小バッファの高さ [px]
+   * @returns {void}
+   */
+  function buildSoftGlare(gw, gh) {
+    glareTmpCtx.setTransform(1, 0, 0, 1, 0, 0);
+    glareTmpCtx.globalAlpha = 1;
+    glareTmpCtx.globalCompositeOperation = 'source-over';
+    glareTmpCtx.clearRect(0, 0, gw, gh);
+    glareTmpCtx.drawImage(canvas, 0, 0, gw, gh);
+
+    // 暗部潰し。乗算の相手として同じ画がもう1枚要るので、
+    // いったん glareBuf へ写してから掛け合わせる。
+    glareCtx.clearRect(0, 0, gw, gh);
+    glareCtx.drawImage(glareTmp, 0, 0);
+    glareTmpCtx.globalCompositeOperation = 'multiply';
+    glareTmpCtx.drawImage(glareBuf, 0, 0);
+
+    // ずらし加算。taps が奇数なので、中心のずれ 0 も必ず含まれる。
+    var taps = CONFIG.softGlareTaps;
+    var step = CONFIG.softGlareSpread;
+    var half = (taps - 1) / 2;
+
+    glareCtx.clearRect(0, 0, gw, gh);
+    glareCtx.globalCompositeOperation = 'lighter';
+    // 全部そのまま足すと飽和しきるので、1回あたりは薄くする。
+    glareCtx.globalAlpha = 1 / taps;
+
+    for (var iy = -half; iy <= half; iy++) {
+      for (var ix = -half; ix <= half; ix++) {
+        glareCtx.drawImage(glareTmp, ix * step, iy * step);
+      }
     }
 
-    ctx.restore();
+    glareCtx.globalAlpha = 1;
+    glareCtx.globalCompositeOperation = 'source-over';
   }
 
   /** @brief 衝突などで一時的に加わる画面の揺れの強さ [0..1]。 @private */
@@ -342,6 +400,11 @@
       var gs = slowFilter ? CONFIG.softGlareScale : CONFIG.glareScale;
       glareBuf.width = Math.max(1, Math.round(W * gs));
       glareBuf.height = Math.max(1, Math.round(H * gs));
+
+      if (glareTmp) {
+        glareTmp.width = glareBuf.width;
+        glareTmp.height = glareBuf.height;
+      }
     }
 
     // バッファは画面比を保ったまま固定幅にする（拡大時に歪ませないため）。
@@ -1213,8 +1276,13 @@
 
     glareBuf = document.createElement('canvas');
     glareCtx = glareBuf.getContext('2d');
-    // filter に未対応の環境ではグレアを諦める（他は通常どおり動く）
-    glareOk = !!glareCtx && ('filter' in glareCtx);
+    glareTmp = document.createElement('canvas');
+    glareTmpCtx = glareTmp.getContext('2d');
+
+    // ぼかしを自前で組む経路は filter を使わないので、
+    // filter への対応を求めるのは本来のグレアを使う環境だけでよい。
+    glareOk = !!glareCtx && !!glareTmpCtx &&
+              (slowFilter || ('filter' in glareCtx));
 
     panelEl = document.getElementById('panel');
     distEl = document.getElementById('scoreDist');

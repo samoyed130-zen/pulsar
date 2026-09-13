@@ -359,8 +359,13 @@
       expect(app.CONFIG.softGlareScale < app.CONFIG.glareScale).toBeTrue();
     });
 
-    it('加算ライトは外側へ広がる', function () {
-      expect(app.CONFIG.softGlareSpread > 1).toBeTrue();
+    it('ずらし加算のずれ幅は 0 より大きい', function () {
+      expect(app.CONFIG.softGlareSpread > 0).toBeTrue();
+    });
+
+    it('ずらし加算の回数は奇数（中心のずれ 0 を含めるため）', function () {
+      expect(app.CONFIG.softGlareTaps % 2 === 1).toBeTrue();
+      expect(app.CONFIG.softGlareTaps >= 3).toBeTrue();
     });
   });
 
