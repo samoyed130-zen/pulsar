@@ -1,0 +1,146 @@
+/*
+ * PULSAR — スタイル
+ *
+ * 画面はほぼ Canvas が占める。CSS の役割は次の3つに限る:
+ *   1. Canvas を画面いっぱいに敷く
+ *   2. ブラウン管風のオーバーレイ（走査線・周辺減光）を重ねる
+ *   3. 最小限の HUD を置く
+ */
+
+:root {
+  --bg: #04050a;
+  --fg: #dfe5f7;
+  --dim: rgba(223, 229, 247, 0.45);
+  --line: rgba(223, 229, 247, 0.18);
+  --accent: #7ad7ff;
+  --pad: max(14px, env(safe-area-inset-left));
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  /* タッチ操作をブラウザのスクロールに奪わせない。操作の取りこぼしを防ぐ */
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* --- ブラウン管風オーバーレイ ------------------------------------ */
+
+.crt,
+.vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* 走査線。1px の横縞を繰り返すだけだが、画面の密度が一気に上がる */
+.crt {
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.22) 0px,
+    rgba(0, 0, 0, 0.22) 1px,
+    rgba(0, 0, 0, 0) 1px,
+    rgba(0, 0, 0, 0) 3px
+  );
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+}
+
+/* 周辺減光。中央へ視線を集める */
+.vignette {
+  background: radial-gradient(
+    ellipse 78% 72% at 50% 50%,
+    rgba(0, 0, 0, 0) 40%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+}
+
+/* --- HUD ---------------------------------------------------------- */
+
+#hud {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  left: var(--pad);
+  right: var(--pad);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.brand {
+  flex: 1 1 auto;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.42em;
+  color: var(--dim);
+}
+
+#hud button,
+#hud .link {
+  pointer-events: auto;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--dim);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 13px;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+#hud button:hover,
+#hud .link:hover {
+  color: var(--fg);
+  border-color: var(--accent);
+}
+
+#hud button.on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.noscript {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 24px;
+  text-align: center;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 14px;
+}
+
+@media (max-width: 480px) {
+  .brand { letter-spacing: 0.3em; }
+  #hud button,
+  #hud .link { padding: 6px 11px; font-size: 10px; }
+  /* 小さい画面では走査線が潰れて汚くなるため薄くする */
+  .crt { opacity: 0.35; }
+}

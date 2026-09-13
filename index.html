@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>PULSAR</title>
+<meta name="description" content="外部ライブラリを使わず、Canvas 2D と Web Audio だけで書いたメガデモ。トンネルの区間では画面に触れると操縦できます。">
+<meta name="theme-color" content="#04050a">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<canvas id="stage"></canvas>
+
+<!-- 走査線と周辺減光。ブラウン管風の質感を CSS だけで足す -->
+<div class="crt" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+
+<div id="hud">
+  <span class="brand">PULSAR</span>
+  <button id="soundBtn" type="button">♪ 音を出す</button>
+  <a class="link" href="test.html">TESTS</a>
+</div>
+
+<noscript>
+  <p class="noscript">この作品は JavaScript で描画しています。有効にしてご覧ください。</p>
+</noscript>
+
+<script src="src/mathx.js"></script>
+<script src="src/sound.js"></script>
+<script src="src/game.js"></script>
+<script src="src/scenes.js"></script>
+<script src="src/main.js"></script>
+<script>
+  // 読み込み順に依存するため、起動はここで1度だけ行う。
+  PULSAR.app.boot();
+
+  (function () {
+    'use strict';
+    var btn = document.getElementById('soundBtn');
+
+    btn.addEventListener('click', function () {
+      if (!PULSAR.sound.isPlaying()) {
+        PULSAR.sound.start();
+        // 起動直後は suspended のことがあるため、状態ではなく操作で表示を決める。
+        btn.textContent = '♪ 音を止める';
+        btn.classList.add('on');
+      } else {
+        PULSAR.sound.toggleMute();
+        btn.textContent = '♪ 音を出す';
+        btn.classList.remove('on');
+      }
+    });
+  })();
+</script>
+</body>
+</html>
