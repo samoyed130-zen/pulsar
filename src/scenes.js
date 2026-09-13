@@ -333,24 +333,18 @@
    * `width`/`height` は通路の大きさの倍率、`period` は柱の間隔の倍率。
    */
   var STAGE_LOOK = [
-    // 1: 素直な通路。何もない状態を基準として見せる
-    { hue:   0, sat: 30, light: 190, width: 1.00, height: 1.00, period: 1.00,
-      feature: 'none' },
-    // 2: 天井から箱が吊り下がる
-    { hue:  52, sat: 44, light: 142, width: 1.20, height: 0.86, period: 1.25,
-      feature: 'hanging' },
-    // 3: 壁に斜めの筋交いが入る
-    { hue: 108, sat: 52, light:  86, width: 0.84, height: 1.22, period: 0.78,
-      feature: 'brace' },
-    // 4: 床から低い台がせり出す
-    { hue: 168, sat: 46, light:  36, width: 1.28, height: 1.10, period: 1.45,
-      feature: 'podium' },
-    // 5: 壁が細かい縦のひだで覆われる
-    { hue: 232, sat: 58, light:   6, width: 0.80, height: 0.84, period: 0.70,
-      feature: 'fins' },
-    // 6: 通路そのものを角ばった枠がくぐらせる
-    { hue: 292, sat: 64, light: 318, width: 1.10, height: 1.30, period: 1.10,
-      feature: 'gate' }
+    // 通路の形そのものは全ステージ共通。違いは色と、奥へ向かう揺れ方だけ。
+    // 部材の配置まで変えると、同じ作品の中で別の建物を見ている感覚になり、
+    // かえって繋がりが切れる。
+    //
+    // `vertical` が立つステージでは、通路が左右ではなく上下へうねる。
+    // 同じ道でも進む向きの感覚が変わる。
+    { hue:   0, sat: 30, light: 190, bendAmp: 0.55, bendFreq: 0.22, vertical: false },
+    { hue:  52, sat: 44, light: 142, bendAmp: 0.50, bendFreq: 0.26, vertical: true },
+    { hue: 108, sat: 52, light:  86, bendAmp: 0.80, bendFreq: 0.30, vertical: false },
+    { hue: 168, sat: 46, light:  36, bendAmp: 0.70, bendFreq: 0.34, vertical: true },
+    { hue: 232, sat: 58, light:   6, bendAmp: 1.05, bendFreq: 0.40, vertical: false },
+    { hue: 292, sat: 64, light: 318, bendAmp: 0.95, bendFreq: 0.46, vertical: true }
   ];
 
   /**
@@ -429,80 +423,32 @@
   }
 
   /**
-   * @brief 通路の横ずれ。奥行きに応じて曲げ、直線に見せない。
+   * @brief 通路のずれ。奥行きに応じて曲げ、直線に見せない。
+   *
+   * ステージによって、ずらす向きが左右になったり上下になったりする。
+   * 同じ形の通路でも、揺れる向きが変わると進む感覚が変わる。
+   *
    * @private
    * @param {number} z 奥行き
    * @param {number} t 時刻 [s]
-   * @returns {number} 横方向のずれ
-   */
-  function hallBend(z, t) {
-    return Math.sin(z * 0.22 + t * 0.25) * 0.55;
-  }
-
-  /**
-   * @brief ステージ固有の構造物を1区画ぶん足す。
-   *
-   * 通路の骨格（壁・床・柱・梁）だけでは、色を変えても同じ場所に見える。
-   * 形そのものが変わる要素をステージごとに1種類ずつ加えることで、
-   * 別の建物へ入ったと分かるようにする。
-   *
-   * @private
-   * @param {Object} f フレーム文脈
    * @param {Object} look ステージの見た目
-   * @param {number} bend この区画の横ずれ
-   * @param {number} z 区画の奥行き位置
-   * @param {number} hw 通路の半幅
-   * @param {number} hh 通路の半分の高さ
-   * @param {number} half 区画の奥行きの半分
-   * @param {number} index 手前から数えた区画の番号
+   * @param {Array<number>} out 結果を書き込む長さ2の配列 [x, y]
    * @returns {void}
    */
-  function addFeature(f, look, bend, z, hw, hh, half, index) {
-    var hue = HALL_HUE.beam;
-    var k;
+  function hallBend(z, t, look, out) {
+    var v = Math.sin(z * look.bendFreq + t * 0.25) * look.bendAmp;
 
-    if (look.feature === 'hanging') {
-      // 天井から下がる箱。区画ごとに長さを変えて、規則的すぎないようにする。
-      var drop = hh * (0.34 + 0.22 * Math.sin(index * 1.7 + f.t * 0.4));
-      addPart(bend, -hh + drop, z, hw * 0.18, drop, 0.18, hue, 0.9, false);
-
-    } else if (look.feature === 'brace') {
-      // 壁の斜めの筋交い。箱を回して斜めにする。
-      for (k = -1; k <= 1; k += 2) {
-        addPart(bend + k * hw * 0.82, 0, z,
-                0.09, hh * 0.95, 0.09, HALL_HUE.column, 0.95, false,
-                0, k * 0.55);
-      }
-
-    } else if (look.feature === 'podium') {
-      // 床からせり出す低い台。走行面に段差の連なりを作る。
-      for (k = -1; k <= 1; k += 2) {
-        addPart(bend + k * hw * 0.5, hh * 0.82, z,
-                hw * 0.22, hh * 0.18, half * 0.55, HALL_HUE.floor, 0.6, false);
-      }
-
-    } else if (look.feature === 'fins') {
-      // 壁を覆う細かい縦のひだ。密度で圧迫感を出す。
-      var fins = f.light ? 2 : 4;
-      for (var n = 0; n < fins; n++) {
-        var t = (n + 0.5) / fins;
-        var fz = z - half + half * 2 * t;
-        for (k = -1; k <= 1; k += 2) {
-          addPart(bend + k * hw * 0.93, 0, fz,
-                  0.05, hh * 0.8, 0.05, HALL_HUE.wall, 0.8, false);
-        }
-      }
-
-    } else if (look.feature === 'gate') {
-      // 通路を区切る角ばった枠。くぐるたびに区画が数えられる。
-      var frame = 0.12;
-      addPart(bend, -hh * 0.55, z, hw * 0.78, frame, frame, hue, 1, false);
-      addPart(bend, hh * 0.55, z, hw * 0.78, frame, frame, hue, 1, false);
-      for (k = -1; k <= 1; k += 2) {
-        addPart(bend + k * hw * 0.78, 0, z, frame, hh * 0.55, frame, hue, 1, false);
-      }
+    if (look.vertical) {
+      out[0] = 0;
+      out[1] = v;
+    } else {
+      out[0] = v;
+      out[1] = 0;
     }
   }
+
+  /** @brief 通路のずれを受け取る配列。毎回の確保を避けるため使い回す。 @private */
+  var bendOut = [0, 0];
 
   /**
    * @brief 建造物を描く。
@@ -524,17 +470,17 @@
     var cy = f.H / 2;
     var focal = Math.min(f.W, f.H) * global.PULSAR.game.CONFIG.focal;
 
-    // ステージごとに通路の大きさと色を変える。
+    // 通路の形は全ステージ共通。変わるのは色と、奥へ向かう揺れ方だけ。
     var look = currentLook();
-    var period = HALL.period * look.period;
+    var period = HALL.period;
     var offset = travel % period;
     var cells = f.light ? HALL.cells - 3 : HALL.cells;
 
     parts.length = 0;
     partCount = 0;
 
-    var hw = HALL.halfWidth * look.width;
-    var hh = HALL.halfHeight * look.height;
+    var hw = HALL.halfWidth;
+    var hh = HALL.halfHeight;
 
     // 映り込む照明の本数もステージで変える。金属面に映る景色が変われば、
     // 同じ形の通路でも別の場所に見える。
@@ -544,7 +490,9 @@
       var z = HALL.nearZ + i * period - offset + period;
       if (z < HALL.nearZ * 0.5) continue;
 
-      var bend = hallBend(z, f.t);
+      hallBend(z, f.t, look, bendOut);
+      var bx = bendOut[0];
+      var by = bendOut[1];
       var half = period * 0.5;
 
       // 壁・床・天井は奥行きに長いので、短く割って並べる。
@@ -554,34 +502,37 @@
 
       for (var s = 0; s < HALL.segments; s++) {
         var zs = z + (s - (HALL.segments - 1) * 0.5) * segLen;
-        var bs = hallBend(zs, f.t);
+        hallBend(zs, f.t, look, bendOut);
+        var sx = bendOut[0];
+        var sy = bendOut[1];
 
         // 左右の壁
-        addPart(bs - hw, 0, zs, 0.12, hh, segHalf, HALL_HUE.wall, 0.35, false);
-        addPart(bs + hw, 0, zs, 0.12, hh, segHalf, HALL_HUE.wall, 0.35, false);
+        addPart(sx - hw, sy, zs, 0.12, hh, segHalf, HALL_HUE.wall, 0.35, false);
+        addPart(sx + hw, sy, zs, 0.12, hh, segHalf, HALL_HUE.wall, 0.35, false);
 
         // 床と天井
-        addPart(bs, hh, zs, hw, 0.1, segHalf, HALL_HUE.floor, 0.3, false);
-        addPart(bs, -hh, zs, hw, 0.1, segHalf, HALL_HUE.wall, 0.25, false);
+        addPart(sx, sy + hh, zs, hw, 0.1, segHalf, HALL_HUE.floor, 0.3, false);
+        addPart(sx, sy - hh, zs, hw, 0.1, segHalf, HALL_HUE.wall, 0.25, false);
       }
 
       // 柱。床から天井まで通す。金属らしさを最も強くする。
-      var colX = HALL.columnX * look.width;
-      addPart(bend - colX, 0, z, 0.14, hh, 0.14, HALL_HUE.column, 0.95, false);
-      addPart(bend + colX, 0, z, 0.14, hh, 0.14, HALL_HUE.column, 0.95, false);
+      addPart(bx - HALL.columnX, by, z, 0.14, hh, 0.14, HALL_HUE.column, 0.95, false);
+      addPart(bx + HALL.columnX, by, z, 0.14, hh, 0.14, HALL_HUE.column, 0.95, false);
 
       // 天井を渡る梁
-      addPart(bend, -hh * 0.86, z, hw * 0.98, 0.1, 0.13, HALL_HUE.beam, 0.85, false);
+      addPart(bx, by - hh * 0.86, z, hw * 0.98, 0.1, 0.13, HALL_HUE.beam, 0.85, false);
 
       // 壁から突き出す桁。2段にして規模感を出す。
-      addPart(bend - hw * 0.88, -hh * 0.3, z, 0.16, 0.07, half * 0.95, HALL_HUE.beam, 0.7, false);
-      addPart(bend + hw * 0.88, -hh * 0.3, z, 0.16, 0.07, half * 0.95, HALL_HUE.beam, 0.7, false);
+      addPart(bx - hw * 0.88, by - hh * 0.3, z, 0.16, 0.07, half * 0.95,
+              HALL_HUE.beam, 0.7, false);
+      addPart(bx + hw * 0.88, by - hh * 0.3, z, 0.16, 0.07, half * 0.95,
+              HALL_HUE.beam, 0.7, false);
 
       // 照明帯。等間隔に流れることで、通路の長さと自分の速さが分かる。
-      addPart(bend - hw * 0.9, hh * 0.1, z, 0.05, 0.05, half * 0.62, look.light, 0, true);
-      addPart(bend + hw * 0.9, hh * 0.1, z, 0.05, 0.05, half * 0.62, look.light, 0, true);
-
-      addFeature(f, look, bend, z, hw, hh, half, i);
+      addPart(bx - hw * 0.9, by + hh * 0.1, z, 0.05, 0.05, half * 0.62,
+              look.light, 0, true);
+      addPart(bx + hw * 0.9, by + hh * 0.1, z, 0.05, 0.05, half * 0.62,
+              look.light, 0, true);
     }
 
     // 奥の部材から描く。これで前後関係が正しくなる。

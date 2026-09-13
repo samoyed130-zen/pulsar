@@ -152,13 +152,24 @@
       expect(S.STAGE_LOOK.length).toBe(window.PULSAR.game.CONFIG.stageCount);
     });
 
-    it('ステージごとに構造物の種類が違う（同じ場所に見えない）', function () {
-      var seen = {};
+    it('偶数ステージは通路が上下にうねる（進む感覚を変える）', function () {
       for (var i = 0; i < S.STAGE_LOOK.length; i++) {
-        var key = S.STAGE_LOOK[i].feature;
-        expect(typeof key).toBe('string');
-        expect(seen[key] === undefined).toBeTrue();
-        seen[key] = true;
+        var isEvenStage = ((i + 1) % 2) === 0;
+        expect(S.STAGE_LOOK[i].vertical).toBe(isEvenStage);
+      }
+    });
+
+    it('ステージが進むほど、うねりが細かくなる', function () {
+      for (var i = 1; i < S.STAGE_LOOK.length; i++) {
+        expect(S.STAGE_LOOK[i].bendFreq > S.STAGE_LOOK[i - 1].bendFreq).toBeTrue();
+      }
+    });
+
+    it('うねりの大きさは通路に収まる範囲', function () {
+      for (var i = 0; i < S.STAGE_LOOK.length; i++) {
+        var amp = S.STAGE_LOOK[i].bendAmp;
+        expect(amp > 0).toBeTrue();
+        expect(amp < S.HALL.halfHeight).toBeTrue();
       }
     });
 
@@ -169,12 +180,14 @@
       }
     });
 
-    it('通路の寸法はどのステージでも妥当な範囲に収まる', function () {
+    it('通路の形はステージによらず共通（寸法を持たない）', function () {
+      // 部材の配置まで変えると別の建物に見え、作品としての繋がりが切れる。
+      // 違いは色と揺れ方だけに絞っている。
       for (var i = 0; i < S.STAGE_LOOK.length; i++) {
         var k = S.STAGE_LOOK[i];
-        expect(k.width > 0.5 && k.width < 2).toBeTrue();
-        expect(k.height > 0.5 && k.height < 2).toBeTrue();
-        expect(k.period > 0.5 && k.period < 2).toBeTrue();
+        expect(k.width === undefined).toBeTrue();
+        expect(k.height === undefined).toBeTrue();
+        expect(k.period === undefined).toBeTrue();
       }
     });
 
