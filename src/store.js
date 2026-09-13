@@ -22,13 +22,33 @@
   var PREFIX = 'pulsar.';
 
   /**
+   * @brief 読み書きの相手。既定では端末の `localStorage`。
+   *
+   * 差し替えられるようにしてあるのは単体テストのためである。
+   * ブラウザの `window.localStorage` は書き換えられない（読み取り専用の
+   * 属性なので、代入しようとすると例外になる）ため、偽物に入れ替えて
+   * 試すにはこちら側に受け口が要る。
+   * @private
+   */
+  var backend = null;
+
+  /**
+   * @brief 実際に読み書きする相手を返す。
+   * @private
+   * @returns {Object} `localStorage` か、差し替えられた相手
+   */
+  function target() {
+    return backend || global.localStorage;
+  }
+
+  /**
    * @brief 保存された文字列を読む。
    * @param {string} key 鍵
    * @returns {string|null} 値。無いか読めなければ null
    */
   function get(key) {
     try {
-      return global.localStorage.getItem(key);
+      return target().getItem(key);
     } catch (e) {
       return null;
     }
@@ -44,7 +64,7 @@
     if (!enabled) return;
 
     try {
-      global.localStorage.setItem(key, value);
+      target().setItem(key, value);
     } catch (e) { /* 保存できなくても動作には影響しない */ }
   }
 
@@ -60,7 +80,7 @@
     if (!enabled) return;
 
     try {
-      var store = global.localStorage;
+      var store = target();
       var keys = [];
 
       for (var i = 0; i < store.length; i++) {
@@ -86,12 +106,23 @@
     enabled = !!on;
   }
 
+  /**
+   * @brief 読み書きの相手を差し替える（単体テスト用）。
+   *
+   * @param {Object|null} v 差し替える相手。null で端末の保存場所へ戻す
+   * @returns {void}
+   */
+  function setBackend(v) {
+    backend = v || null;
+  }
+
   global.PULSAR = global.PULSAR || {};
   global.PULSAR.store = {
     PREFIX: PREFIX,
     get: get,
     set: set,
     clear: clear,
-    setEnabled: setEnabled
+    setEnabled: setEnabled,
+    setBackend: setBackend
   };
 })(typeof window !== 'undefined' ? window : this);

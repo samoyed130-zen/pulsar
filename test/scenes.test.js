@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file scenes.test.js
  * @brief タイムラインの整合性と、色変換の正しさを検証する。
  *
@@ -501,78 +501,81 @@
   describe('設定の保存', function () {
     var store = window.PULSAR.store;
 
-    it('テスト中は保存しない', function () {
-      // これが効いていないと、テストのページを開くだけで
-      // 遊び手の設定や開放済みステージが書き換わってしまう。
-      var wrote = false;
-      var real = window.localStorage;
-
-      window.localStorage = {
-        getItem: function () { return null; },
-        setItem: function () { wrote = true; }
-      };
-
-      store.set('pulsar.test', '1');
-      window.localStorage = real;
-
-      expect(wrote).toBeFalse();
-    });
-
-    it('読み取りは止めない（復元の挙動を試せなくなるため）', function () {
-      var read = false;
-      var real = window.localStorage;
-
-      window.localStorage = {
-        getItem: function () { read = true; return '1'; },
-        setItem: function () {}
-      };
-
-      var v = store.get('pulsar.test');
-      window.localStorage = real;
-
-      expect(read).toBeTrue();
-      expect(v).toBe('1');
-    });
-
-    it('初期化は、この作品の鍵だけを消す', function () {
-      var real = window.localStorage;
-      var data = { 'pulsar.sens': '2', 'pulsar.bg': '0', 'other.app': 'keep' };
-      var keys = Object.keys(data);
-
-      window.localStorage = {
+    /**
+     * 偽の保存場所を作る。
+     *
+     * ブラウザの `window.localStorage` は読み取り専用の属性で、偽物に
+     * 差し替えようとすると例外になる。そこで store 側の受け口を使う。
+     */
+    function fakeStore(data) {
+      return {
         get length() { return Object.keys(data).length; },
         key: function (i) { return Object.keys(data)[i]; },
         getItem: function (k) { return data[k] === undefined ? null : data[k]; },
         setItem: function (k, v) { data[k] = v; },
         removeItem: function (k) { delete data[k]; }
       };
+    }
+
+    it('テスト中は保存しない', function () {
+      // これが効いていないと、テストのページを開くだけで
+      // 遊び手の設定や開放済みステージが書き換わってしまう。
+      var data = {};
+      store.setBackend(fakeStore(data));
+
+      store.set('pulsar.probe', '1');
+      store.setBackend(null);
+
+      expect(Object.keys(data).length).toBe(0);
+    });
+
+    it('読み取りは止めない（復元の挙動を試せなくなるため）', function () {
+      store.setBackend(fakeStore({ 'pulsar.probe': '1' }));
+
+      var v = store.get('pulsar.probe');
+      store.setBackend(null);
+
+      expect(v).toBe('1');
+    });
+
+    it('初期化は、この作品の鍵だけを消す', function () {
+      var data = { 'pulsar.sens': '2', 'pulsar.bg': '0', 'other.app': 'keep' };
+      store.setBackend(fakeStore(data));
 
       // clear は書き込みを止めている間は動かないので、一時的に戻す
       store.setEnabled(true);
       store.clear();
       store.setEnabled(false);
+      store.setBackend(null);
 
       var left = Object.keys(data);
-      window.localStorage = real;
-
-      expect(keys.length).toBe(3);
       expect(left.length).toBe(1);
       expect(left[0]).toBe('other.app');
     });
 
+    it('この作品の鍵には決まった頭が付く', function () {
+      // 頭が揃っていないと、初期化のときに消し残しが出る。
+      expect(store.PREFIX).toBe('pulsar.');
+    });
+
     it('保存できない環境でも例外を投げない', function () {
-      var real = window.localStorage;
-      window.localStorage = null;
+      // 設定でサイトのデータを禁じていると、読み書きそのものが例外を投げる。
+      store.setBackend({
+        getItem: function () { throw new Error('拒否'); },
+        setItem: function () { throw new Error('拒否'); }
+      });
 
       var ok = true;
       try {
-        store.set('pulsar.test', '1');
-        expect(store.get('pulsar.test')).toBe(null);
+        store.setEnabled(true);
+        store.set('pulsar.probe', '1');
+        expect(store.get('pulsar.probe')).toBe(null);
       } catch (e) {
         ok = false;
       }
 
-      window.localStorage = real;
+      store.setEnabled(false);
+      store.setBackend(null);
       expect(ok).toBeTrue();
     });
   });
