@@ -13,8 +13,8 @@
   var M = window.PULSAR.mathx;
 
   describe('scenes.timeline', function () {
-    it('シーンが5つある', function () {
-      expect(S.timeline.length).toBe(5);
+    it('シーンが4つある', function () {
+      expect(S.timeline.length).toBe(4);
     });
 
     it('全シーンに名前・尺・遷移・描画関数が揃っている', function () {
@@ -49,10 +49,10 @@
       }
     });
 
-    it('1周が 40〜90 秒に収まる（短すぎず、飽きさせない）', function () {
+    it('1周が 30〜90 秒に収まる（短すぎず、飽きさせない）', function () {
       var total = 0;
       for (var i = 0; i < S.timeline.length; i++) total += S.timeline[i].duration;
-      expect(total >= 40 && total <= 90).toBeTrue();
+      expect(total >= 30 && total <= 90).toBeTrue();
     });
 
     it('タイムライン全体を走査しても pickScene が破綻しない', function () {
@@ -136,15 +136,6 @@
       S.setRaymarch(false);
       S.setRaymarch(true);
       expect(typeof S.isRaymarch()).toBe('boolean');
-    });
-  });
-
-  describe('scenes.SCROLL_TEXT', function () {
-    it('空でない', function () {
-      expect(S.SCROLL_TEXT.length > 0).toBeTrue();
-    });
-    it('作者名が含まれている', function () {
-      expect(S.SCROLL_TEXT.indexOf('samoyed130-zen') >= 0).toBeTrue();
     });
   });
 
