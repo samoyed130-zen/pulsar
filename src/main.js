@@ -703,6 +703,11 @@
   function startGame(stage) {
     global.PULSAR.game.reset(stage);
     lastStage = global.PULSAR.game.state.stage;
+
+    // 表示側のステージ番号を先に合わせておく。
+    // ここで合わせないと、選んだステージが表示中の番号と違う場合に
+    // 「ステージが切り替わった」と誤検出され、合図が二重に走る。
+    shownStage = lastStage;
     pointer.everTouched = true;
     lastInput = clock;
     startedAt = clock;
@@ -739,6 +744,7 @@
     resultShown = false;
 
     global.PULSAR.game.reset(1);
+    shownStage = global.PULSAR.game.state.stage;
     pointer.everTouched = false;
     lastInput = -999;
     startedAt = -999;
