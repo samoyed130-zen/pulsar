@@ -145,14 +145,27 @@ body.on-title #panel { display: none; }
   border-color: var(--accent);
 }
 
+#hud button.on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* 合図の最中など、押しても意味がないときは触れないことを見せる */
+#hud button:disabled {
+  opacity: 0.35;
+  cursor: default;
+  color: var(--dim);
+  border-color: var(--line);
+}
+
 /*
- * 画面に出ている唯一の入口なので、他のボタンより強く見せる。
- * 設定にも一時停止にもここからしか行けないため、控えめだと
- * 「どこを押せばいいのか」で迷わせてしまう。
- */
-/*
- * タイトルのスタートと同じ見た目にする。どちらも「ここを押す」場所で、
- * 画面に出ている唯一の入口でもあるので、常に塗って目立たせる。
+ * メニューはタイトルのスタートと同じ見た目にする。
+ *
+ * どちらも「ここを押す」場所であり、走行中に出ている唯一の入口でもある。
+ * 触れる前から押す場所だと分かるよう、常に塗っておく。
+ *
+ * 上の `#hud button.on` より後ろに置くこと。前に置くと、開いている間だけ
+ * 文字色が上書きされ、塗りと同じ色になって読めなくなる。
  */
 #menuBtn,
 #menuBtn.on {
@@ -168,7 +181,9 @@ body.on-title #panel { display: none; }
   box-shadow: 0 0 18px rgba(122, 214, 255, 0.28);
 }
 
-#menuBtn:hover {
+#menuBtn:hover,
+#menuBtn.on:hover {
+  color: #04121c;
   background: #9ce2ff;
   border-color: #9ce2ff;
 }
@@ -179,19 +194,6 @@ body.on-title #panel { display: none; }
   background: rgba(255, 255, 255, 0.04);
   border-color: var(--line);
   box-shadow: none;
-}
-
-#hud button.on {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-/* 合図の最中など、押しても意味がないときは触れないことを見せる */
-#hud button:disabled {
-  opacity: 0.35;
-  cursor: default;
-  color: var(--dim);
-  border-color: var(--line);
 }
 
 /* --- タイトル画面 --------------------------------------------------- */
@@ -1106,8 +1108,8 @@ body.on-title #titleBtn { display: none; }
   }
   #hud { gap: 6px; }
   #hud button { padding: 6px 9px; font-size: 10px; }
-  /* 狭い画面でも、唯一の入口だけは指で押せる大きさを保つ */
-  #menuBtn { padding: 11px 20px; font-size: 13px; }
+  /* 狭い画面でも、唯一の入口は縮めない。横の余白だけ詰める */
+  #menuBtn { padding: 13px 20px; font-size: 15px; }
 
   #panel {
     padding: 8px 10px 9px;
@@ -1160,5 +1162,5 @@ body.on-title #titleBtn { display: none; }
   }
   #hud { justify-content: flex-end; }
   #hud button { padding: 6px 8px; font-size: 9px; letter-spacing: 0.04em; }
-  #menuBtn { padding: 11px 18px; font-size: 13px; letter-spacing: 0.1em; }
+  #menuBtn { padding: 13px 16px; font-size: 15px; letter-spacing: 0.08em; }
 }
