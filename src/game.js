@@ -168,14 +168,15 @@
   /**
    * @brief カーソルのガイド輪を常に出すか。
    *
-   * 慣れた人には邪魔になるので消せるようにする。消していても、
-   * 走り始めの数秒だけは出して自然に消える（最初の一度は伝える必要がある）。
+   * 既定は切。常に出ていると輪が二重に見えて、くぐるべきリングと
+   * 紛らわしい。走り始めの数秒だけは出して自然に消えるので、
+   * 「この円の上を動く」ことは切っていても伝わる。
    * @private
    */
-  var guideOn = true;
+  var guideOn = false;
 
   /** @brief 実際に描くときの濃さ [0..1]。設定の切り替えに滑らかに追従する。 @private */
-  var guideAlpha = 1;
+  var guideAlpha = 0;
 
   /**
    * @brief ガイド輪を常に出すかを設定し、端末に覚えさせる。
@@ -195,10 +196,10 @@
     return guideOn;
   }
 
-  // 前回の選択を復元する。
-  if (global.PULSAR.store.get('pulsar.guide') === '0') {
-    guideOn = false;
-    guideAlpha = 0;
+  // 前回の選択を復元する。入れた人だけが '1' を持っている。
+  if (global.PULSAR.store.get('pulsar.guide') === '1') {
+    guideOn = true;
+    guideAlpha = 1;
   }
 
   /**
