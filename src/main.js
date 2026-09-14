@@ -122,7 +122,8 @@
      * @brief グレアを重ねる回数の上限。
      *
      * 透明度は 1 が上限なので、それより眩しくするには重ねるしかない。
-     * ただし1枚ごとに画面いっぱいを塗り直すので、際限なく増やせない。
+     * 重ねるのは縮小バッファの上なので1回あたりは安いが、それでも
+     * 際限なく増やす理由はない。
      */
     glarePassMax: 3,
     /**
@@ -600,25 +601,41 @@
       glareCtx.filter = 'none';
     }
 
+    /*
+     * 1 を超える強さは、縮小バッファの中で足しておく。
+     *
+     * 透明度は 1 が上限なので、それ以上の値を渡しても頭打ちになる。
+     * 画面へ重ねて塗れば超えられるが、1回ごとに画面いっぱい（例えば
+     * 1920x1080 で約 207 万画素）を塗り直すことになり、そのぶん
+     * はっきり遅くなる。
+     *
+     * 同じ足し算を縮小バッファの上（同じ例で 384x216、約 8.3 万画素）
+     * で済ませれば、25 分の1 の手間で同じ明るさになる。画面に重ねるのは
+     * どれだけ眩しくしても1回だけ。
+     */
+    var left = amount - 1;
+    if (left > 0.01 && glareTmp) {
+      glareTmpCtx.setTransform(1, 0, 0, 1, 0, 0);
+      glareTmpCtx.globalCompositeOperation = 'source-over';
+      glareTmpCtx.globalAlpha = 1;
+      glareTmpCtx.clearRect(0, 0, gw, gh);
+      glareTmpCtx.drawImage(glareBuf, 0, 0);
+
+      glareCtx.globalCompositeOperation = 'lighter';
+      for (var n = 0; n < CONFIG.glarePassMax && left > 0.01; n++) {
+        glareCtx.globalAlpha = Math.min(1, left);
+        glareCtx.drawImage(glareTmp, 0, 0);
+        left -= 1;
+      }
+      glareCtx.globalAlpha = 1;
+      glareCtx.globalCompositeOperation = 'source-over';
+    }
+
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.imageSmoothingEnabled = true;
-
-    /*
-     * 1 を超える強さは、重ねて出す。
-     *
-     * 透明度は 1 が上限なので、それ以上の値を渡しても頭打ちになる。
-     * コンボが上限のときはもっと眩しくしたいので、残りが無くなるまで
-     * 同じ光を足していく。回数には歯止めを設ける。眩しさは足すほど
-     * 伸びるが、1枚ごとの負担はそのぶん増えるため。
-     */
-    var left = amount;
-    for (var n = 0; n < CONFIG.glarePassMax && left > 0.01; n++) {
-      ctx.globalAlpha = Math.min(1, left);
-      ctx.drawImage(glareBuf, 0, 0, W, H);
-      left -= 1;
-    }
-
+    ctx.globalAlpha = Math.min(1, amount);
+    ctx.drawImage(glareBuf, 0, 0, W, H);
     ctx.restore();
   }
 
