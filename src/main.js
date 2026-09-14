@@ -128,18 +128,18 @@
      */
     windSpeed: 0.9,
     /**
-     * @brief 尾を何秒ぶんの移動距離にするか [s]。
+     * @brief 尾の長さ。今いる位置の中心からの隔たりに対する割合。
      *
-     * 1枚ぶんちょうどにすると、それはモーションブラーの定義そのもので、
-     * 飛んでいるものではなく残像に見えてしまう。何枚かぶんに伸ばして
-     * 初めて「長い筋が飛んでいる」と読める。
+     * 実際に動いた距離から求めるのをやめている。物として正しくは
+     * あっても、奥にいるあいだは筋が短く、飛んでいるものに見えない。
+     * ここは勢いを見せる絵なので、見え方のほうを取った。
      *
-     * フレーム数ではなく秒で持つ。枚数で持つと、30 回/秒の端末では
-     * 尾が倍の長さになり、見え方が変わってしまう。
+     * 割合で持つと、奥でも手前でも同じ細長さに見え、しかも手前へ
+     * 出るほど実際の長さは伸びる。時間もフレームレートも関わらない。
      */
-    windTrailSec: 0.3,
-    /** @brief 先端の濃い部分の長さ [s]。ここが進行方向の頭になる。 */
-    windHeadSec: 0.075,
+    windTrailFrac: 0.55,
+    /** @brief 先端の濃い部分の長さ（同じく割合）。進行方向の頭になる。 */
+    windHeadFrac: 0.18,
     /**
      * @brief 風の線が消える奥行き。0 に近いほど手前。
      *
@@ -1097,10 +1097,11 @@
    * 放射状の棒が伸び縮みして見えたが、投影に任せると、手前ほど速く
    * 大きく開いていく加速が計算するまでもなく出てくる。
    *
-   * 線は「少し前にいた位置」から「今の位置」まで引く。ただし1枚ぶん
-   * ちょうどにはしない。それはモーションブラーの定義そのもので、
-   * 飛んでいるものではなく残像に見えてしまう。何倍にも伸ばし、
-   * さらに先端だけ濃くして、進んでいる向きを読ませている。
+   * 尾の長さは、実際に動いた距離からは求めていない。それは物として
+   * 正しくても、1枚ぶんの移動はモーションブラーの定義そのもので、
+   * 飛んでいるものではなく残像に見えてしまう。ここは勢いを見せる絵
+   * なので、今の位置を中心へ向かって縮めた点を根元にしている。
+   * 奥でも手前でも同じ細長さに見え、進むほど実際の長さは伸びる。
    *
    * 中心の近く、つまり奥にいるあいだは薄い。そこはリングの切れ目を
    * 読み取る場所なので、線が重なると遊びの邪魔になる。
@@ -1168,13 +1169,6 @@
       var z = 1 - p * span;
 
       /*
-       * 尾の根元と、先端の濃い部分の付け根。どちらも「少し前にいた
-       * 奥行き」なので、同じ式で秒数だけ変えて求める。
-       */
-      var tailZ = Math.min(1, z + rate * span * CONFIG.windTrailSec);
-      var headZ = Math.min(1, z + rate * span * CONFIG.windHeadSec);
-
-      /*
        * 濃さは、奥にいるあいだだけ薄くする。
        *
        * そこは中心＝リングの切れ目を読み取る場所でもあり、まだ遠くに
@@ -1186,16 +1180,21 @@
                   (0.8 + kick * 0.45);
       if (alpha < 0.004) continue;
 
-      var nx = Math.cos(a) * r;
-      var ny = Math.sin(a) * r;
-      var tx = cx + nx * focal / tailZ;
-      var ty = cy + ny * focal / tailZ;
+      /*
+       * 中心から今の位置へのベクトル。尾と先端は、これを縮めた点に
+       * すぎない。実際に動いた距離ではなく割合で取っているので、
+       * 手前へ出るほど長く、奥では短く、比率は変わらない。
+       */
+      var ex = Math.cos(a) * r * focal / z;
+      var ey = Math.sin(a) * r * focal / z;
+      var x = cx + ex;
+      var y = cy + ey;
+      var tx = cx + ex * (1 - CONFIG.windTrailFrac);
+      var ty = cy + ey * (1 - CONFIG.windTrailFrac);
 
       // 尾の根元がもう画面の外なら、線は丸ごと外にある
       if (tx < -reach || tx > W + reach || ty < -reach || ty > H + reach) continue;
 
-      var x = cx + nx * focal / z;
-      var y = cy + ny * focal / z;
       var hue = (clock * 18 + i * 7) % 360;
       var width = (1.1 + level * 2.0) * (0.5 + near * 1.0);
 
@@ -1216,7 +1215,8 @@
       ctx.strokeStyle = M.hsl(hue, 80, 88, alpha);
       ctx.lineWidth = width;
       ctx.beginPath();
-      ctx.moveTo(cx + nx * focal / headZ, cy + ny * focal / headZ);
+      ctx.moveTo(cx + ex * (1 - CONFIG.windHeadFrac),
+                 cy + ey * (1 - CONFIG.windHeadFrac));
       ctx.lineTo(x, y);
       ctx.stroke();
     }
