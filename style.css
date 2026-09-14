@@ -463,9 +463,7 @@ body.on-title #panel { display: none; }
  * ゲージは輪郭がはっきりしているため、こちらだけ詰まって見える。
  * 見た目を揃えるには、実際の数値を少し足す必要がある。
  */
-.comboStat .gauge { margin-left: calc(var(--gap-ui) * 0.5); }
-
-.comboStat .statValue {
+.comboStat .comboStat .statValue {
   text-align: right;
   color: var(--accent);
   text-shadow: 0 0 18px rgba(122, 215, 255, 0.45);
@@ -483,34 +481,6 @@ body.on-title #panel { display: none; }
 }
 
 #comboValue.bump { transform: scale(1.25); }
-
-.gauge {
-  position: relative;
-  width: clamp(70px, calc(5vw + 5vh), 190px);
-  height: clamp(7px, calc(0.3vw + 0.3vh), 14px);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.09);
-  overflow: hidden;
-}
-
-.gaugeFill {
-  display: block;
-  height: 100%;
-  width: 0%;
-  border-radius: 4px;
-  background: linear-gradient(90deg, #4aa8ff, #7ad7ff, #b98cff);
-  transition: width 0.18s ease;
-}
-
-/* 音の層が加わる位置の目盛り */
-.gaugeTick {
-  position: absolute;
-  top: 0;
-  width: 2px;
-  height: 100%;
-  background: rgba(4, 5, 10, 0.85);
-}
-
 /* --- FPS 表示（調整用） -------------------------------------------- */
 
 #fps[hidden] { display: none; }

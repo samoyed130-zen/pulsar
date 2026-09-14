@@ -31,7 +31,7 @@
 
   見た目や動きを直したら、この番号を1つ進めること。
 -->
-<link rel="stylesheet" href="style.css?v=18">
+<link rel="stylesheet" href="style.css?v=19">
 </head>
 <body>
 
@@ -89,7 +89,8 @@
 -->
 <div id="hud">
   <span class="brand">PULSAR</span>
-  <button id="menuBtn" type="button">☰ メニュー</button>
+  <!-- 三本線だけで意味が通るので、文字は添えない（読み上げ用の名前は付ける） -->
+  <button id="menuBtn" type="button" aria-label="メニュー">☰</button>
 </div>
 
 <!--
@@ -105,10 +106,13 @@
   入口を1つにまとめたほうが迷わない。
 -->
 <div id="menu" hidden>
-  <div class="menuPanel" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
-    <!-- 走行中だけ、今どのステージにいるかを見出しの上に出す -->
+  <!--
+    見出しの「メニュー」は置かない。ここまで来た人には、並んでいる
+    項目そのものが何の画面かを示している。読み上げ用の名前だけ付ける。
+  -->
+  <div class="menuPanel" role="dialog" aria-modal="true" aria-label="メニュー">
+    <!-- 走行中だけ、今どのステージにいるかを出す -->
     <p class="menuStage" id="menuStage" hidden>ステージ 1</p>
-    <h2 id="menuTitle">メニュー</h2>
 
     <div class="menuList">
       <button id="sensBtn" type="button">操作感度 ×1</button>
@@ -161,17 +165,13 @@
     <span class="statValue" id="scoreTime">2:00</span>
   </div>
 
+  <!--
+    ゲージの棒は置かない。溜まり具合は画面の集中線が示す。
+    勢いは数字や棒で読むものではなく、速く見えることそのものなので。
+  -->
   <div class="stat comboStat">
     <span class="statLabel">COMBO</span>
     <span class="statValue"><i class="pad" id="comboPad">00</i><span id="comboValue">0</span></span>
-    <span class="gauge">
-      <i class="gaugeFill" id="gaugeFill"></i>
-      <!-- 音の層が加わる位置。どこまで溜めれば何が増えるかを目で示す -->
-      <i class="gaugeTick" style="left:26%"></i>
-      <i class="gaugeTick" style="left:48%"></i>
-      <i class="gaugeTick" style="left:70%"></i>
-      <i class="gaugeTick" style="left:88%"></i>
-    </span>
   </div>
 </div>
 
@@ -349,14 +349,14 @@
   <p class="noscript">この作品は JavaScript で描画しています。有効にしてご覧ください。</p>
 </noscript>
 
-<script src="src/store.js?v=18"></script>
-<script src="src/mathx.js?v=18"></script>
-<script src="src/raster.js?v=18"></script>
-<script src="src/mesh3d.js?v=18"></script>
-<script src="src/sound.js?v=18"></script>
-<script src="src/game.js?v=18"></script>
-<script src="src/scenes.js?v=18"></script>
-<script src="src/main.js?v=18"></script>
+<script src="src/store.js?v=19"></script>
+<script src="src/mathx.js?v=19"></script>
+<script src="src/raster.js?v=19"></script>
+<script src="src/mesh3d.js?v=19"></script>
+<script src="src/sound.js?v=19"></script>
+<script src="src/game.js?v=19"></script>
+<script src="src/scenes.js?v=19"></script>
+<script src="src/main.js?v=19"></script>
 <script>
   // 読み込み順に依存するため、起動はここで1度だけ行う。
   PULSAR.app.boot();
@@ -945,7 +945,7 @@
       // 結果を眺めている最中に消えて出直すことになる。
       if (open && !testsFrame.getAttribute('src')) {
         // 版番号は作品側と揃える（古いまま読み込まれるのを避ける）
-        testsFrame.setAttribute('src', 'test.html?v=18');
+        testsFrame.setAttribute('src', 'test.html?v=19');
       }
 
       if (open) {

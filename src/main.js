@@ -109,6 +109,14 @@
     minFrameMs: 15.5,
     /** @brief FPS 表示を書き換える間隔 [ms]。速すぎると数字が読めない。 */
     fpsUpdateMs: 250,
+    /** @brief コンボの段階1つあたり、集中線を何本足すか。 */
+    speedLinesPerStep: 9,
+    /**
+     * @brief 集中線を描き始める半径の割合（画面の隅までを 1 とする）。
+     *
+     * 中心はリングの切れ目を読み取る場所なので、線で覆わない。
+     */
+    speedLineInner: 0.34,
     /** @brief この時間を超え続けたら描画を軽くする [ms]。 */
     slowMs: 22,
     /**
@@ -960,7 +968,7 @@
 
   /** @brief FPS の文字を最後に書き換えた時刻 [ms]。 @private */
   var fpsShownMs = 0;
-  var comboValueEl = null, gaugeFillEl = null;
+  var comboValueEl = null;
 
   /** @brief 桁を埋める見えない 0 を入れる要素。 @private */
   var distPadEl = null, comboPadEl = null;
@@ -1019,6 +1027,112 @@
 
     if (padEl) padEl.textContent = zeros;
     numEl.textContent = s;
+  }
+
+  /**
+   * @brief コンボの段階を数える。
+   *
+   * 音の層が増えるしきい値をそのまま使う。曲が厚くなる瞬間と
+   * 絵が変わる瞬間が揃い、どちらも「上手くなった手応え」として
+   * 同じ出来事に聞こえ、同じ出来事に見える。
+   *
+   * @private
+   * @param {number} gauge コンボゲージ [0..1]
+   * @returns {number} 0（まだ何も増えていない）〜 層の数
+   */
+  function comboStep(gauge) {
+    var layers = global.PULSAR.sound.LAYER;
+    var n = 0;
+
+    for (var key in layers) {
+      if (Object.prototype.hasOwnProperty.call(layers, key) && gauge >= layers[key]) n++;
+    }
+
+    return n;
+  }
+
+  /**
+   * @brief 速さを示す集中線を描く。
+   *
+   * コンボが伸びるほど本数と長さが増え、画面の端から中心へ向かって
+   * 流れる。ゲージの棒を読ませる代わりに、勢いそのものを絵で見せる。
+   *
+   * 中心の近くには描かない。そこは切れ目を読み取る場所なので、
+   * 線が重なると遊びの邪魔になる。
+   *
+   * 1本ごとの位置は角度から決めている（乱数ではない）。毎フレーム
+   * 引き直しても同じ場所に出るので、ちらつかない。
+   *
+   * @private
+   * @param {number} step コンボの段階（0 なら描かない）
+   * @param {number} t 経過時間 [s]
+   * @param {number} kick 拍の強さ [0..1]
+   * @returns {void}
+   */
+  function drawSpeedLines(step, t, kick) {
+    if (step <= 0) return;
+
+    var cx = W / 2;
+    var cy = H / 2;
+    var reach = Math.sqrt(cx * cx + cy * cy);   // 画面の隅までの距離
+
+    // 段階が上がるほど密に、そして速く流す
+    var count = step * CONFIG.speedLinesPerStep;
+    var speed = 0.55 + step * 0.2 + kick * 0.25;
+    var level = step / comboStepMax();
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+
+    for (var i = 0; i < count; i++) {
+      // 角度は本数で割り、そこへ本ごとの偏りを足す。
+      // 等間隔のままだと車輪のスポークに見えてしまう。
+      var seed = i * 12.9898;
+      var jitter = seed - Math.floor(seed);
+      var a = (i / count + jitter * 0.6 / count) * TAU_LOCAL;
+
+      // 流れる位置。0 から 1 へ進み、端まで行ったら先頭へ戻る。
+      var p = (t * speed + jitter) % 1;
+
+      // 中心付近は空ける。遊びに使う場所を覆わないため。
+      var near = CONFIG.speedLineInner + p * (1.05 - CONFIG.speedLineInner);
+      var far = near + (0.10 + level * 0.16) * (0.6 + jitter * 0.8);
+
+      // 出入りを滑らかに。端で急に現れると点滅して見える。
+      var fade = Math.sin(p * Math.PI);
+      var alpha = (0.05 + level * 0.22) * fade * (0.7 + kick * 0.6);
+      if (alpha < 0.004) continue;
+
+      var dx = Math.cos(a);
+      var dy = Math.sin(a);
+
+      ctx.strokeStyle = M.hsl((clock * 20 + i * 3) % 360, 92, 74, alpha);
+      ctx.lineWidth = (0.9 + level * 1.8) * (0.6 + fade * 0.8);
+      ctx.beginPath();
+      ctx.moveTo(cx + dx * near * reach, cy + dy * near * reach);
+      ctx.lineTo(cx + dx * far * reach, cy + dy * far * reach);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  /**
+   * @brief コンボの段階の最大値（音の層の数）。
+   * @private
+   * @returns {number} 段階の数
+   */
+  function comboStepMax() {
+    var layers = global.PULSAR.sound.LAYER;
+    var n = 0;
+
+    for (var key in layers) {
+      if (Object.prototype.hasOwnProperty.call(layers, key)) n++;
+    }
+
+    return n;
   }
 
   /**
@@ -1102,7 +1216,6 @@
       shownCombo = st.combo;
     }
 
-    gaugeFillEl.style.width = (game.gauge() * 100).toFixed(1) + '%';
   }
 
   /**
@@ -1516,6 +1629,9 @@
 
     scene.draw(f);
 
+    // 集中線はグレアの前に描く。光として拾わせたいため。
+    if (playing) drawSpeedLines(comboStep(game.gauge()), clock, kick);
+
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     // 絵ができた直後にグレアを重ねる。UI の文字までにじませないよう、
@@ -1709,7 +1825,6 @@
     timeEl = document.getElementById('scoreTime');
 
     comboValueEl = document.getElementById('comboValue');
-    gaugeFillEl = document.getElementById('gaugeFill');
 
     distPadEl = document.getElementById('distPad');
     comboPadEl = document.getElementById('comboPad');
