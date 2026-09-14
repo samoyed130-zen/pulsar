@@ -286,6 +286,103 @@
   var WIND_STEPS = [[0, 0.75, 0.3], [0.6, 1, 1]];
 
   /**
+   * @brief 濃さと太さの近い線をまとめる入れ物。
+   *
+   * 1本ずつ `stroke()` を呼ぶと、線の数だけ呼び出しの手間がかかる。
+   * 塗る面積そのものは小さいのに、コンボが最大の段階（110 区間）では
+   * それだけで 60 回/秒に届かなくなった。
+   *
+   * 濃さと太さを段に丸めて、同じ段のものを一つの道筋へ足していけば、
+   * 実際に呼ぶのは段の数だけで済む。丸めの粗さは見た目に出ない程度に
+   * 取ってあるので、絵は変わらない。
+   *
+   * @private
+   */
+  var windBuckets = [];
+
+  /**
+   * @brief 濃さをいくつの段に丸めるか。多いほど元の絵に近い。
+   *
+   * 粗くすると、いちばん薄い線が段の下限まで持ち上げられてしまう。
+   * 数倍の濃さになるので、そこだけは見て分かる。刻みを、いちばん薄い
+   * 線の濃さより細かく取る。
+   *
+   * @private
+   */
+  var WIND_ALPHA_STEPS = 14;
+
+  /**
+   * @brief 太さを丸める刻み [px]。1px 未満の違いは見えない。
+   * @private
+   */
+  var WIND_WIDTH_STEP = 1;
+
+  /**
+   * @brief 太さの段の数。入れ物の番号を組み立てるときの幅。
+   * @private
+   */
+  var WIND_WIDTH_MAX = 8;
+
+  /**
+   * @brief 風の線の一区間を、濃さと太さの近いものへ振り分ける。
+   *
+   * 段の代表値（丸めた値そのもの）で描く。1本目の値を採ると、同じ
+   * 入れ物に入った他の線がその太さに引きずられてしまう。
+   *
+   * @private
+   * @param {number} alpha 濃さ [0..1]
+   * @param {number} width 太さ [px]
+   * @param {number} x0 始点 x
+   * @param {number} y0 始点 y
+   * @param {number} x1 終点 x
+   * @param {number} y1 終点 y
+   * @returns {void}
+   */
+  function addWindSegment(alpha, width, x0, y0, x1, y1) {
+    // 丸めて 0 になるものは、そもそも見えないので捨てる
+    var ai = M.clamp(Math.round(alpha * WIND_ALPHA_STEPS), 0, WIND_ALPHA_STEPS);
+    if (ai === 0) return;
+
+    var wi = M.clamp(Math.round(width / WIND_WIDTH_STEP), 1, WIND_WIDTH_MAX);
+    var key = ai * WIND_WIDTH_MAX + wi;
+    var b = windBuckets[key];
+
+    if (!b) {
+      b = windBuckets[key] = {
+        path: null,
+        alpha: ai / WIND_ALPHA_STEPS,
+        width: wi * WIND_WIDTH_STEP,
+        n: 0
+      };
+    }
+
+    if (b.n === 0) b.path = new global.Path2D();
+
+    b.path.moveTo(x0, y0);
+    b.path.lineTo(x1, y1);
+    b.n++;
+  }
+
+  /**
+   * @brief まとめた線を、段ごとに一度ずつ引く。
+   * @private
+   * @returns {void}
+   */
+  function strokeWindBuckets() {
+    for (var i = 0; i < windBuckets.length; i++) {
+      var b = windBuckets[i];
+      if (!b || b.n === 0) continue;
+
+      ctx.strokeStyle = M.hsl(CONFIG.windHue, 55, 85, b.alpha);
+      ctx.lineWidth = b.width;
+      ctx.stroke(b.path);
+
+      b.n = 0;
+      b.path = null;
+    }
+  }
+
+  /**
    * @brief シーン選択に使う時刻 [s]。操作に応じて飛んだり巻き戻したりする。
    * @private
    */
@@ -1348,39 +1445,29 @@
       // 尾の根元がもう画面の外なら、線は丸ごと外にある
       if (tx < -reach || tx > W + reach || ty < -reach || ty > H + reach) continue;
 
-      /*
-       * 根元から先端へ、薄いところから濃いところへ。
-       *
-       * 濃さが一様な棒は、長くしただけ余計にブレに見える。飛んでいる
-       * ものは頭が明るく、後ろへ流れるほど薄い。ただし別の線として
-       * 重ねると、先端だけ色の違う短い棒が乗っているように見えてしまう。
-       * 1本のまま濃さだけを移り変わらせる。
-       *
-       * 色そのものは1本ずつ変えず、全部そろえる。虹色にすると、風では
-       * なく色の付いた棒が並んでいるようにしか見えなかった。
-       */
-      ctx.lineWidth = (1.1 + level * 2.0) * (0.5 + near * 1.0);
+      var width = (1.1 + level * 2.0) * (0.5 + near * 1.0);
 
       /*
-       * 根元から先端へ、3つに区切って濃さを上げていく。
+       * 根元から先端へ、区間に区切って濃さを上げていく。
        *
-       * グラデーションで滑らかに変えていたが、線ごとに作り直すことに
-       * なり、そのぶん目に見えて遅くなった。色と彩度と明度は同じまま
-       * 濃さだけを段にすれば、加算で重なるぶん境目は溶けて分からない。
-       * 別の色の棒が乗って見えるのは、色が違うときだけだった。
+       * 濃さが一様な棒は、長くしただけ余計にブレに見える。飛んでいる
+       * ものは頭が明るく、後ろへ流れるほど薄い。ただし別の色を重ねると、
+       * 先端だけ色の違う短い棒が乗っているように見えてしまう。色も彩度も
+       * 明度も同じまま、濃さだけを変える。
+       *
+       * 描くのはここではなく、濃さと太さの近いものをまとめる入れ物へ。
        */
       for (var s = 0; s < WIND_STEPS.length; s++) {
         var from = WIND_STEPS[s][0];
         var to = WIND_STEPS[s][1];
 
-        ctx.strokeStyle = M.hsl(CONFIG.windHue, 55, 85,
-                                alpha * WIND_STEPS[s][2]);
-        ctx.beginPath();
-        ctx.moveTo(tx + (x - tx) * from, ty + (y - ty) * from);
-        ctx.lineTo(tx + (x - tx) * to, ty + (y - ty) * to);
-        ctx.stroke();
+        addWindSegment(alpha * WIND_STEPS[s][2], width,
+                       tx + (x - tx) * from, ty + (y - ty) * from,
+                       tx + (x - tx) * to, ty + (y - ty) * to);
       }
     }
+
+    strokeWindBuckets();
 
     ctx.restore();
     ctx.globalCompositeOperation = 'source-over';
