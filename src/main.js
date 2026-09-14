@@ -1120,15 +1120,15 @@
        */
       var inFade = M.clamp((near - CONFIG.windStart) * 3.2, 0, 1);
       var outFade = M.clamp((1.15 - near) * 2.2, 0, 1);
-      var alpha = (0.05 + level * 0.20) * inFade * outFade * (0.75 + kick * 0.5);
+      var alpha = (0.14 + level * 0.55) * inFade * outFade * (0.8 + kick * 0.45);
       if (alpha < 0.004) continue;
 
       var dx = Math.cos(a);
       var dy = Math.sin(a);
 
       // 色は場面の色相に寄せる。白い線だけだと雪のように見えてしまう
-      ctx.strokeStyle = M.hsl((clock * 18 + i * 7) % 360, 85, 78, alpha);
-      ctx.lineWidth = (0.7 + level * 1.4) * (1.25 - near * 0.5);
+      ctx.strokeStyle = M.hsl((clock * 18 + i * 7) % 360, 85, 82, alpha);
+      ctx.lineWidth = (1.1 + level * 2.0) * (1.25 - near * 0.5);
       ctx.beginPath();
       ctx.moveTo(cx + dx * near * reach, cy + dy * near * reach);
       ctx.lineTo(cx + dx * (near + len) * reach, cy + dy * (near + len) * reach);
