@@ -31,7 +31,7 @@
 
   見た目や動きを直したら、この番号を1つ進めること。
 -->
-<link rel="stylesheet" href="style.css?v=44">
+<link rel="stylesheet" href="style.css?v=45">
 </head>
 <body>
 
@@ -226,8 +226,12 @@
     <table class="helpTable">
       <tbody>
         <tr>
-          <th>画面をなぞる</th>
-          <td>指（またはマウス）の向きへ自機が回り込みます。トンネルの中心から見た方向がそのまま自機の位置です。</td>
+          <th>一本指で左右に動かす</th>
+          <td>動かした量だけ自機が回ります。画面のどこを触っても構いません。狙う場所を手で隠さずに済みます。</td>
+        </tr>
+        <tr>
+          <th>マウスを動かす</th>
+          <td>マウスの向きへ自機が回り込みます。トンネルの中心から見た方向が、そのまま自機の位置です。</td>
         </tr>
         <tr>
           <th>← →キー</th>
@@ -241,7 +245,7 @@
           <th>スマートフォン</th>
           <td>
             <strong>縦持ちを推奨します。</strong>
-            自機は画面中心のまわりを回るため、縦持ちの方が指の動きと自機の動きが一致します。
+            片手で持ったまま、親指を左右に滑らせるだけで操作できます。
           </td>
         </tr>
         <tr>
@@ -340,14 +344,14 @@
   <p class="noscript">この作品は JavaScript で描画しています。有効にしてご覧ください。</p>
 </noscript>
 
-<script src="src/store.js?v=44"></script>
-<script src="src/mathx.js?v=44"></script>
-<script src="src/raster.js?v=44"></script>
-<script src="src/mesh3d.js?v=44"></script>
-<script src="src/sound.js?v=44"></script>
-<script src="src/game.js?v=44"></script>
-<script src="src/scenes.js?v=44"></script>
-<script src="src/main.js?v=44"></script>
+<script src="src/store.js?v=45"></script>
+<script src="src/mathx.js?v=45"></script>
+<script src="src/raster.js?v=45"></script>
+<script src="src/mesh3d.js?v=45"></script>
+<script src="src/sound.js?v=45"></script>
+<script src="src/game.js?v=45"></script>
+<script src="src/scenes.js?v=45"></script>
+<script src="src/main.js?v=45"></script>
 <script>
   // 読み込み順に依存するため、起動はここで1度だけ行う。
   PULSAR.app.boot();
@@ -936,7 +940,7 @@
       // 結果を眺めている最中に消えて出直すことになる。
       if (open && !testsFrame.getAttribute('src')) {
         // 版番号は作品側と揃える（古いまま読み込まれるのを避ける）
-        testsFrame.setAttribute('src', 'test.html?v=44');
+        testsFrame.setAttribute('src', 'test.html?v=45');
       }
 
       if (open) {

@@ -55,6 +55,14 @@
      * 「輪に入っているのに当たった」という食い違いが起きない。
      */
     shipZ: 4.15,
+    /**
+     * @brief 指で画面の幅いっぱいをなぞったときに回る角度 [rad]。
+     *
+     * 1周（2π）より少なく取る。1回のなぞりで1周以上回ると、どちらへ
+     * 動かしたのか分からなくなる。半周と少しなら、画面の端から端まで
+     * 動かせば反対側へ届く。
+     */
+    swipeTurn: 3.8,
     /** @brief キー操作時の角速度 [rad/s]（押し続けたときの最大）。 */
     keyTurnRate: 3.4,
     /** @brief 押し始めの速さの割合。小さいほど、軽く叩いたときの動きが小さい。 */
@@ -600,6 +608,29 @@
     // ここで指の位置へ戻してしまうと、キーで動かした意味がなくなる。
     if (f.inputMode === 'key') {
       return { target: state.angle, rate: CONFIG.manualRate };
+    }
+
+    /*
+     * 指の端末は、横になぞった量だけ回す。
+     *
+     * 円周上の位置をそのまま狙いにすると、狙いたい場所を自分の手で
+     * 隠すことになる。とくに縦長の画面では、輪の下側が指の下に入る。
+     * なぞった量なら、画面のどこを触っていても構わない。
+     *
+     * 触れていない間は自動操縦のまま。触れた瞬間に飛ばないのも、
+     * 位置ではなく動いた量で操るこの方式の利点になっている。
+     */
+    if (f.pointer.touch) {
+      if (!f.pointer.everTouched) return { target: nextGapAngle(), rate: CONFIG.autoRate };
+
+      var turn = (f.pointer.swing || 0) / Math.max(1, f.W) *
+                 CONFIG.swipeTurn * sensitivity;
+
+      return {
+        // 目標そのものを動かすので、キー操作と同じく遅れずに追う
+        target: M.wrapAngle(state.angle + turn),
+        rate: 999
+      };
     }
 
     if (f.pointer.everTouched) {

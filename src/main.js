@@ -873,9 +873,26 @@
 
   /**
    * @brief 指・マウスの状態。シーンと `game` が共有して読む。
-   * @type {{x: number, y: number, down: boolean, everTouched: boolean}}
+   *
+   * `touch` は、指で触れる端末かどうか。指とマウスでは操作の意味が違う。
+   * マウスは画面の上に留まったまま位置を示せるので、円周上の位置を
+   * そのまま狙いにできる。指は自分の手が画面を覆うので、狙いたい場所を
+   * 指で隠すことになってしまう。そこで指のときは、横になぞった量だけ
+   * 動かす形にしている。どこを触っていても、画面は隠れない。
+   *
+   * `swing` は、まだ反映していない横移動の量 [px]。1枚描くごとに
+   * 使い切って 0 に戻す。
+   *
+   * `id` は、いま追いかけている指。最初に触れた1本だけを見る。
+   * 2本目が触れたぶんまで足すと、持ち替えただけで自機が飛んでしまう。
+   *
+   * @type {{x: number, y: number, down: boolean, everTouched: boolean,
+   *         touch: boolean, swing: number, id: (number|null)}}
    */
-  var pointer = { x: 0, y: 0, down: false, everTouched: false };
+  var pointer = {
+    x: 0, y: 0, down: false, everTouched: false, touch: false,
+    swing: 0, id: null
+  };
 
   /** @brief 左右キーの押下状態。 @private */
   var keys = { left: false, right: false };
@@ -1005,6 +1022,9 @@
     canvas.addEventListener('pointerdown', function (e) {
       readPointer(e);
       pointer.down = true;
+      if (e.pointerType === 'touch') pointer.touch = true;
+      // 追いかけるのは最初の1本だけ。触れている指が無いときだけ改める
+      if (pointer.id === null) pointer.id = e.pointerId;
       inputMode = 'pointer';
       noteInput();
       // 自動再生制限があるため、操作を起点に音を起こす。
@@ -1013,6 +1033,10 @@
     });
 
     canvas.addEventListener('pointermove', function (e) {
+      // 追いかけている指以外は見ない。2本目に持ち替えられると、
+      // 離れた場所どうしの差が一度に足されて自機が飛ぶ。
+      if (pointer.id !== null && e.pointerId !== pointer.id) return;
+
       var prevX = pointer.x;
       var prevY = pointer.y;
       readPointer(e);
@@ -1029,13 +1053,42 @@
       // 主導権が移ると、キーで操作している人には事故に見える。
       var dx = pointer.x - prevX;
       var dy = pointer.y - prevY;
+
+      /*
+       * 指で触れているあいだは、横になぞった量を溜める。
+       *
+       * 揺れを無視する下の足切りより先に溜める。指はゆっくり動かす
+       * ことも多く、そこで捨てるとじりじり寄せる操作ができない。
+       */
+      if (e.pointerType === 'touch') {
+        pointer.touch = true;
+        if (pointer.down) pointer.swing += dx;
+      }
+
+      // わずかな揺れは動かしたうちに入れない。机の振動などで
+      // 主導権が移ると、キーで操作している人には事故に見える。
       if (dx * dx + dy * dy < POINTER_WAKE * POINTER_WAKE) return;
 
       inputMode = 'pointer';
     });
 
-    global.addEventListener('pointerup', function () { pointer.down = false; });
-    global.addEventListener('pointercancel', function () { pointer.down = false; });
+    /**
+     * @brief 指が離れたときの後始末。
+     *
+     * 追いかけていた指が離れたときだけ、次の1本を受け付ける状態に戻す。
+     * どの指が離れても解いてしまうと、2本目を離した拍子に持ち替わる。
+     *
+     * @param {PointerEvent} e ポインタイベント
+     * @returns {void}
+     */
+    function releasePointer(e) {
+      if (pointer.id !== null && e.pointerId !== pointer.id) return;
+      pointer.down = false;
+      pointer.id = null;
+    }
+
+    global.addEventListener('pointerup', releasePointer);
+    global.addEventListener('pointercancel', releasePointer);
 
     global.addEventListener('keydown', function (e) {
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
@@ -1212,9 +1265,19 @@
     c.stroke();
     c.setLineDash([]);
 
-    // 円周をなぞる指先
-    var fx = cx + Math.cos(a) * radius;
-    var fy = cy + Math.sin(a) * radius;
+    /*
+     * 指先の動き。
+     *
+     * 指の端末は横になぞって操る。輪の上をぐるりと動く絵を出すと
+     * 「輪をなぞるのだ」と読めてしまうので、指の端末では左右に
+     * 往復させる。マウスは円周上の位置がそのまま狙いなので、
+     * これまでどおり輪の上を回す。
+     */
+    var swipe = pointer.touch;
+    var fx = swipe
+      ? cx + Math.sin(a) * radius
+      : cx + Math.cos(a) * radius;
+    var fy = swipe ? cy + radius : cy + Math.sin(a) * radius;
     var grad = c.createRadialGradient(fx, fy, 0, fx, fy, 26);
     grad.addColorStop(0, 'rgba(190,235,255,' + (alpha * 0.75).toFixed(3) + ')');
     grad.addColorStop(1, 'rgba(190,235,255,0)');
@@ -1226,7 +1289,8 @@
     c.globalCompositeOperation = 'source-over';
     c.font = '700 ' + Math.min(f.W * 0.045, 22).toFixed(0) + 'px system-ui, sans-serif';
     c.fillStyle = 'rgba(236,243,255,' + alpha.toFixed(3) + ')';
-    c.fillText('なぞって操作', cx, cy + radius + 42);
+    c.fillText(swipe ? '一本指で左右に動かす' : 'なぞって操作',
+               cx, cy + radius + 42);
 
     c.restore();
   }
@@ -2018,6 +2082,9 @@
 
     applyZoom(zoom, sx, sy);
     scene.draw(f);
+
+    // なぞった量は1枚で使い切る。残すと、指を止めた後も回り続ける。
+    pointer.swing = 0;
 
     // 絵ができた直後にグレアを重ねる。UI の文字までにじませないよう、
     // スコアや案内を描く前にかける。

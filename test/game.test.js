@@ -23,7 +23,10 @@
       H: 600,
       steer: 0,
       inputMode: 'pointer',
-      pointer: { x: 400, y: 300, down: false, everTouched: false },
+      pointer: {
+        x: 400, y: 300, down: false, everTouched: false,
+        touch: false, swing: 0
+      },
       impacts: 0
     };
     f.impact = function () { f.impacts++; };
@@ -726,6 +729,68 @@
 
       // 画面中心から見て上 = -π/2 方向
       expect(M.angleDist(G.state.angle, -Math.PI / 2) < 0.2).toBeTrue();
+    });
+
+    it('指の端末では、動かした量だけ回る', function () {
+      /*
+       * 指は自分の手で画面を隠すので、円周上の位置を狙いにできない。
+       * どこを触っていてもよい「動かした量」で操る。
+       */
+      G.reset();
+      G.setSensitivity(1);
+
+      var f = makeFrame({ dt: 1 / 60 });
+      f.pointer.touch = true;
+      f.pointer.everTouched = true;
+      G.state.angle = 0;
+
+      // 画面の幅いっぱいを右へ動かす
+      f.pointer.swing = f.W;
+      G.update(f);
+
+      expect(Math.abs(M.angleDist(G.state.angle, G.CONFIG.swipeTurn)) < 0.05)
+        .toBeTrue();
+    });
+
+    it('指の端末では、指を止めればその場に留まる', function () {
+      // 位置ではなく動いた量で操るので、触れているだけでは動かない。
+      G.reset();
+
+      var f = makeFrame({ dt: 1 / 60 });
+      f.pointer.touch = true;
+      f.pointer.everTouched = true;
+      f.pointer.x = 700;          // 中心から大きく離れた場所を触っている
+      f.pointer.y = 100;
+      G.state.angle = 0;
+
+      f.pointer.swing = 0;
+      for (var i = 0; i < 60; i++) G.update(f);
+
+      expect(Math.abs(M.angleDist(G.state.angle, 0)) < 0.05).toBeTrue();
+    });
+
+    it('指の端末でも、触れるまでは自動操縦', function () {
+      // 触れた瞬間に飛ばないのも、動いた量で操るこの方式の利点。
+      G.reset();
+
+      var f = makeFrame({ dt: 1 / 60 });
+      f.pointer.touch = true;
+      f.pointer.everTouched = false;
+
+      var before = G.state.angle;
+      f.pointer.swing = 300;
+      G.update(f);
+
+      expect(Math.abs(M.angleDist(G.state.angle, before)) < 0.2).toBeTrue();
+    });
+
+    it('一回のなぞりで1周以上は回らない', function () {
+      /*
+       * 画面の端から端まで動かして1周を超えると、どちらへ動かしたのか
+       * 分からなくなる。半周と少しで、反対側へ届く程度に取る。
+       */
+      expect(G.CONFIG.swipeTurn > Math.PI).toBeTrue();
+      expect(G.CONFIG.swipeTurn < Math.PI * 2).toBeTrue();
     });
 
     it('速い段階ほど、同じ時間で目標へ近づく', function () {
