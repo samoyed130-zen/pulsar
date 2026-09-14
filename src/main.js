@@ -109,6 +109,22 @@
     minFrameMs: 15.5,
     /** @brief FPS 表示を書き換える間隔 [ms]。速すぎると数字が読めない。 */
     fpsUpdateMs: 250,
+    /**
+     * @brief コンボが最大の段階のときに、光をどれだけ増やすか。
+     *
+     * 風の線は画面の端を流れるので、中心を見ている目には届きにくい。
+     * 画面そのものが明るくなれば、視線を動かさずに段階が上がったと
+     * 分かる。曲の層が増える瞬間と同じ拍で起きるので、音と絵と光が
+     * 一つの手応えになる。
+     */
+    comboGlare: 0.45,
+    /**
+     * @brief 光の増減にかける時間の目安 [1/s]。
+     *
+     * 段階が変わった瞬間に切り替えると、画面が一瞬白く弾けたように
+     * 見えて、ぶつかった合図と紛らわしい。少し遅らせて持ち上げる。
+     */
+    comboGlareEase: 3,
     /** @brief 風の線が出ているときの、最低限の本数。 */
     windLinesBase: 10,
     /** @brief コンボの段階1つあたり、風の線を何本足すか。 */
@@ -244,6 +260,16 @@
    * @private
    */
   var windPhase = 0;
+
+  /**
+   * @brief 今どれだけ光を増しているか [0..1]。
+   *
+   * コンボの段階をそのまま使わず、追いかけさせている。段階が変わった
+   * 瞬間に切り替えると画面が弾けたように見え、ぶつかった合図と紛れる。
+   *
+   * @private
+   */
+  var comboGlow = 0;
 
   /**
    * @brief シーン選択に使う時刻 [s]。操作に応じて飛んだり巻き戻したりする。
@@ -569,9 +595,39 @@
 
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = amount;
+    // 1 を超えると無視される。呼ぶ側で足し合わせた値が入るので、ここで抑える
+    ctx.globalAlpha = M.clamp(amount, 0, 1);
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(glareBuf, 0, 0, W, H);
+    ctx.restore();
+  }
+
+  /**
+   * @brief コンボの段階ぶんだけ、画面全体に光を足す。
+   *
+   * グレアを使えないときの控え。縮小もぼかしもせず、画面いっぱいを
+   * 加算で1回塗るだけなので、いちばん遅い端末でも払える。
+   *
+   * 中心を明るく、周りを落としている。一様に塗ると、白い紙をかぶせた
+   * ようになって奥行きが消えてしまう。
+   *
+   * @private
+   * @param {number} glow 明るさの割合 [0..1]
+   * @returns {void}
+   */
+  function drawComboLight(glow) {
+    if (glow <= 0.01) return;
+
+    var g = ctx.createRadialGradient(W / 2, H / 2, 0,
+                                     W / 2, H / 2, Math.max(W, H) * 0.7);
+    g.addColorStop(0, M.hsl(CONFIG.windHue, 60, 60,
+                            glow * CONFIG.comboGlare * 0.5));
+    g.addColorStop(1, M.hsl(CONFIG.windHue, 60, 60, 0));
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
     ctx.restore();
   }
 
@@ -1777,8 +1833,18 @@
 
     scene.draw(f);
 
+    /*
+     * コンボの段階。風の線の本数と、画面全体の明るさの両方を決める。
+     * 同じ数から出すので、絵と光が食い違うことがない。
+     */
+    var step = playing ? comboStep(game.gauge()) : 0;
+
+    // 段階そのものではなく、そこへ近づいていく値を光に使う
+    comboGlow += (step / comboStepMax() - comboGlow) *
+                 M.clamp(dt * CONFIG.comboGlareEase, 0, 1);
+
     // 風の線はグレアの前に描く。光として拾わせたいため。
-    if (playing) drawWindLines(comboStep(game.gauge()), kick, dt);
+    if (playing) drawWindLines(step, kick, dt);
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
@@ -1799,7 +1865,21 @@
       ? ((scene.glare === undefined) ? 1 : scene.glare)
       : 0;
     var glareBase = useSoftGlare() ? CONFIG.softGlare : CONFIG.glare;
-    drawGlare(glareBase * glareScale * (0.75 + kick * 0.45));
+
+    // コンボの段階が上がるほど、画面そのものを明るくする。
+    // 端を流れる風の線と違い、中心を見たままでも変化に気づける。
+    var glareAmount = glareBase * glareScale * (0.75 + kick * 0.45);
+    drawGlare(glareAmount * (1 + comboGlow * CONFIG.comboGlare));
+
+    /*
+     * グレアが走らないときの控え。
+     *
+     * 背景を切っているときや、描画が追いつかず光を止めているときは、
+     * 上の1行では明るさが変わらない。段階の上がりはゲージの代わりに
+     * 出している情報なので、設定で消えてしまっては困る。
+     * 画面全体に薄い光を足すだけなら、どれだけ遅い端末でも払える。
+     */
+    if (glareAmount <= 0.01) drawComboLight(comboGlow);
 
     var playable = scene.name === CONFIG.playableScene;
     drawPrompt(f, playable);

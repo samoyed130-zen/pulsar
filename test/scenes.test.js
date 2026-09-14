@@ -723,6 +723,26 @@
       st.started = before;
     });
 
+    it('コンボの段階が上がると、画面全体が明るくなる', function () {
+      /*
+       * 風の線は画面の端を流れるので、中心を見ている目には届きにくい。
+       * 画面そのものの明るさなら、視線を動かさずに気づける。
+       */
+      expect(app.CONFIG.comboGlare > 0).toBeTrue();
+      // 光は加算で重ねる。倍率が大きすぎると、最大の段階で白く飛ぶ
+      expect(app.CONFIG.comboGlare < 1).toBeTrue();
+    });
+
+    it('明るさの変化には、追いつくまでの時間がある', function () {
+      /*
+       * 段階が変わった瞬間に切り替えると、画面が一瞬弾けたように見え、
+       * ぶつかった合図と紛らわしい。
+       */
+      expect(app.CONFIG.comboGlareEase > 0).toBeTrue();
+      // 60 回/秒の1枚で追いつききる（1 以上）と、遅らせた意味が無い
+      expect(app.CONFIG.comboGlareEase < 60).toBeTrue();
+    });
+
     it('風の線の色は1つに決まっている', function () {
       /*
        * 1本ずつ色相をずらしていたときは、風ではなく色の付いた棒が
