@@ -677,6 +677,21 @@
       expect(app.CONFIG.windLinesPerStep >= 6).toBeTrue();
     });
 
+    it('1段階目から、はっきり見える強さで出る', function () {
+      /*
+       * ここはゲージの代わりなので、最初の段階が薄いと
+       * 「コンボが続いている」ことが伝わらない。
+       * 段階の数で割った値（1/5 = 0.2）より強いこと。
+       */
+      expect(app.CONFIG.windFirstLevel >= 0.4).toBeTrue();
+      // 1段階目で最大と同じでは、増えていく手応えが無くなる
+      expect(app.CONFIG.windFirstLevel < 1).toBeTrue();
+    });
+
+    it('風の線には最低限の本数がある', function () {
+      expect(app.CONFIG.windLinesBase > 0).toBeTrue();
+    });
+
     it('風の線は中心の手前から生まれる', function () {
       // 中心はリングの切れ目を読み取る場所なので、覆ってはいけない。
       expect(app.CONFIG.windStart > 0).toBeTrue();

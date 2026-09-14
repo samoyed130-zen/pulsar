@@ -109,8 +109,17 @@
     minFrameMs: 15.5,
     /** @brief FPS 表示を書き換える間隔 [ms]。速すぎると数字が読めない。 */
     fpsUpdateMs: 250,
+    /** @brief 風の線が出ているときの、最低限の本数。 */
+    windLinesBase: 10,
     /** @brief コンボの段階1つあたり、風の線を何本足すか。 */
-    windLinesPerStep: 11,
+    windLinesPerStep: 9,
+    /**
+     * @brief 1段階目の強さ [0..1]。
+     *
+     * ゲージの代わりに勢いを示すものなので、最初の段階から
+     * はっきり見えていないと「増えた」ことが伝わらない。
+     */
+    windFirstLevel: 0.5,
     /** @brief 風の線が流れる速さの基準。 */
     windSpeed: 0.9,
     /**
@@ -1086,9 +1095,20 @@
     var cy = H / 2;
     var reach = Math.sqrt(cx * cx + cy * cy);   // 画面の隅までの距離
 
-    var count = step * CONFIG.windLinesPerStep;
+    /*
+     * 段階の強さ。1段階目をいきなり読める濃さから始める。
+     *
+     * ここはゲージの代わりなので、「増えた」と分かることが役目になる。
+     * 段階の数でそのまま割ると、1段階目が最大の 1/5 の濃さになり、
+     * 背景に沈んで何も起きていないように見えてしまう。
+     * 下限を持たせ、そこから最大まで伸ばす。
+     */
+    var last = Math.max(1, comboStepMax() - 1);
+    var level = CONFIG.windFirstLevel +
+                (1 - CONFIG.windFirstLevel) * ((step - 1) / last);
+
+    var count = CONFIG.windLinesBase + step * CONFIG.windLinesPerStep;
     var speed = CONFIG.windSpeed * (0.7 + step * 0.12 + kick * 0.2);
-    var level = step / comboStepMax();
 
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
@@ -1120,7 +1140,7 @@
        */
       var inFade = M.clamp((near - CONFIG.windStart) * 3.2, 0, 1);
       var outFade = M.clamp((1.15 - near) * 2.2, 0, 1);
-      var alpha = (0.14 + level * 0.55) * inFade * outFade * (0.8 + kick * 0.45);
+      var alpha = (0.10 + level * 0.62) * inFade * outFade * (0.8 + kick * 0.45);
       if (alpha < 0.004) continue;
 
       var dx = Math.cos(a);
