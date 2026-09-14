@@ -117,7 +117,14 @@
      * 分かる。曲の層が増える瞬間と同じ拍で起きるので、音と絵と光が
      * 一つの手応えになる。
      */
-    comboGlare: 0.45,
+    comboGlare: 1.6,
+    /**
+     * @brief グレアを重ねる回数の上限。
+     *
+     * 透明度は 1 が上限なので、それより眩しくするには重ねるしかない。
+     * ただし1枚ごとに画面いっぱいを塗り直すので、際限なく増やせない。
+     */
+    glarePassMax: 3,
     /**
      * @brief 光の増減にかける時間の目安 [1/s]。
      *
@@ -595,10 +602,23 @@
 
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    // 1 を超えると無視される。呼ぶ側で足し合わせた値が入るので、ここで抑える
-    ctx.globalAlpha = M.clamp(amount, 0, 1);
     ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(glareBuf, 0, 0, W, H);
+
+    /*
+     * 1 を超える強さは、重ねて出す。
+     *
+     * 透明度は 1 が上限なので、それ以上の値を渡しても頭打ちになる。
+     * コンボが上限のときはもっと眩しくしたいので、残りが無くなるまで
+     * 同じ光を足していく。回数には歯止めを設ける。眩しさは足すほど
+     * 伸びるが、1枚ごとの負担はそのぶん増えるため。
+     */
+    var left = amount;
+    for (var n = 0; n < CONFIG.glarePassMax && left > 0.01; n++) {
+      ctx.globalAlpha = Math.min(1, left);
+      ctx.drawImage(glareBuf, 0, 0, W, H);
+      left -= 1;
+    }
+
     ctx.restore();
   }
 
@@ -621,7 +641,7 @@
     var g = ctx.createRadialGradient(W / 2, H / 2, 0,
                                      W / 2, H / 2, Math.max(W, H) * 0.7);
     g.addColorStop(0, M.hsl(CONFIG.windHue, 60, 60,
-                            glow * CONFIG.comboGlare * 0.5));
+                            Math.min(0.7, glow * CONFIG.comboGlare * 0.35)));
     g.addColorStop(1, M.hsl(CONFIG.windHue, 60, 60, 0));
 
     ctx.save();

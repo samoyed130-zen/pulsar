@@ -729,8 +729,16 @@
        * 画面そのものの明るさなら、視線を動かさずに気づける。
        */
       expect(app.CONFIG.comboGlare > 0).toBeTrue();
-      // 光は加算で重ねる。倍率が大きすぎると、最大の段階で白く飛ぶ
-      expect(app.CONFIG.comboGlare < 1).toBeTrue();
+    });
+
+    it('上限の段階では、光を重ねて出す', function () {
+      /*
+       * 加算の透明度は 1 が上限で、それ以上を渡しても頭打ちになる。
+       * 上限の段階をもっと眩しくするため、残りぶんを重ねて足す。
+       * その回数だけ画面いっぱいを塗り直すので、歯止めも要る。
+       */
+      expect(app.CONFIG.glarePassMax >= 2).toBeTrue();
+      expect(app.CONFIG.glarePassMax <= 4).toBeTrue();
     });
 
     it('明るさの変化には、追いつくまでの時間がある', function () {
