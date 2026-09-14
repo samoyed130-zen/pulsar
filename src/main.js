@@ -785,6 +785,25 @@
   }
 
   /**
+   * @brief 画面の中心を軸にした、拍のズームと衝突の揺れを掛ける。
+   *
+   * 背景と前景で2回掛けるので、1か所にまとめてある。別々に書くと、
+   * 片方だけ直したときに前景が画面へ貼り付いたように見えてしまう。
+   *
+   * @private
+   * @param {number} zoom 拡大率
+   * @param {number} sx 横のずれ [px]
+   * @param {number} sy 縦のずれ [px]
+   * @returns {void}
+   */
+  function applyZoom(zoom, sx, sy) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.translate(W / 2 + sx, H / 2 + sy);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-W / 2, -H / 2);
+  }
+
+  /**
    * @brief `filter` を使わずに、縮小バッファ上でグレアの素を作る。
    *
    * 手順は3つ。
@@ -1968,8 +1987,6 @@
       W: W,
       H: H,
       t: clock,
-      // コンボで足す光の量。描く側は、その分だけ明度を下げて振り切れを防ぐ
-      glow: comboGlow,
       dt: dt,
       local: pick.local,
       progress: pick.progress,
@@ -1996,20 +2013,13 @@
       impact: impact
     };
 
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
     // キックに合わせた微小なズームと、衝突時の揺れ。
     var zoom = 1 + kick * CONFIG.beatZoom + shake * 0.03;
     var sx = (Math.random() - 0.5) * shake * 14;
     var sy = (Math.random() - 0.5) * shake * 14;
-    ctx.translate(W / 2 + sx, H / 2 + sy);
-    ctx.scale(zoom, zoom);
-    ctx.translate(-W / 2, -H / 2);
 
+    applyZoom(zoom, sx, sy);
     scene.draw(f);
-
-    // 風の線はグレアの前に描く。光として拾わせたいため。
-    if (playing) drawWindLines(step, kick, dt);
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
@@ -2045,6 +2055,24 @@
      * 画面全体に薄い光を足すだけなら、どれだけ遅い端末でも払える。
      */
     if (glareAmount <= 0.01) drawComboLight(comboGlow);
+
+    /*
+     * 光を乗せ終えてから、遊ぶために見るものを描く。
+     *
+     * ゲートも風の線も、前は光の下にあった。グレアは明るいところを
+     * にじませて加算するので、彩度を上げて塗ったゲートは色が振り切れ、
+     * 切れ目の位置が読み取りにくくなっていた。風の線も白い帯に溶けた。
+     *
+     * 眩しさは景色の役目で、判断の材料はくっきりしているべき。
+     * 背景と立方体は今までどおり光の前に描いているので、にじみは残る。
+     *
+     * ズームと揺れは掛け直す。背景と同じ動きに乗っていないと、
+     * ゲートだけが画面に貼り付いたように見えてしまう。
+     */
+    applyZoom(zoom, sx, sy);
+    if (scene.front) scene.front(f);
+    if (playing) drawWindLines(step, kick, dt);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     var playable = scene.name === CONFIG.playableScene;
     drawPrompt(f, playable);

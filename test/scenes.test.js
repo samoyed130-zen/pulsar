@@ -745,6 +745,35 @@
       expect(app.CONFIG.comboGlareEase < 60).toBeTrue();
     });
 
+    it('操作区間は、光を乗せた後に描く前景を持つ', function () {
+      /*
+       * グレアは明るいところをにじませて加算する。ゲートと風の線を
+       * その下に置くと、色が振り切れて切れ目の位置が読み取りにくい。
+       * 眩しさは景色の役目で、判断の材料はくっきりしているべき。
+       */
+      var tl = window.PULSAR.scenes.timeline;
+      var tunnel = null;
+
+      for (var i = 0; i < tl.length; i++) {
+        if (tl[i].name === app.CONFIG.playableScene) tunnel = tl[i];
+      }
+
+      expect(tunnel !== null).toBeTrue();
+      expect(typeof tunnel.front === 'function').toBeTrue();
+    });
+
+    it('光の前に描く場面には、前景を持たせない', function () {
+      // 逃げ道であって、全部に付ける仕組みではない。景色は光の下でいい。
+      var tl = window.PULSAR.scenes.timeline;
+      var n = 0;
+
+      for (var i = 0; i < tl.length; i++) {
+        if (tl[i].front) n++;
+      }
+
+      expect(n === 1).toBeTrue();
+    });
+
     it('風の線の色は1つに決まっている', function () {
       /*
        * 1本ずつ色相をずらしていたときは、風ではなく色の付いた棒が

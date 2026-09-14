@@ -773,8 +773,27 @@
     // 避ける対象を見失わずに済む。
     drawSolids(f);
 
-    game.draw(f);
+    // リングと自機はここでは描かない。下の drawTunnelFront が、
+    // 光を乗せ終えた後に描く。
     // スコア表示と操作案内は main.js が DOM 側でまとめて担当する。
+  }
+
+  /**
+   * @brief 光を乗せた後に描く前景（リングと自機）。
+   *
+   * グレアは画面の明るいところをにじませて加算する。リングは彩度を
+   * 上げて塗っているので、そこへ光が乗ると色が振り切れ、切れ目の位置が
+   * 読み取りにくくなる。遊ぶために見るものは、光の後ろに置かない。
+   *
+   * 背景と立方体は光の前に描いている。そちらはにじんで正しい。
+   * 眩しさは景色の役目で、判断の材料はくっきりしているべき、という
+   * 切り分けになっている。
+   *
+   * @param {Object} f フレーム文脈
+   * @returns {void}
+   */
+  function drawTunnelFront(f) {
+    global.PULSAR.game.draw(f);
   }
 
   // -----------------------------------------------------------------
@@ -951,13 +970,17 @@
    * `glare` はその場面でのグレアの強さの倍率。画面全体が明るい場面では
    * グレアが乗ると白く飛んでしまうため、場面ごとに抑える。
    *
+   * `front` があれば、光を乗せ終えた後に呼ばれる。遊ぶために見るものを
+   * 光の後ろに置かないための逃げ道で、操作区間だけが使っている。
+   *
    * @type {Array<{name: string, duration: number, transition: string,
-   *               glare: number, draw: Function}>}
+   *               glare: number, draw: Function, front: (Function|undefined)}>}
    */
   var timeline = [
     { name: 'starfield', duration: 9,  transition: 'flash',  glare: 0.45, draw: drawStarfield },
     { name: 'plasma',    duration: 8,  transition: 'wipe',   glare: 0.35, draw: drawPlasma },
-    { name: 'tunnel',    duration: 16, transition: 'flash',  glare: 1,    draw: drawTunnel },
+    { name: 'tunnel',    duration: 16, transition: 'flash',  glare: 1,    draw: drawTunnel,
+      front: drawTunnelFront },
     { name: 'metaballs', duration: 8,  transition: 'blinds', glare: 0.4, draw: drawMetaballs },
     { name: 'copper',    duration: 12, transition: 'wipe',   glare: 0.5,  draw: drawCopper }
   ];
