@@ -705,6 +705,15 @@
       expect(app.CONFIG.windHeadFrac > 0).toBeTrue();
     });
 
+    it('風の線の色は1つに決まっている', function () {
+      /*
+       * 1本ずつ色相をずらしていたときは、風ではなく色の付いた棒が
+       * 並んでいるようにしか見えなかった。1つの値に固定すること。
+       */
+      expect(typeof app.CONFIG.windHue === 'number').toBeTrue();
+      expect(app.CONFIG.windHue >= 0 && app.CONFIG.windHue < 360).toBeTrue();
+    });
+
     it('風の線は目の前を通り抜けてから消える', function () {
       /*
        * 奥行きを 0 にすると、透視投影（焦点距離 ÷ 奥行き）が

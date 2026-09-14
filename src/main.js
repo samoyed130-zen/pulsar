@@ -126,7 +126,15 @@
      * 速すぎると1本ずつを目が追えず、画面全体が一様なブレに見える。
      * 追える速さまで落としたうえで、本数と尾の長さで勢いを出す。
      */
-    windSpeed: 0.9,
+    windSpeed: 1.35,
+    /**
+     * @brief 風の線の色相。
+     *
+     * 1本ずつ色を変えていたときは、風ではなく色の付いた棒が並んで
+     * いるようにしか見えなかった。全部そろえて、明るさと長さの差だけで
+     * 奥行きを見せる。
+     */
+    windHue: 195,
     /**
      * @brief 尾の長さ。今いる位置の中心からの隔たりに対する割合。
      *
@@ -1170,6 +1178,10 @@
       var jitter = seed - Math.floor(seed);
       var seed2 = i * 78.233;
       var jitter2 = seed2 - Math.floor(seed2);
+      var seed3 = i * 39.3467;
+      var jitter3 = seed3 - Math.floor(seed3);
+      var seed4 = i * 15.7312;
+      var jitter4 = seed4 - Math.floor(seed4);
 
       var a = (i / count + jitter * 0.9 / count) * TAU_LOCAL;
 
@@ -1193,9 +1205,19 @@
        * 外側で薄くすると、抜けたのではなく「溶けて消えた」ように見える。
        */
       var near = M.clamp(1 - z, 0, 1);
+
+      /*
+       * 濃さと長さは本ごとに変える。
+       *
+       * すべて同じにすると、放射状に等間隔で並んだ図形にしか見えない。
+       * 濃い長い筋と薄い短い筋が混ざって初めて、離れた奥行きに散らばった
+       * ものが流れているように見える。
+       */
       var alpha = (0.10 + level * 0.62) * M.clamp(near * 3, 0, 1) *
-                  (0.8 + kick * 0.45);
+                  (0.8 + kick * 0.45) * (0.35 + jitter4 * 0.95);
       if (alpha < 0.004) continue;
+
+      var trail = CONFIG.windTrailFrac * (0.45 + jitter3 * 1.0);
 
       /*
        * 中心から今の位置へのベクトル。尾と先端は、これを縮めた点に
@@ -1206,13 +1228,12 @@
       var ey = Math.sin(a) * r * focal / z;
       var x = cx + ex;
       var y = cy + ey;
-      var tx = cx + ex * (1 - CONFIG.windTrailFrac);
-      var ty = cy + ey * (1 - CONFIG.windTrailFrac);
+      var tx = cx + ex * (1 - trail);
+      var ty = cy + ey * (1 - trail);
 
       // 尾の根元がもう画面の外なら、線は丸ごと外にある
       if (tx < -reach || tx > W + reach || ty < -reach || ty > H + reach) continue;
 
-      var hue = (clock * 18 + i * 7) % 360;
       var width = (1.1 + level * 2.0) * (0.5 + near * 1.0);
 
       /*
@@ -1221,15 +1242,18 @@
        * 濃さが一様な棒は、長くしただけ余計にブレに見える。飛んでいる
        * ものは頭が明るく、後ろへ流れるほど薄いので、その2段だけでも
        * 進んでいる向きが読めるようになる。
+       *
+       * 色は1本ずつ変えず、全部そろえる。虹色にすると、風ではなく
+       * 色の付いた棒が並んでいるようにしか見えなかった。
        */
-      ctx.strokeStyle = M.hsl(hue, 85, 78, alpha * 0.4);
+      ctx.strokeStyle = M.hsl(CONFIG.windHue, 55, 80, alpha * 0.4);
       ctx.lineWidth = width * 0.7;
       ctx.beginPath();
       ctx.moveTo(tx, ty);
       ctx.lineTo(x, y);
       ctx.stroke();
 
-      ctx.strokeStyle = M.hsl(hue, 80, 88, alpha);
+      ctx.strokeStyle = M.hsl(CONFIG.windHue, 40, 92, alpha);
       ctx.lineWidth = width;
       ctx.beginPath();
       ctx.moveTo(cx + ex * (1 - CONFIG.windHeadFrac),
