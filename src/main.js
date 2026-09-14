@@ -1325,7 +1325,7 @@
     c.globalCompositeOperation = 'source-over';
     c.font = '700 ' + Math.min(f.W * 0.045, 22).toFixed(0) + 'px system-ui, sans-serif';
     c.fillStyle = 'rgba(236,243,255,' + alpha.toFixed(3) + ')';
-    c.fillText(swipe ? '一本指で動かす' : 'なぞって操作',
+    c.fillText(swipe ? '一本指で動かす' : 'マウスを動かして操作',
                cx, cy + radius + 42);
 
     c.restore();
