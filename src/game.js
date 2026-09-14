@@ -56,13 +56,13 @@
      */
     shipZ: 4.15,
     /**
-     * @brief 指で画面の幅いっぱいをなぞったときに回る角度 [rad]。
+     * @brief 指の動きを、輪の上の動きに読み替えるときの倍率。
      *
-     * 1周（2π）より少なく取る。1回のなぞりで1周以上回ると、どちらへ
-     * 動かしたのか分からなくなる。半周と少しなら、画面の端から端まで
-     * 動かせば反対側へ届く。
+     * 1 なら、指が進んだ長さと自機が輪の上を進む長さが等しくなる。
+     * 指の下を自機が滑っていく感じになり、狙いの付け方が読みやすい。
+     * 細かく合わせたい人は、操作感度でこれを上下できる。
      */
-    swipeTurn: 3.8,
+    swipeGain: 1,
     /** @brief キー操作時の角速度 [rad/s]（押し続けたときの最大）。 */
     keyTurnRate: 3.4,
     /** @brief 押し始めの速さの割合。小さいほど、軽く叩いたときの動きが小さい。 */
@@ -571,6 +571,55 @@
   }
 
   /**
+   * @brief 画面上の動きを、自機がいる場所での輪の接線へ落とし込む。
+   *
+   * 自機は輪の上を回るので、動かす向きは場所によって変わる。輪の上に
+   * いるときは左右、右にいるときは上下が「進む向き」になる。接線に
+   * 落とし込めば、どの向きに動かしても、動かした通りに回る。
+   *
+   * 接線は、角度 θ の位置で (-sinθ, cosθ)。画面の y は下向きなので、
+   * この向きは時計回り（角度が増える向き）と一致する。
+   *
+   * @private
+   * @param {number} angle 自機の角度 [rad]
+   * @param {number} dx 画面上の横の動き [px]
+   * @param {number} dy 画面上の縦の動き（下が正） [px]
+   * @returns {number} 輪に沿って進んだ長さ [px]。正なら角度が増える向き
+   */
+  function tangentAmount(angle, dx, dy) {
+    return dx * -Math.sin(angle) + dy * Math.cos(angle);
+  }
+
+  /**
+   * @brief 矢印キーから、回す向きと強さを決める。
+   *
+   * 左右はそのまま回る向きになる。上下は、今いる場所によって回る向きが
+   * 変わるので、接線へ落とし込んでから使う（右にいるときの「上」と、
+   * 左にいるときの「上」は逆回りになる）。
+   *
+   * 輪の真上と真下では、上下キーの向きが接線と直角に交わって効かなく
+   * なる。そこだけ動かないのは壊れて見えるので、下限を設けて必ず
+   * どちらかへ回す。押し続ければ左右のどちらかへ抜け、そこから先は
+   * 素直に効くようになる。
+   *
+   * @private
+   * @param {Object} f フレーム文脈
+   * @returns {number} 回す向きと強さ [-1..1]
+   */
+  function keySteer(f) {
+    var steer = f.steer || 0;
+    var vert = f.steerY || 0;
+
+    if (vert !== 0) {
+      var along = tangentAmount(state.angle, 0, vert);
+      if (Math.abs(along) < 0.2) along = along >= 0 ? 0.2 : -0.2;
+      steer += along;
+    }
+
+    return M.clamp(steer, -1, 1);
+  }
+
+  /**
    * @brief 入力から自機の目標角を決める。
    *
    * 一度でも操作されたら手動、それまでは自動操縦。
@@ -582,7 +631,9 @@
    * @returns {{target: number, rate: number}} 目標角 [rad] と追従の速さ
    */
   function decideTarget(f) {
-    if (f.steer !== 0) {
+    var steer = keySteer(f);
+
+    if (steer !== 0) {
       // キーは「毎秒この角度だけ回す」という速度として扱う。
       //
       // 目標角を一定量だけ先へ置く方式にすると、感度を上げたときに
@@ -599,7 +650,7 @@
 
       return {
         target: M.wrapAngle(state.angle +
-                            f.steer * CONFIG.keyTurnRate * keyScale * ramp * f.dt),
+                            steer * CONFIG.keyTurnRate * keyScale * ramp * f.dt),
         rate: 999   // 目標そのものが毎フレーム進むので、遅れずに追う
       };
     }
@@ -611,11 +662,15 @@
     }
 
     /*
-     * 指の端末は、横になぞった量だけ回す。
+     * 指の端末は、なぞった量だけ回す。
      *
      * 円周上の位置をそのまま狙いにすると、狙いたい場所を自分の手で
      * 隠すことになる。とくに縦長の画面では、輪の下側が指の下に入る。
      * なぞった量なら、画面のどこを触っていても構わない。
+     *
+     * 縦も横も受ける。自機は輪の上を回るので、右や左にいるときは
+     * 「上下に動かす」ほうが自然になる。指の動きを、自機がいる場所での
+     * 輪の接線へ落とし込めば、どちらの向きでも動かした通りに回る。
      *
      * 触れていない間は自動操縦のまま。触れた瞬間に飛ばないのも、
      * 位置ではなく動いた量で操るこの方式の利点になっている。
@@ -623,12 +678,16 @@
     if (f.pointer.touch) {
       if (!f.pointer.everTouched) return { target: nextGapAngle(), rate: CONFIG.autoRate };
 
-      var turn = (f.pointer.swing || 0) / Math.max(1, f.W) *
-                 CONFIG.swipeTurn * sensitivity;
+      var radius = cursorRadius(Math.min(f.W, f.H) * CONFIG.focal);
+      var along = tangentAmount(state.angle,
+                                f.pointer.swingX || 0, f.pointer.swingY || 0);
 
       return {
         // 目標そのものを動かすので、キー操作と同じく遅れずに追う
-        target: M.wrapAngle(state.angle + turn),
+        // 指が輪の上を進んだ長さを、そのまま回る角度に読み替える
+        target: M.wrapAngle(state.angle +
+                            along / Math.max(1, radius) *
+                            CONFIG.swipeGain * sensitivity),
         rate: 999
       };
     }
@@ -667,7 +726,7 @@
     state.stageFlash = M.approach(state.stageFlash, 0, 2.2, dt);
 
     // キーを押し続けている時間。離した瞬間に 0 へ戻す。
-    state.keyHold = (f.steer !== 0) ? state.keyHold + dt : 0;
+    state.keyHold = keySteer(f) !== 0 ? state.keyHold + dt : 0;
 
     // 速度はコンボゲージに従う。繋げば速くなり、ぶつかれば元の速さへ戻る。
     // 「上手くなるほど手強くなる」関係を、時間経過ではなく腕前に結びつける。

@@ -22,10 +22,11 @@
       W: 800,
       H: 600,
       steer: 0,
+      steerY: 0,
       inputMode: 'pointer',
       pointer: {
         x: 400, y: 300, down: false, everTouched: false,
-        touch: false, swing: 0
+        touch: false, swingX: 0, swingY: 0
       },
       impacts: 0
     };
@@ -735,6 +736,30 @@
       /*
        * 指は自分の手で画面を隠すので、円周上の位置を狙いにできない。
        * どこを触っていてもよい「動かした量」で操る。
+       *
+       * 自機が輪の真上（-π/2）にいるとき、輪の接線は真横。そこで横へ
+       * 半径ぶん動かせば、輪の上を半径ぶん進む＝1ラジアン回る。
+       */
+      G.reset();
+      G.setSensitivity(1);
+
+      var f = makeFrame({ dt: 1 / 60 });
+      f.pointer.touch = true;
+      f.pointer.everTouched = true;
+      G.state.angle = -Math.PI / 2;
+
+      var radius = G.cursorRadius(Math.min(f.W, f.H) * G.CONFIG.focal);
+      f.pointer.swingX = radius;
+      G.update(f);
+
+      expect(Math.abs(M.angleDist(G.state.angle, -Math.PI / 2 + 1)) < 0.05)
+        .toBeTrue();
+    });
+
+    it('指の端末では、縦に動かしても回る', function () {
+      /*
+       * 自機が輪の右（角度 0）にいるとき、接線は縦。そこでは横に
+       * 動かしても回らず、縦に動かすほうが自然になる。
        */
       G.reset();
       G.setSensitivity(1);
@@ -744,12 +769,58 @@
       f.pointer.everTouched = true;
       G.state.angle = 0;
 
-      // 画面の幅いっぱいを右へ動かす
-      f.pointer.swing = f.W;
+      var radius = G.cursorRadius(Math.min(f.W, f.H) * G.CONFIG.focal);
+      f.pointer.swingY = radius;    // 下へ動かす
       G.update(f);
 
-      expect(Math.abs(M.angleDist(G.state.angle, G.CONFIG.swipeTurn)) < 0.05)
-        .toBeTrue();
+      // 下へ動かせば、輪の右側では角度が増える向きに回る
+      expect(Math.abs(M.angleDist(G.state.angle, 1)) < 0.05).toBeTrue();
+    });
+
+    it('指の端末では、接線と直角の向きには回らない', function () {
+      // 輪の右にいるときの横移動は、輪の上を進む動きにならない。
+      G.reset();
+
+      var f = makeFrame({ dt: 1 / 60 });
+      f.pointer.touch = true;
+      f.pointer.everTouched = true;
+      G.state.angle = 0;
+
+      f.pointer.swingX = 300;
+      G.update(f);
+
+      expect(Math.abs(M.angleDist(G.state.angle, 0)) < 0.05).toBeTrue();
+    });
+
+    it('上下キーでも回る', function () {
+      // 輪の上を回るものなので、上下も回す操作になる。
+      G.reset();
+
+      var f = makeFrame({ dt: 1 / 60, inputMode: 'key' });
+      G.state.angle = 0;          // 輪の右にいる
+      f.steerY = -1;              // 上へ
+
+      var before = M.angleDist(G.state.angle, -Math.PI / 2);
+      for (var i = 0; i < 30; i++) G.update(f);
+
+      // 輪の真上（-π/2）へ近づいていること
+      expect(M.angleDist(G.state.angle, -Math.PI / 2) < before - 0.1).toBeTrue();
+    });
+
+    it('上下キーは、輪の真上でも止まらない', function () {
+      /*
+       * 真上では上下の向きが接線と直角に交わる。そこで効かなくなると
+       * 壊れて見えるので、下限を設けて必ずどちらかへ回す。
+       */
+      G.reset();
+
+      var f = makeFrame({ dt: 1 / 60, inputMode: 'key' });
+      G.state.angle = -Math.PI / 2;   // 輪の真上
+      f.steerY = 1;                   // 下へ
+
+      for (var i = 0; i < 30; i++) G.update(f);
+
+      expect(Math.abs(M.angleDist(G.state.angle, -Math.PI / 2)) > 0.05).toBeTrue();
     });
 
     it('指の端末では、指を止めればその場に留まる', function () {
@@ -763,7 +834,6 @@
       f.pointer.y = 100;
       G.state.angle = 0;
 
-      f.pointer.swing = 0;
       for (var i = 0; i < 60; i++) G.update(f);
 
       expect(Math.abs(M.angleDist(G.state.angle, 0)) < 0.05).toBeTrue();
@@ -778,19 +848,18 @@
       f.pointer.everTouched = false;
 
       var before = G.state.angle;
-      f.pointer.swing = 300;
+      f.pointer.swingX = 300;
       G.update(f);
 
       expect(Math.abs(M.angleDist(G.state.angle, before)) < 0.2).toBeTrue();
     });
 
-    it('一回のなぞりで1周以上は回らない', function () {
+    it('指が進んだ長さと、自機が輪の上を進む長さが等しい', function () {
       /*
-       * 画面の端から端まで動かして1周を超えると、どちらへ動かしたのか
-       * 分からなくなる。半周と少しで、反対側へ届く程度に取る。
+       * 1 なら、指の下を自機が滑っていくように見える。ずれていると、
+       * 狙いをどれだけ動かせばよいのかが読みにくくなる。
        */
-      expect(G.CONFIG.swipeTurn > Math.PI).toBeTrue();
-      expect(G.CONFIG.swipeTurn < Math.PI * 2).toBeTrue();
+      expect(G.CONFIG.swipeGain).toBe(1);
     });
 
     it('速い段階ほど、同じ時間で目標へ近づく', function () {

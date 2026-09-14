@@ -880,22 +880,41 @@
    * 指で隠すことになってしまう。そこで指のときは、横になぞった量だけ
    * 動かす形にしている。どこを触っていても、画面は隠れない。
    *
-   * `swing` は、まだ反映していない横移動の量 [px]。1枚描くごとに
-   * 使い切って 0 に戻す。
+   * `swingX` / `swingY` は、まだ反映していない指の移動量 [px]。
+   * 縦も持つのは、輪の左右では「縦に動かす」ほうが自然だから。
+   * どう回すかは、今の角度を知っている game 側が決める。
+   * 1枚描くごとに使い切って 0 に戻す。
    *
    * `id` は、いま追いかけている指。最初に触れた1本だけを見る。
    * 2本目が触れたぶんまで足すと、持ち替えただけで自機が飛んでしまう。
    *
    * @type {{x: number, y: number, down: boolean, everTouched: boolean,
-   *         touch: boolean, swing: number, id: (number|null)}}
+   *         touch: boolean, swingX: number, swingY: number,
+   *         id: (number|null)}}
    */
   var pointer = {
     x: 0, y: 0, down: false, everTouched: false, touch: false,
-    swing: 0, id: null
+    swingX: 0, swingY: 0, id: null
   };
 
-  /** @brief 左右キーの押下状態。 @private */
-  var keys = { left: false, right: false };
+  /** @brief 矢印キーの押下状態。 @private */
+  var keys = { left: false, right: false, up: false, down: false };
+
+  /**
+   * @brief 矢印キーの名前と、押下状態の項目の対応。
+   *
+   * 自機は輪の上を回るので、上下も「回す」ことになる。回る向きは
+   * 今いる位置で変わるため、ここでは押されたことだけを覚えておき、
+   * どちらへ回すかは角度を知っている game 側で決める。
+   *
+   * @private
+   */
+  var ARROWS = {
+    ArrowLeft: 'left',
+    ArrowRight: 'right',
+    ArrowUp: 'up',
+    ArrowDown: 'down'
+  };
 
   /**
    * @brief 直前に使った操作手段。'pointer' か 'key'。
@@ -1047,7 +1066,7 @@
       // キーを押している間は、マウスに主導権を渡さない。
       // 渡してしまうと、キーで動かしている最中に手元のマウスが少し
       // 揺れただけで、キーを離した瞬間にそちらへ飛んでしまう。
-      if (keys.left || keys.right) return;
+      if (keys.left || keys.right || keys.up || keys.down) return;
 
       // わずかな揺れは動かしたうちに入れない。机の振動などで
       // 主導権が移ると、キーで操作している人には事故に見える。
@@ -1055,14 +1074,17 @@
       var dy = pointer.y - prevY;
 
       /*
-       * 指で触れているあいだは、横になぞった量を溜める。
+       * 指で触れているあいだは、動かした量を縦横とも溜める。
        *
        * 揺れを無視する下の足切りより先に溜める。指はゆっくり動かす
        * ことも多く、そこで捨てるとじりじり寄せる操作ができない。
        */
       if (e.pointerType === 'touch') {
         pointer.touch = true;
-        if (pointer.down) pointer.swing += dx;
+        if (pointer.down) {
+          pointer.swingX += dx;
+          pointer.swingY += dy;
+        }
       }
 
       // わずかな揺れは動かしたうちに入れない。机の振動などで
@@ -1091,9 +1113,8 @@
     global.addEventListener('pointercancel', releasePointer);
 
     global.addEventListener('keydown', function (e) {
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        if (e.key === 'ArrowLeft') keys.left = true;
-        else keys.right = true;
+      if (ARROWS[e.key]) {
+        keys[ARROWS[e.key]] = true;
         inputMode = 'key';
         noteInput();
         e.preventDefault();   // 画面が動くのを防ぐ
@@ -1107,8 +1128,7 @@
       if (typeof handler === 'function' && handler(e.key)) e.preventDefault();
     });
     global.addEventListener('keyup', function (e) {
-      if (e.key === 'ArrowLeft') keys.left = false;
-      if (e.key === 'ArrowRight') keys.right = false;
+      if (ARROWS[e.key]) keys[ARROWS[e.key]] = false;
     });
 
     // 画面の大きさが変わったら作り直す。
@@ -1289,7 +1309,7 @@
     c.globalCompositeOperation = 'source-over';
     c.font = '700 ' + Math.min(f.W * 0.045, 22).toFixed(0) + 'px system-ui, sans-serif';
     c.fillStyle = 'rgba(236,243,255,' + alpha.toFixed(3) + ')';
-    c.fillText(swipe ? '一本指で左右に動かす' : 'なぞって操作',
+    c.fillText(swipe ? '一本指で動かす' : 'なぞって操作',
                cx, cy + radius + 42);
 
     c.restore();
@@ -2014,15 +2034,26 @@
     // 拍の頭で 1、次の拍へ向かって減衰する値。キックの手応えを視覚に流用する。
     var kick = Math.exp(-phase * 5.5);
 
-    // 左右を同時に押したときは打ち消し合って 0 になる。
+    // 同じ向きの2つを同時に押したときは打ち消し合って 0 になる。
     // その場に留まる扱いになり、マウスへ主導権が移らない（下の inputMode）。
     var steer = 0;
     if (keys.left) steer -= 1;
     if (keys.right) steer += 1;
 
+    /*
+     * 上下キーの押し具合。画面の上を -1、下を +1 とする。
+     *
+     * 輪の上を回るものなので、上下がそのまま回る向きにはならない。
+     * 右にいるときの「上」と、左にいるときの「上」は逆回りになる。
+     * 向きの判断は、今の角度を知っている game 側に任せる。
+     */
+    var steerY = 0;
+    if (keys.up) steerY -= 1;
+    if (keys.down) steerY += 1;
+
     // キーを押している間は、操作手段をキーに固定する。
     // 押しっぱなしの最中にマウスへ移ると、離した瞬間に飛んでしまう。
-    if (keys.left || keys.right) inputMode = 'key';
+    if (keys.left || keys.right || keys.up || keys.down) inputMode = 'key';
 
     /*
      * コンボの段階。風の線の本数と、画面全体の明るさの両方を決める。
@@ -2061,6 +2092,7 @@
       bufCtx: bufCtx,
       pointer: pointer,
       steer: steer,
+      steerY: steerY,
       inputMode: inputMode,
       // ガイド輪を切っている人にも、走り始めだけは見せて自然に消す
       guideIntro: fadeOutHint(),
@@ -2084,7 +2116,8 @@
     scene.draw(f);
 
     // なぞった量は1枚で使い切る。残すと、指を止めた後も回り続ける。
-    pointer.swing = 0;
+    pointer.swingX = 0;
+    pointer.swingY = 0;
 
     // 光を重ねるのは画面そのものに対してなので、ズームは外す
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
