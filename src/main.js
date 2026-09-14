@@ -246,16 +246,6 @@
   var windPhase = 0;
 
   /**
-   * @brief 風の線の出どころを受け取る置き場。
-   *
-   * 毎フレーム、線の数だけ問い合わせる。そのたびに新しい入れ物を作ると
-   * 捨てるごみが増え、処理が途切れる原因になる。
-   *
-   * @private
-   */
-  var windCenter = { x: 0, y: 0 };
-
-  /**
    * @brief シーン選択に使う時刻 [s]。操作に応じて飛んだり巻き戻したりする。
    * @private
    */
@@ -1137,11 +1127,11 @@
    * なので、今の位置を中心へ向かって縮めた点を根元にしている。
    * 奥でも手前でも同じ細長さに見え、進むほど実際の長さは伸びる。
    *
-   * 出どころは画面の中心ではなく、トンネルの芯に合わせている。通路は
-   * うねっているので、ゲートが現れる場所＝消失点は動いている。そこに
-   * 合わせないと、風だけが別の世界から湧いているように見える。
+   * 出どころは常に画面の中心。通路のうねりに合わせて動かしてみたが、
+   * 風そのものが揺さぶられているように見えて落ち着かなかった。風は
+   * 自分が進んでいる向きに流れるものなので、動かないほうが正しい。
    *
-   * 芯の近く、つまり奥にいるあいだは薄い。そこはリングの切れ目を
+   * 中心の近く、つまり奥にいるあいだは薄い。そこはリングの切れ目を
    * 読み取る場所なので、線が重なると遊びの邪魔になる。
    *
    * 1本ごとの位置は番号から決めている（乱数ではない）。毎フレーム
@@ -1162,15 +1152,11 @@
   function drawWindLines(step, kick, dt) {
     if (step <= 0) return;
 
-    var G = global.PULSAR.game;
     var cx = W / 2;
     var cy = H / 2;
     var reach = Math.sqrt(cx * cx + cy * cy);   // 画面の隅までの距離
     var focal = reach * CONFIG.windFocal;
     var span = 1 - CONFIG.windNearZ;            // 奥行き 1 から手前までの幅
-
-    // トンネル側と同じ焦点距離。これが違うと、うねりの幅がずれる
-    var tunnelFocal = Math.min(W, H) * G.CONFIG.focal;
 
     /*
      * 段階の強さ。1段階目をいきなり読める濃さから始める。
@@ -1247,24 +1233,12 @@
        * すぎない。実際に動いた距離ではなく割合で取っているので、
        * 手前へ出るほど長く、奥では短く、比率は変わらない。
        */
-      /*
-       * 出どころは画面の中心ではなく、その奥行きでのトンネルの芯。
-       *
-       * 通路はうねっているので、ゲートが現れる場所＝消失点は左右上下へ
-       * 動いている。風だけが画面の中心から湧いていると、そこだけ別の
-       * 世界の絵が重なっているように見える。奥行きごとに芯を取れば、
-       * 風は通路そのものに沿って流れる。
-       */
-      G.tunnelCenter(z * G.CONFIG.farZ, clock, tunnelFocal, windCenter);
-      var ox = cx + windCenter.x;
-      var oy = cy + windCenter.y;
-
       var ex = Math.cos(a) * r * focal / z;
       var ey = Math.sin(a) * r * focal / z;
-      var x = ox + ex;
-      var y = oy + ey;
-      var tx = ox + ex * (1 - trail);
-      var ty = oy + ey * (1 - trail);
+      var x = cx + ex;
+      var y = cy + ey;
+      var tx = cx + ex * (1 - trail);
+      var ty = cy + ey * (1 - trail);
 
       // 尾の根元がもう画面の外なら、線は丸ごと外にある
       if (tx < -reach || tx > W + reach || ty < -reach || ty > H + reach) continue;

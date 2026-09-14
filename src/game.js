@@ -778,39 +778,6 @@
   }
 
   /**
-   * @brief その奥行きでの、トンネルの中心のずれ。
-   *
-   * トンネルは奥行きに応じてねじれ、うねる。まっすぐな筒だと、進んで
-   * いるのか止まっているのか分からなくなるためだ。そのぶん、ある奥行き
-   * での「筒の芯」は画面の中心からずれる。いちばん奥での値が、見た目の
-   * 消失点にあたる。
-   *
-   * リングを描くときと、風の線を出す場所を決めるときの両方で使う。
-   * 同じうねりを別々の式で書くと、必ず食い違って別物が動き出す。
-   *
-   * @param {number} z 奥行き（内部単位）
-   * @param {number} t 経過時間 [s]
-   * @param {number} focal 焦点距離 [px]
-   * @param {Object} out 結果を入れる先（x, y に書く）
-   * @returns {Object} out
-   */
-  /**
-   * @brief トンネルの中心を求めるときの置き場。
-   *
-   * 毎フレーム、リングの数だけ呼ぶ。そのたびに新しい入れ物を作ると
-   * 捨てるごみが増え、処理が途切れる原因になる。
-   *
-   * @private
-   */
-  var centerTmp = { x: 0, y: 0 };
-
-  function tunnelCenter(z, t, focal, out) {
-    out.x = Math.sin(z * 0.22 + t * 0.6) * focal * 0.10;
-    out.y = Math.cos(z * 0.18 + t * 0.45) * focal * 0.08;
-    return out;
-  }
-
-  /**
    * @brief トンネルと自機を描く。
    * @param {Object} f フレーム文脈
    * @returns {void}
@@ -837,9 +804,8 @@
       if (radius > Math.max(f.W, f.H) * 2.4) continue;
 
       // 奥行きに応じてトンネル全体をねじる。直線的に見せないための細工。
-      tunnelCenter(r.z, f.t, focal, centerTmp);
-      var twist = centerTmp.x;
-      var sway = centerTmp.y;
+      var twist = Math.sin(r.z * 0.22 + f.t * 0.6) * focal * 0.10;
+      var sway = Math.cos(r.z * 0.18 + f.t * 0.45) * focal * 0.08;
 
       // 奥ほど薄く。2乗で効かせることで、奥のリングが線の重なりとして
       // 溜まらず、いま抜けるべき手前のリングが自然と目に入る。
@@ -994,7 +960,6 @@
     draw: draw,
     gauge: gauge,
     ringRadius: ringRadius,
-    tunnelCenter: tunnelCenter,
     cursorRadius: cursorRadius,
     ringLineWidth: ringLineWidth,
     stageParams: stageParams,
