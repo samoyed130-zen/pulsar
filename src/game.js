@@ -245,8 +245,6 @@
     speed: CONFIG.baseSpeed,
     /** @brief リングの一覧。 */
     rings: [],
-    /** @brief 表示用スコア（距離の整数化）。 */
-    score: 0,
     /** @brief 直近の衝突からの経過時間 [s]。 */
     sinceHit: 99,
     /** @brief 左右キーを押し続けている時間 [s]。離すと 0 に戻る。 */
@@ -525,7 +523,6 @@
     state.dist = 0;
     state.speed = CONFIG.baseSpeed;
     state.rings = [];
-    state.score = 0;
     state.sinceHit = 99;
     state.combo = 0;
     state.maxCombo = 0;
@@ -709,7 +706,6 @@
     }
 
     state.collectFlash = M.approach(state.collectFlash, 0, 5, dt);
-    state.score = M.scoreFromDistance(state.dist);
   }
 
 

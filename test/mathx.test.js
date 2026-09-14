@@ -114,20 +114,6 @@
     });
   });
 
-  describe('scoreFromDistance', function () {
-    it('0 は 0', function () { expect(m.scoreFromDistance(0)).toBe(0); });
-    it('小数は切り捨てられる', function () { expect(m.scoreFromDistance(12.9)).toBe(12); });
-    it('負の距離でも 0 未満にならない', function () { expect(m.scoreFromDistance(-3)).toBe(0); });
-    it('距離に対して単調非減少', function () {
-      var prev = -1;
-      for (var d = 0; d < 500; d += 7.3) {
-        var s = m.scoreFromDistance(d);
-        expect(s >= prev).toBeTrue();
-        prev = s;
-      }
-    });
-  });
-
   describe('beatAt / beatPhase', function () {
     it('t=0 は 0 拍目', function () { expect(m.beatAt(120, 0)).toBe(0); });
     it('120BPM では 0.5 秒で 1 拍進む', function () {

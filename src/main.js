@@ -1022,6 +1022,35 @@
   }
 
   /**
+   * @brief 今のステージの進み具合を、割合で返す。
+   *
+   * 「あと何メートル」は、この作品の距離の単位を知らないと意味を持たない。
+   * 「何パーセント」なら、初めて見た人にも残りが分かる。
+   *
+   * 切り上げず、切り捨てる。四捨五入だと 99.5% で 100 と出てしまい、
+   * まだ走っているのに抜けたように見える。100 は「抜けた」ことの合図
+   * として取っておきたい。
+   *
+   * 逆に、抜けたのに 99 のままで終わることもない。進み具合は 1 で
+   * 頭打ちにしてあるので、条件を満たした時点で必ず 100 になる。
+   *
+   * 走行中の表示とリザルトで同じ値を使う。別々に計算すると、
+   * 片方だけ丸め方を直したときに食い違う。
+   *
+   * @private
+   * @returns {number} 0〜100
+   */
+  function goalPercent() {
+    var game = global.PULSAR.game;
+
+    // 踏破したあとは、最後のステージを抜けきった状態として見せる
+    if (game.state.cleared) return 100;
+
+    var v = Math.floor(game.stageProgress() * 100);
+    return (v >= 100 && !game.goalReached()) ? 99 : v;
+  }
+
+  /**
    * @brief スコア表示を更新する。
    *
    * Canvas ではなく DOM で出す理由: 数字は等幅で安定して読めた方がよく、
@@ -1041,21 +1070,7 @@
 
     // 距離は「このステージで進んだぶん / 抜けるのに必要なぶん」で出す。
     // 通算の距離より、あとどれだけでクリアかの方が今の判断に効く。
-    /*
-     * 進み具合は割合で出す。
-     *
-     * 「あと何メートル」は、この作品の距離の単位を知らないと意味を持たない。
-     * 「何パーセント」なら、初めて見た人にも残りが分かる。
-     *
-     * 切り上げず、切り捨てる。四捨五入だと 99.5% で 100 と出てしまい、
-     * まだ走っているのに抜けたように見える。100 は「抜けた」ことの
-     * 合図として取っておきたい。
-     *
-     * 逆に、抜けたのに 99 のままで終わることもない。進み具合は 1 で
-     * 頭打ちにしてあるので、条件を満たした時点で必ず 100 になる。
-     */
-    var run = Math.floor(game.stageProgress() * 100);
-    if (run >= 100 && !game.goalReached()) run = 99;
+    var run = goalPercent();
     if (run !== shownDist) {
       // 桁が増えるたびに幅が変わると、走っている最中に数字が横へずれる。
       showNumber(distPadEl, distEl, run, 3);
@@ -1117,7 +1132,8 @@
 
     document.getElementById('rsStage').textContent =
       st.stage + ' / ' + global.PULSAR.game.CONFIG.stageCount;
-    document.getElementById('rsDist').textContent = String(st.score);
+    // 走行中の HUD と同じ見せ方に揃える（距離ではなく、抜けるまでの割合）
+    document.getElementById('rsDist').textContent = goalPercent() + '%';
     document.getElementById('rsCombo').textContent = String(st.maxCombo);
     document.getElementById('rsItems').textContent = String(st.collected);
     document.getElementById('rsGained').textContent = Math.round(st.timeGained) + 's';

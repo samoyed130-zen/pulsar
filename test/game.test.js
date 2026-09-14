@@ -167,11 +167,10 @@
       expect(G.state.speed <= G.CONFIG.baseSpeed + 0.3).toBeTrue();
     });
 
-    it('スコアは距離から導かれ、負にならない', function () {
+    it('走った距離は負にならない', function () {
       G.reset();
       for (var i = 0; i < 120; i++) G.update(makeFrame());
-      expect(G.state.score).toBe(M.scoreFromDistance(G.state.dist));
-      expect(G.state.score >= 0).toBeTrue();
+      expect(G.state.dist >= 0).toBeTrue();
     });
   });
 

@@ -31,7 +31,7 @@
 
   見た目や動きを直したら、この番号を1つ進めること。
 -->
-<link rel="stylesheet" href="style.css?v=17">
+<link rel="stylesheet" href="style.css?v=18">
 </head>
 <body>
 
@@ -183,7 +183,7 @@
 
     <dl class="resultStats">
       <div><dt>STAGE</dt><dd id="rsStage">1 / 6</dd></div>
-      <div><dt>DISTANCE</dt><dd id="rsDist">0</dd></div>
+      <div><dt>GOAL</dt><dd id="rsDist">0%</dd></div>
       <div><dt>MAX COMBO</dt><dd id="rsCombo">0</dd></div>
       <div><dt>ITEMS</dt><dd id="rsItems">0</dd></div>
       <div><dt>TIME GAINED</dt><dd id="rsGained">0s</dd></div>
@@ -349,14 +349,14 @@
   <p class="noscript">この作品は JavaScript で描画しています。有効にしてご覧ください。</p>
 </noscript>
 
-<script src="src/store.js?v=17"></script>
-<script src="src/mathx.js?v=17"></script>
-<script src="src/raster.js?v=17"></script>
-<script src="src/mesh3d.js?v=17"></script>
-<script src="src/sound.js?v=17"></script>
-<script src="src/game.js?v=17"></script>
-<script src="src/scenes.js?v=17"></script>
-<script src="src/main.js?v=17"></script>
+<script src="src/store.js?v=18"></script>
+<script src="src/mathx.js?v=18"></script>
+<script src="src/raster.js?v=18"></script>
+<script src="src/mesh3d.js?v=18"></script>
+<script src="src/sound.js?v=18"></script>
+<script src="src/game.js?v=18"></script>
+<script src="src/scenes.js?v=18"></script>
+<script src="src/main.js?v=18"></script>
 <script>
   // 読み込み順に依存するため、起動はここで1度だけ行う。
   PULSAR.app.boot();
@@ -945,7 +945,7 @@
       // 結果を眺めている最中に消えて出直すことになる。
       if (open && !testsFrame.getAttribute('src')) {
         // 版番号は作品側と揃える（古いまま読み込まれるのを避ける）
-        testsFrame.setAttribute('src', 'test.html?v=17');
+        testsFrame.setAttribute('src', 'test.html?v=18');
       }
 
       if (open) {

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file mathx.js
  * @brief 描画や音から切り離した純粋関数だけを集めたモジュール。
  *
@@ -106,15 +106,6 @@
   }
 
   /**
-   * @brief 走行距離を表示用スコアへ変換する。
-   * @param {number} distance 走行距離（内部単位）
-   * @returns {number} 0 以上の整数スコア（距離に対し単調非減少）
-   */
-  function scoreFromDistance(distance) {
-    return Math.max(0, Math.floor(distance));
-  }
-
-  /**
    * @brief BPM と経過時刻から、何拍目かを求める。
    * @param {number} bpm 1分あたりの拍数
    * @param {number} t   経過時刻 [s]（0 以上）
@@ -218,7 +209,6 @@
     wrapAngle: wrapAngle,
     angleDist: angleDist,
     canPass: canPass,
-    scoreFromDistance: scoreFromDistance,
     beatAt: beatAt,
     beatPhase: beatPhase,
     pickScene: pickScene,
