@@ -692,6 +692,18 @@
       expect(app.CONFIG.windLinesBase > 0).toBeTrue();
     });
 
+    it('風の線の尾は、1枚ぶんの移動より十分に長い', function () {
+      /*
+       * 尾を1枚ぶんちょうどにすると、それはモーションブラーの定義
+       * そのもので、飛んでいるものではなく残像に見えてしまう。
+       * 60 回/秒（1/60 秒）の2倍より長いこと。
+       */
+      expect(app.CONFIG.windTrailSec > 2 / 60).toBeTrue();
+      // 先端の濃い部分は、尾より短くなければ頭として読めない
+      expect(app.CONFIG.windHeadSec < app.CONFIG.windTrailSec).toBeTrue();
+      expect(app.CONFIG.windHeadSec > 0).toBeTrue();
+    });
+
     it('風の線は目の前を通り抜けてから消える', function () {
       /*
        * 奥行きを 0 にすると、透視投影（焦点距離 ÷ 奥行き）が
