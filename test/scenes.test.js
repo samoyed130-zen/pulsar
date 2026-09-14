@@ -774,6 +774,15 @@
       expect(n === 1).toBeTrue();
     });
 
+    it('風の線は薄く、画面の主役を奪わない', function () {
+      /*
+       * 一本一本がはっきり見える必要はない。風は「そこにある」と
+       * 分かれば十分で、濃いとリングの切れ目から目を引いてしまう。
+       */
+      expect(app.CONFIG.windAlpha > 0).toBeTrue();
+      expect(app.CONFIG.windAlpha < 1).toBeTrue();
+    });
+
     it('風の線の色は1つに決まっている', function () {
       /*
        * 1本ずつ色相をずらしていたときは、風ではなく色の付いた棒が
