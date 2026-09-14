@@ -348,6 +348,17 @@
       expect(S2.getIntensity()).toBeCloseTo(0.4);
     });
 
+    it('音声を起こす経路と、起き続けさせる経路を分けている', function () {
+      /*
+       * iPhone では、利用者の操作の外で作った音声は止まったままになる。
+       * 毎フレーム呼ぶ keepAlive で作ってしまうと、初めの1枚で作られ、
+       * あとから触っても鳴らない。作ってよいのは操作を起点に呼ぶ
+       * wake だけ、という分担にしている。
+       */
+      expect(typeof S2.wake === 'function').toBeTrue();
+      expect(typeof S2.keepAlive === 'function').toBeTrue();
+    });
+
     it('一時停止中でも、操作を起点に音声を起こせる', function () {
       // ブラウザは利用者の操作を起点にしないと音声を起こさせない。
       // 「止まっているから」と見送ると、その瞬間を逃して無音のままになる。

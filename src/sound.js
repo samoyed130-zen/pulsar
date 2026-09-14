@@ -711,13 +711,36 @@
   function keepAlive() {
     if (!canPlay()) return;
 
-    // まだ音声を起こしていなければ、ここで起こす。
-    // 自動再生の制限があるため、この関数は必ず操作を起点に呼ぶこと。
+    /*
+     * まだ音声そのものが無いときは、ここでは作らない。
+     *
+     * iPhone では、操作の外で作った音声はそのまま止まった状態になる。
+     * 毎フレーム呼ばれるこの関数で作ってしまうと、初めの1枚で作られ、
+     * あとから操作しても起き上がらない。作るのは wake() の仕事。
+     */
+    if (!ac) return;
+
+    if (ac.state === 'suspended') ac.resume();
+  }
+
+  /**
+   * @brief 操作を起点に音を起こす。
+   *
+   * 自動再生の制限があるため、音声を作るのも再開するのも、必ず利用者の
+   * 操作の中で行う必要がある。押した・触った・キーを打った、のいずれかを
+   * 受けた場所から呼ぶ。
+   *
+   * 音を出さない設定にしている人には何もしない。操作のたびに勝手に
+   * 鳴り出しては、切った意味がなくなる。
+   *
+   * @returns {void}
+   */
+  function wake() {
+    if (!canPlay()) return;
     if (!ac) {
       start();
       return;
     }
-
     if (ac.state === 'suspended') ac.resume();
   }
 
@@ -800,6 +823,7 @@
     setAllowed: setAllowed,
     toggleMute: toggleMute,
     keepAlive: keepAlive,
+    wake: wake,
     isPlaying: isPlaying,
     isOn: isOn,
     isMuted: isMuted,

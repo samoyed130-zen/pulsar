@@ -1046,10 +1046,26 @@
       if (pointer.id === null) pointer.id = e.pointerId;
       inputMode = 'pointer';
       noteInput();
-      // 自動再生制限があるため、操作を起点に音を起こす。
-      // 中断されていた場合もここで復帰する（操作のたびに試すのが最も確実）。
-      global.PULSAR.sound.keepAlive();
     });
+
+    /*
+     * どこを操作しても音を起こす。
+     *
+     * キャンバスだけに付けていたときは、タイトル画面で鳴らなかった。
+     * タイトルもメニューも画面を覆う別の層なので、そこを押しても
+     * キャンバスまで届かない。最初に押すのはたいていタイトルの
+     * ボタンなので、いちばん肝心な操作を取りこぼしていた。
+     *
+     * 自動再生の制限があるため、音声を作れるのは操作の中だけ。
+     * 捕まえ損ねると、次にキャンバスへ触れるまで無音のままになる。
+     * 取りこぼさないよう、いちばん外側で（沈んでくる前に）受ける。
+     */
+    function wakeSound() {
+      global.PULSAR.sound.wake();
+    }
+
+    global.addEventListener('pointerdown', wakeSound, true);
+    global.addEventListener('keydown', wakeSound, true);
 
     canvas.addEventListener('pointermove', function (e) {
       // 追いかけている指以外は見ない。2本目に持ち替えられると、
