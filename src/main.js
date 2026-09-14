@@ -796,27 +796,6 @@
    * @param {number} sy 縦のずれ [px]
    * @returns {void}
    */
-  /**
-   * @brief 遊ぶために見るもの（ゲート・自機・風の線）を描く。
-   *
-   * 1枚のあいだに2度呼ぶ。1度目は光の素として、2度目は光の上に。
-   * 2度目が最後に残るので、色は塗ったとおりになり、周りには1度目から
-   * 生まれたにじみが残る。振り切れずに光るのはこのためで、順番を
-   * 変えただけでは光そのものが弱くなってしまった。
-   *
-   * @private
-   * @param {Object} f フレーム文脈
-   * @param {Object} scene 今の場面
-   * @param {boolean} playing 走行中か
-   * @param {number} step コンボの段階
-   * @param {number} kick 拍の強さ [0..1]
-   * @returns {void}
-   */
-  function drawFront(f, scene, playing, step, kick) {
-    if (scene.front) scene.front(f);
-    if (playing) drawWindLines(step, kick);
-  }
-
   function applyZoom(zoom, sx, sy) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.translate(W / 2 + sx, H / 2 + sy);
@@ -1394,9 +1373,8 @@
    *
    * @private
    * @param {number} step コンボの段階（0 なら描かない）
-   * 進み具合（windPhase）を進めるのは呼ぶ側の仕事。1枚のあいだに
-   * 2度呼ぶ（光の素として1度、光の上に1度）ので、ここで進めると
-   * 2度目だけ先へ動き、風の線が二重にぶれて見えてしまう。
+   * 進み具合（windPhase）を進めるのは呼ぶ側の仕事。描くことと時間を
+   * 進めることを分けておくと、描く回数が変わっても速さが変わらない。
    *
    * @param {number} kick 拍の強さ [0..1]
    * @returns {void}
@@ -2001,8 +1979,8 @@
     comboGlow += (step / comboStepMax() - comboGlow) *
                  M.clamp(dt * CONFIG.comboGlareEase, 0, 1);
 
-    // 風の線を進めるのはここ。描くほうは1枚のあいだに2度呼ぶので、
-    // あちらで進めると2度目だけ先へ動いてしまう。
+    // 風の線を進めるのはここ。描く側では進めない。描く回数が変わっても
+    // 流れる速さが変わらないようにするため。
     windPhase += dt * CONFIG.windSpeed * (0.7 + step * 0.12 + kick * 0.2);
 
     /**
@@ -2070,18 +2048,21 @@
     var glareAmount = glareBase * glareScale * (0.75 + kick * 0.45);
 
     /*
-     * 光の素として、前景をいちど描いておく。
+     * 光の素として、ゲートをいちど描いておく。
      *
      * グレアは画面の明るいところを集めて作る。いちばん明るいのは
-     * ゲートと風の線なので、これを外すと光そのものが弱くなり、
-     * 背景だけがぼんやり光る絵になってしまった。
+     * ゲートなので、これを外すと光そのものが弱くなり、背景だけが
+     * ぼんやり光る絵になってしまった。下描きにあたるので、この後の
+     * 加算で振り切れても構わない。同じものを光の後にもう一度描き、
+     * そちらが最後に残る。
      *
-     * 下描きにあたるので、この後の加算で振り切れても構わない。
-     * 同じものを光の後にもう一度描き、そちらが最後に残る。
+     * 風の線はここでは描かない。数が多く、2度描くと1枚あたりの手間が
+     * そのまま倍になる。にじみの元はほとんどゲートなので、外しても
+     * 光の強さはほぼ変わらない。
      */
-    if (glareAmount > 0.01) {
+    if (glareAmount > 0.01 && scene.front) {
       applyZoom(zoom, sx, sy);
-      drawFront(f, scene, playing, step, kick);
+      scene.front(f);
     }
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -2098,20 +2079,22 @@
     if (glareAmount <= 0.01) drawComboLight(comboGlow);
 
     /*
-     * 光を乗せ終えてから、遊ぶために見るものをもう一度描く。
+     * 光を乗せ終えてから、遊ぶために見るものを描く。
      *
      * これが最後に残るので、色は塗ったとおりになる。光の下に置いた
      * ままだと、彩度を上げて塗ったゲートは加算で振り切れ、色相が
      * 動いて切れ目の位置が読み取りにくかった。風の線も白い帯に溶けた。
      *
      * 眩しさは景色の役目で、判断の材料はくっきりしているべき。
-     * 光の素としては上で描いてあるので、にじみ（ハロー）は周りに残る。
+     * ゲートは光の素としても上で描いてあるので、にじみ（ハロー）が
+     * 周りに残る。風の線はここだけで、光の下をくぐらせない。
      *
      * ズームと揺れは掛け直す。背景と同じ動きに乗っていないと、
      * ゲートだけが画面に貼り付いたように見えてしまう。
      */
     applyZoom(zoom, sx, sy);
-    drawFront(f, scene, playing, step, kick);
+    if (scene.front) scene.front(f);
+    if (playing) drawWindLines(step, kick);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     var playable = scene.name === CONFIG.playableScene;
