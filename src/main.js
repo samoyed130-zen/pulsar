@@ -222,6 +222,17 @@
   var clock = 0;
 
   /**
+   * @brief 風の線の進み具合。
+   *
+   * 時計とは別に持って足し込んでいる。速さが拍やコンボで変わるので、
+   * 経過時間に掛けて求めると、速さが変わった瞬間に線の位置そのものが
+   * 飛んでしまう。足し込む形なら、変わるのはそこから先の進み方だけ。
+   *
+   * @private
+   */
+  var windPhase = 0;
+
+  /**
    * @brief シーン選択に使う時刻 [s]。操作に応じて飛んだり巻き戻したりする。
    * @private
    */
@@ -1109,13 +1120,19 @@
    * 1本ごとの位置は番号から決めている（乱数ではない）。毎フレーム
    * 引き直しても同じ筋が流れ続けるので、ちらつかない。
    *
+   * 進み具合は足し込んで持つ（windPhase）。経過時間に速さを掛けて
+   * 求めていたときは、拍で速さが変わるたびに位置そのものが飛んだ。
+   * とくに拍が弱まる局面では掛ける数が減るので位置が戻り、手前から
+   * 奥へ引き返しているように見えてしまう。足し込む形なら、速さが
+   * 変わっても今いる場所は動かず、そこから先の進み方だけが変わる。
+   *
    * @private
    * @param {number} step コンボの段階（0 なら描かない）
-   * @param {number} t 経過時間 [s]
    * @param {number} kick 拍の強さ [0..1]
+   * @param {number} dt 前の画面からの経過 [s]
    * @returns {void}
    */
-  function drawWindLines(step, t, kick) {
+  function drawWindLines(step, kick, dt) {
     if (step <= 0) return;
 
     var cx = W / 2;
@@ -1137,7 +1154,8 @@
                 (1 - CONFIG.windFirstLevel) * ((step - 1) / last);
 
     var count = CONFIG.windLinesBase + step * CONFIG.windLinesPerStep;
-    var speed = CONFIG.windSpeed * (0.7 + step * 0.12 + kick * 0.2);
+
+    windPhase += dt * CONFIG.windSpeed * (0.7 + step * 0.12 + kick * 0.2);
 
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
@@ -1160,10 +1178,9 @@
        * 本ごとに変えないと、全部が同じ輪の上を流れてしまう。
        */
       var r = 0.10 + jitter2 * 0.28;
-      var rate = speed * (0.75 + jitter2 * 0.5);   // この本が奥行きを進む速さ
 
-      // 0 から 1 へ進み、端まで行ったら奥へ戻る
-      var p = (t * rate + jitter) % 1;
+      // 0 から 1 へ進み、端まで行ったら奥へ戻る。速さは本ごとに変える
+      var p = (windPhase * (0.75 + jitter2 * 0.5) + jitter) % 1;
 
       // 奥行きは 1（遠い）から windNearZ（目の前）へ。0 にはしない
       var z = 1 - p * span;
@@ -1725,7 +1742,7 @@
     scene.draw(f);
 
     // 風の線はグレアの前に描く。光として拾わせたいため。
-    if (playing) drawWindLines(comboStep(game.gauge()), clock, kick);
+    if (playing) drawWindLines(comboStep(game.gauge()), kick, dt);
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
