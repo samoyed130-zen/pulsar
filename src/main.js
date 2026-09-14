@@ -171,13 +171,6 @@
      */
     windTrailFrac: 0.55,
     /**
-     * @brief 線のうち、濃さが強い先端側の割合。
-     *
-     * 先端を別の線として重ねると、色の違う短い棒が乗っているように
-     * 見えてしまう。1本のまま、根元から先端へ濃さだけを移らせる。
-     */
-    windHeadFrac: 0.35,
-    /**
      * @brief 風の線が消える奥行き。0 に近いほど手前。
      *
      * 透視投影では 0 で無限に広がるので、0 にはできない。ここを小さく
@@ -278,6 +271,19 @@
    * @private
    */
   var comboGlow = 0;
+
+  /**
+   * @brief 風の線を、根元から先端へ区切る割合と濃さ。
+   *
+   * [始まり, 終わり, 濃さの倍率] の並び。最後の区間がいちばん濃い。
+   * 加算で重ねるので、区間の境目は溶けて段には見えない。
+   *
+   * 表にして持つのは、線ごとに作り直さないため。毎フレーム、線の数
+   * だけ同じ配列を組み直すと、そのぶん捨てるごみが増える。
+   *
+   * @private
+   */
+  var WIND_STEPS = [[0, 0.75, 0.3], [0.6, 1, 1]];
 
   /**
    * @brief シーン選択に使う時刻 [s]。操作に応じて飛んだり巻き戻したりする。
@@ -1353,18 +1359,27 @@
        * 色そのものは1本ずつ変えず、全部そろえる。虹色にすると、風では
        * なく色の付いた棒が並んでいるようにしか見えなかった。
        */
-      var grad = ctx.createLinearGradient(tx, ty, x, y);
-      grad.addColorStop(0, M.hsl(CONFIG.windHue, 55, 85, 0));
-      grad.addColorStop(1 - CONFIG.windHeadFrac,
-                        M.hsl(CONFIG.windHue, 55, 85, alpha * 0.55));
-      grad.addColorStop(1, M.hsl(CONFIG.windHue, 55, 85, alpha));
-
-      ctx.strokeStyle = grad;
       ctx.lineWidth = (1.1 + level * 2.0) * (0.5 + near * 1.0);
-      ctx.beginPath();
-      ctx.moveTo(tx, ty);
-      ctx.lineTo(x, y);
-      ctx.stroke();
+
+      /*
+       * 根元から先端へ、3つに区切って濃さを上げていく。
+       *
+       * グラデーションで滑らかに変えていたが、線ごとに作り直すことに
+       * なり、そのぶん目に見えて遅くなった。色と彩度と明度は同じまま
+       * 濃さだけを段にすれば、加算で重なるぶん境目は溶けて分からない。
+       * 別の色の棒が乗って見えるのは、色が違うときだけだった。
+       */
+      for (var s = 0; s < WIND_STEPS.length; s++) {
+        var from = WIND_STEPS[s][0];
+        var to = WIND_STEPS[s][1];
+
+        ctx.strokeStyle = M.hsl(CONFIG.windHue, 55, 85,
+                                alpha * WIND_STEPS[s][2]);
+        ctx.beginPath();
+        ctx.moveTo(tx + (x - tx) * from, ty + (y - ty) * from);
+        ctx.lineTo(tx + (x - tx) * to, ty + (y - ty) * to);
+        ctx.stroke();
+      }
     }
 
     ctx.restore();

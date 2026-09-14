@@ -700,12 +700,6 @@
        */
       expect(app.CONFIG.windTrailFrac > 1 / 3).toBeTrue();
       expect(app.CONFIG.windTrailFrac < 1).toBeTrue();
-      /*
-       * 濃さが強いのは先端側の一部だけ。線の全部だと（1 だと）
-       * 濃さが一様になり、飛んでいる向きが読めなくなる。
-       */
-      expect(app.CONFIG.windHeadFrac > 0).toBeTrue();
-      expect(app.CONFIG.windHeadFrac < 1).toBeTrue();
     });
 
     it('風の線はタイトルのデモには出さない', function () {
