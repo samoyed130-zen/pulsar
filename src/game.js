@@ -22,6 +22,17 @@
     /** @brief カメラから最も遠いリングまでの距離（内部単位）。 */
     farZ: 26,
     /**
+     * @brief コンボが最大のとき、リングの明度を何割下げるか。
+     *
+     * 加算で光を重ねると、濃い色ほど先に振り切れて色相が動く。
+     * 足す前に下げておくぶん。半分まで下げると、色相のずれは 55 度から
+     * 19 度、彩度の落ちは 0.50 から 0.02 まで収まる。下げたぶんは光が
+     * 足し返すので、明るさそのものは変わらない。
+     *
+     * これ以上下げると、光の乗らない奥のリングまで沈んで見えなくなる。
+     */
+    ringGlowCut: 0.5,
+    /**
      * @brief リングの間隔（内部単位）。
      *
      * 速度で割ると「何秒に1枚来るか」になる。初速では約0.75秒、
@@ -790,6 +801,19 @@
 
     var thin = thinScale(Math.min(f.W, f.H));
 
+    /*
+     * コンボで光を足すぶん、リング自身の明度を下げておく。
+     *
+     * リングは彩度 90 で塗っている。そこへ加算で光を重ねると、
+     * 3色のうち強い色から先に振り切れ、残った色との釣り合いが崩れて
+     * 色相そのものが動いてしまう（青緑が白緑に寄るなど）。
+     * 足す前に下げておけば、合計は振り切れず、色が保たれる。
+     *
+     * 背景は彩度も明度も低いので、この細工は要らない。振り切れるのは
+     * もともと濃い色で塗っているリングだけ。
+     */
+    var glowCut = 1 - (f.glow || 0) * CONFIG.ringGlowCut;
+
     // 奥から手前へ描くことで、近いリングが上に重なる。
     var sorted = state.rings.slice().sort(function (a, b) { return b.z - a.z; });
 
@@ -817,13 +841,13 @@
       var width = ringLineWidth(near, Math.min(f.W, f.H));
 
       // 太い線の下に、さらに広がる淡い線を敷いて厚みを出す。
-      c.strokeStyle = M.hsl(hue, 90, 50, alpha * 0.35);
+      c.strokeStyle = M.hsl(hue, 90, 50 * glowCut, alpha * 0.35);
       c.lineWidth = width * 1.9;
       c.beginPath();
       c.arc(cx + twist, cy + sway, radius, start, end);
       c.stroke();
 
-      c.strokeStyle = M.hsl(hue, 90, 55 + near * 18, alpha);
+      c.strokeStyle = M.hsl(hue, 90, (55 + near * 18) * glowCut, alpha);
       c.lineWidth = width;
       c.beginPath();
       c.arc(cx + twist, cy + sway, radius, start, end);

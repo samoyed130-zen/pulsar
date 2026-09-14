@@ -915,5 +915,16 @@
       expect(M.canPass(G.state.angle, near.gap, G.state.params.gapWidth)).toBeTrue();
     });
 
+    it('光を足す前に、リングの明度を下げる余地がある', function () {
+      /*
+       * リングは彩度 90 で塗っている。そこへ加算で光を重ねると、
+       * 強い色から先に振り切れ、色相そのものが動いてしまう。
+       * 足す前に下げておくこと。ただし下げすぎると、光の乗らない
+       * 奥のリングまで沈んで見えなくなる。
+       */
+      expect(G.CONFIG.ringGlowCut > 0).toBeTrue();
+      expect(G.CONFIG.ringGlowCut < 0.7).toBeTrue();
+    });
+
   });
 })();

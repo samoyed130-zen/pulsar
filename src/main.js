@@ -1947,6 +1947,19 @@
     // 押しっぱなしの最中にマウスへ移ると、離した瞬間に飛んでしまう。
     if (keys.left || keys.right) inputMode = 'key';
 
+    /*
+     * コンボの段階。風の線の本数と、画面全体の明るさの両方を決める。
+     * 同じ数から出すので、絵と光が食い違うことがない。
+     *
+     * 描き始める前に求めておく。あとから足す光の量が分かっていないと、
+     * 描く側は振り切れないように明度を下げておくことができない。
+     */
+    var step = playing ? comboStep(game.gauge()) : 0;
+
+    // 段階そのものではなく、そこへ近づいていく値を光に使う
+    comboGlow += (step / comboStepMax() - comboGlow) *
+                 M.clamp(dt * CONFIG.comboGlareEase, 0, 1);
+
     /**
      * @brief 1フレーム分の文脈。シーンはこれだけを見て描く。
      */
@@ -1955,6 +1968,8 @@
       W: W,
       H: H,
       t: clock,
+      // コンボで足す光の量。描く側は、その分だけ明度を下げて振り切れを防ぐ
+      glow: comboGlow,
       dt: dt,
       local: pick.local,
       progress: pick.progress,
@@ -1992,16 +2007,6 @@
     ctx.translate(-W / 2, -H / 2);
 
     scene.draw(f);
-
-    /*
-     * コンボの段階。風の線の本数と、画面全体の明るさの両方を決める。
-     * 同じ数から出すので、絵と光が食い違うことがない。
-     */
-    var step = playing ? comboStep(game.gauge()) : 0;
-
-    // 段階そのものではなく、そこへ近づいていく値を光に使う
-    comboGlow += (step / comboStepMax() - comboGlow) *
-                 M.clamp(dt * CONFIG.comboGlareEase, 0, 1);
 
     // 風の線はグレアの前に描く。光として拾わせたいため。
     if (playing) drawWindLines(step, kick, dt);
