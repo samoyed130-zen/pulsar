@@ -914,5 +914,38 @@
       }
       expect(M.canPass(G.state.angle, near.gap, G.state.params.gapWidth)).toBeTrue();
     });
+
+    it('トンネルの芯は、奥行きと時間で動く', function () {
+      /*
+       * まっすぐな筒だと、進んでいるのか止まっているのか分からない。
+       * 奥行きでねじれ、時間でうねること。
+       */
+      var out = { x: 0, y: 0 };
+      var a = G.tunnelCenter(0, 0, 400, out);
+      var deep = { x: a.x, y: a.y };
+
+      G.tunnelCenter(20, 0, 400, out);
+      expect(out.x !== deep.x || out.y !== deep.y).toBeTrue();
+
+      G.tunnelCenter(0, 3, 400, out);
+      expect(out.x !== deep.x || out.y !== deep.y).toBeTrue();
+    });
+
+    it('トンネルの芯のずれは、画面から飛び出さない程度に収まる', function () {
+      /*
+       * 風の線の出どころにも使う。大きく振れると、風だけが画面の外から
+       * 湧いてくるように見えてしまう。焦点距離の 2 割以内。
+       */
+      var out = { x: 0, y: 0 };
+      var focal = 400;
+
+      for (var z = 0; z <= G.CONFIG.farZ; z += 1) {
+        for (var t = 0; t < 12; t += 0.5) {
+          G.tunnelCenter(z, t, focal, out);
+          expect(Math.abs(out.x) <= focal * 0.2).toBeTrue();
+          expect(Math.abs(out.y) <= focal * 0.2).toBeTrue();
+        }
+      }
+    });
   });
 })();
