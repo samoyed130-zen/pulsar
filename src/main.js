@@ -134,9 +134,22 @@
      */
     comboGlareEase: 3,
     /** @brief 風の線が出ているときの、最低限の本数。 */
-    windLinesBase: 10,
-    /** @brief コンボの段階1つあたり、風の線を何本足すか。 */
-    windLinesPerStep: 9,
+    windLinesBase: 8,
+    /**
+     * @brief コンボの段階1つあたり、風の線を何本足すか。
+     *
+     * 段階が上がったと分かる増え方であること。ただし本数はそのまま
+     * 1枚あたりの手間になる。長さと濃さを散らしてあるので、数を
+     * 減らしても密度が薄くなったようには見えない。
+     */
+    windLinesPerStep: 6,
+    /**
+     * @brief 描画が追いつかないときに、風の線を何割まで減らすか。
+     *
+     * 勢いを見せるものなので、消してしまうと段階が伝わらなくなる。
+     * 減らしても、長さと濃さの散らばりは残るので絵は保たれる。
+     */
+    windLinesLowRatio: 0.5,
     /**
      * @brief 1段階目の強さ [0..1]。
      *
@@ -1366,7 +1379,15 @@
     var level = CONFIG.windFirstLevel +
                 (1 - CONFIG.windFirstLevel) * ((step - 1) / last);
 
-    var count = CONFIG.windLinesBase + step * CONFIG.windLinesPerStep;
+    /*
+     * 本数は、描画が追いつかない端末では減らす。
+     *
+     * 背景の解像度を落とすのと同じ考え方。ここは1枚あたりの手間が
+     * 本数にそのまま比例するので、いちばん素直に効く。
+     */
+    var count = Math.round((CONFIG.windLinesBase +
+                            step * CONFIG.windLinesPerStep) *
+                           (quality > 0 ? 1 : CONFIG.windLinesLowRatio));
 
     windPhase += dt * CONFIG.windSpeed * (0.7 + step * 0.12 + kick * 0.2);
 
