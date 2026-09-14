@@ -672,6 +672,17 @@
       window.PULSAR.game.state.started = false;
     });
 
+    it('風の線は、コンボの段階1つあたり同じ本数ずつ増える', function () {
+      // 段階が上がったことが、絵の変化としてはっきり伝わること。
+      expect(app.CONFIG.windLinesPerStep >= 6).toBeTrue();
+    });
+
+    it('風の線は中心の手前から生まれる', function () {
+      // 中心はリングの切れ目を読み取る場所なので、覆ってはいけない。
+      expect(app.CONFIG.windStart > 0).toBeTrue();
+      expect(app.CONFIG.windStart < 0.5).toBeTrue();
+    });
+
     it('進み具合は 0〜100 の割合で出せる', function () {
       // HUD は距離ではなく割合で見せる。作品の距離の単位を知らなくても
       // 残りが分かるようにするため。

@@ -109,14 +109,16 @@
     minFrameMs: 15.5,
     /** @brief FPS 表示を書き換える間隔 [ms]。速すぎると数字が読めない。 */
     fpsUpdateMs: 250,
-    /** @brief コンボの段階1つあたり、集中線を何本足すか。 */
-    speedLinesPerStep: 9,
+    /** @brief コンボの段階1つあたり、風の線を何本足すか。 */
+    windLinesPerStep: 11,
+    /** @brief 風の線が流れる速さの基準。 */
+    windSpeed: 0.9,
     /**
-     * @brief 集中線を描き始める半径の割合（画面の隅までを 1 とする）。
+     * @brief 風の線が生まれる半径の割合（画面の隅までを 1 とする）。
      *
-     * 中心はリングの切れ目を読み取る場所なので、線で覆わない。
+     * 中心はリングの切れ目を読み取る場所なので、そこでは薄く始める。
      */
-    speedLineInner: 0.34,
+    windStart: 0.16,
     /** @brief この時間を超え続けたら描画を軽くする [ms]。 */
     slowMs: 22,
     /**
@@ -968,14 +970,13 @@
 
   /** @brief FPS の文字を最後に書き換えた時刻 [ms]。 @private */
   var fpsShownMs = 0;
-  var comboValueEl = null;
 
   /** @brief 桁を埋める見えない 0 を入れる要素。 @private */
-  var distPadEl = null, comboPadEl = null;
+  var distPadEl = null;
   var resultEl = null;
 
   /** @brief 直前に描いた値。同じなら DOM を触らない。 @private */
-  var shownDist = -1, shownTime = '', shownCombo = -1;
+  var shownDist = -1, shownTime = '';
   var shownCollected = -1;
 
   /**
@@ -1052,16 +1053,25 @@
   }
 
   /**
-   * @brief 速さを示す集中線を描く。
+   * @brief 脇を通り過ぎていく風の線を描く。
    *
-   * コンボが伸びるほど本数と長さが増え、画面の端から中心へ向かって
-   * 流れる。ゲージの棒を読ませる代わりに、勢いそのものを絵で見せる。
+   * コンボが段階を上げるほど、本数と速さと明るさが増える。ゲージの棒を
+   * 読ませる代わりに、勢いそのものを絵で見せる。
    *
-   * 中心の近くには描かない。そこは切れ目を読み取る場所なので、
+   * 線は奥（画面の中心あたり）で生まれ、外へ加速しながら伸びて消える。
+   * 位置を時間の2乗で進めているのは、近づくものほど速く横切って見える
+   * という遠近の効果をそのまま写すため。等速で動かすと、放射状に
+   * 並んだ棒が伸び縮みしているようにしか見えない。
+   *
+   * 長さも外へ行くほど伸ばす。カメラの脇を速く過ぎるものは、目にも
+   * 写真にも長い筋として残る。太さは逆に細くしていく。近いものほど
+   * 薄く流れるほうが、風が吹き抜けた跡らしく見える。
+   *
+   * 中心の近くでは薄い。そこはリングの切れ目を読み取る場所なので、
    * 線が重なると遊びの邪魔になる。
    *
-   * 1本ごとの位置は角度から決めている（乱数ではない）。毎フレーム
-   * 引き直しても同じ場所に出るので、ちらつかない。
+   * 1本ごとの位置は番号から決めている（乱数ではない）。毎フレーム
+   * 引き直しても同じ筋が流れ続けるので、ちらつかない。
    *
    * @private
    * @param {number} step コンボの段階（0 なら描かない）
@@ -1069,16 +1079,15 @@
    * @param {number} kick 拍の強さ [0..1]
    * @returns {void}
    */
-  function drawSpeedLines(step, t, kick) {
+  function drawWindLines(step, t, kick) {
     if (step <= 0) return;
 
     var cx = W / 2;
     var cy = H / 2;
     var reach = Math.sqrt(cx * cx + cy * cy);   // 画面の隅までの距離
 
-    // 段階が上がるほど密に、そして速く流す
-    var count = step * CONFIG.speedLinesPerStep;
-    var speed = 0.55 + step * 0.2 + kick * 0.25;
+    var count = step * CONFIG.windLinesPerStep;
+    var speed = CONFIG.windSpeed * (0.7 + step * 0.12 + kick * 0.2);
     var level = step / comboStepMax();
 
     ctx.save();
@@ -1086,32 +1095,43 @@
     ctx.lineCap = 'round';
 
     for (var i = 0; i < count; i++) {
-      // 角度は本数で割り、そこへ本ごとの偏りを足す。
-      // 等間隔のままだと車輪のスポークに見えてしまう。
+      /*
+       * 本ごとの偏り。小数部を取り出して 0〜1 の散らばりを作る。
+       * 角度を等間隔にすると車輪のスポークに見えるので、少しずらす。
+       */
       var seed = i * 12.9898;
       var jitter = seed - Math.floor(seed);
-      var a = (i / count + jitter * 0.6 / count) * TAU_LOCAL;
+      var seed2 = i * 78.233;
+      var jitter2 = seed2 - Math.floor(seed2);
 
-      // 流れる位置。0 から 1 へ進み、端まで行ったら先頭へ戻る。
-      var p = (t * speed + jitter) % 1;
+      var a = (i / count + jitter * 0.9 / count) * TAU_LOCAL;
 
-      // 中心付近は空ける。遊びに使う場所を覆わないため。
-      var near = CONFIG.speedLineInner + p * (1.05 - CONFIG.speedLineInner);
-      var far = near + (0.10 + level * 0.16) * (0.6 + jitter * 0.8);
+      // 0 から 1 へ進み、端まで行ったら先頭へ戻る。速さは本ごとに変える
+      var p = (t * speed * (0.75 + jitter2 * 0.5) + jitter) % 1;
 
-      // 出入りを滑らかに。端で急に現れると点滅して見える。
-      var fade = Math.sin(p * Math.PI);
-      var alpha = (0.05 + level * 0.22) * fade * (0.7 + kick * 0.6);
+      // 奥から手前へ。2乗で進めると、近づくほど速く横切って見える
+      var near = CONFIG.windStart + (1.25 - CONFIG.windStart) * p * p;
+      var len = (0.05 + level * 0.10) * (0.35 + near * 1.3) * (0.6 + jitter2 * 0.8);
+
+      /*
+       * 濃さは2つの条件を掛ける。
+       * - 中心から離れるほど濃く（遊ぶ場所を覆わない）
+       * - 端に着くころには消える（画面の縁で途切れて見えない）
+       */
+      var inFade = M.clamp((near - CONFIG.windStart) * 3.2, 0, 1);
+      var outFade = M.clamp((1.15 - near) * 2.2, 0, 1);
+      var alpha = (0.05 + level * 0.20) * inFade * outFade * (0.75 + kick * 0.5);
       if (alpha < 0.004) continue;
 
       var dx = Math.cos(a);
       var dy = Math.sin(a);
 
-      ctx.strokeStyle = M.hsl((clock * 20 + i * 3) % 360, 92, 74, alpha);
-      ctx.lineWidth = (0.9 + level * 1.8) * (0.6 + fade * 0.8);
+      // 色は場面の色相に寄せる。白い線だけだと雪のように見えてしまう
+      ctx.strokeStyle = M.hsl((clock * 18 + i * 7) % 360, 85, 78, alpha);
+      ctx.lineWidth = (0.7 + level * 1.4) * (1.25 - near * 0.5);
       ctx.beginPath();
       ctx.moveTo(cx + dx * near * reach, cy + dy * near * reach);
-      ctx.lineTo(cx + dx * far * reach, cy + dy * far * reach);
+      ctx.lineTo(cx + dx * (near + len) * reach, cy + dy * (near + len) * reach);
       ctx.stroke();
     }
 
@@ -1203,17 +1223,6 @@
       void timeEl.offsetWidth;
       timeEl.classList.add('gain');
       shownCollected = st.collected;
-    }
-
-    if (st.combo !== shownCombo) {
-      showNumber(comboPadEl, comboValueEl, st.combo, 3);
-      // 伸びた瞬間だけ弾ませる。次のフレームでクラスを外して再生し直せるようにする。
-      if (st.combo > shownCombo) {
-        comboValueEl.classList.remove('bump');
-        void comboValueEl.offsetWidth; // 再フローを強制してアニメーションを作り直す
-        comboValueEl.classList.add('bump');
-      }
-      shownCombo = st.combo;
     }
 
   }
@@ -1629,8 +1638,8 @@
 
     scene.draw(f);
 
-    // 集中線はグレアの前に描く。光として拾わせたいため。
-    if (playing) drawSpeedLines(comboStep(game.gauge()), clock, kick);
+    // 風の線はグレアの前に描く。光として拾わせたいため。
+    if (playing) drawWindLines(comboStep(game.gauge()), clock, kick);
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
@@ -1824,10 +1833,7 @@
     distEl = document.getElementById('scoreDist');
     timeEl = document.getElementById('scoreTime');
 
-    comboValueEl = document.getElementById('comboValue');
-
     distPadEl = document.getElementById('distPad');
-    comboPadEl = document.getElementById('comboPad');
 
     resultEl = document.getElementById('result');
     fpsEl = document.getElementById('fps');

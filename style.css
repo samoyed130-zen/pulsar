@@ -345,8 +345,8 @@ body.on-title #panel { display: none; }
  * 視線はトンネルの中心に集まる。情報はその真上に横一列で置き、
  * 目を大きく動かさずに読めるようにする。
  *
- * 左から STAGE → GOAL → TIME → COMBO。変わる頻度が低いものから並べ、
- * いちばん動くコンボを端に置くことで、他の数字が落ち着いて読める。
+ * 置くのは GOAL と TIME だけ。数字でしか分からないものに絞り、
+ * 勢いや場所は絵と音に任せている。
  */
 #panel {
   position: fixed;
@@ -448,39 +448,6 @@ body.on-title #panel { display: none; }
 
 .statValue.gain { animation: timeGain 0.6s ease-out; }
 
-/*
- * コンボだけは勢いを示す役なので、色を持たせてゲージを添える。
- *
- * 見出しと数字の間は他より広げる。数字が光っているぶん字面が詰まって
- * 見え、同じ間隔でも狭く感じるため。
- */
-.comboStat { gap: calc(var(--gap-ui) * 1.1); }
-
-/*
- * 数字とゲージの間は、見出しと数字の間と同じだけ空ける。
- *
- * 同じ間隔を指定しても、数字側は発光がにじんで境目が曖昧になる一方、
- * ゲージは輪郭がはっきりしているため、こちらだけ詰まって見える。
- * 見た目を揃えるには、実際の数値を少し足す必要がある。
- */
-.comboStat .comboStat .statValue {
-  text-align: right;
-  color: var(--accent);
-  text-shadow: 0 0 18px rgba(122, 215, 255, 0.45);
-}
-
-/*
- * 伸びた瞬間だけ弾ませる（クラスは main.js が付け外しする）。
- *
- * 弾むのは数字だけ。桁を埋める見えない 0 まで一緒に拡大すると、
- * 場所取りの幅が変わって隣がずれる。
- */
-#comboValue {
-  display: inline-block;
-  transition: transform 0.12s ease;
-}
-
-#comboValue.bump { transform: scale(1.25); }
 /* --- FPS 表示（調整用） -------------------------------------------- */
 
 #fps[hidden] { display: none; }

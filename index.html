@@ -31,7 +31,7 @@
 
   見た目や動きを直したら、この番号を1つ進めること。
 -->
-<link rel="stylesheet" href="style.css?v=19">
+<link rel="stylesheet" href="style.css?v=20">
 </head>
 <body>
 
@@ -140,12 +140,11 @@
   走行情報。画面上の中央に、横一列で置く。
 
   視線はトンネルの中心（画面中央）に集まる。そこから目を大きく外さずに
-  読めるよう、真上へ一列に並べる。左から「あとどれだけか（GOAL）」
-  「残り時間（TIME）」「勢い（COMBO）」の順で、変わる頻度が低いものから
-  並べている。
+  読めるよう、真上へ一列に並べる。
 
-  ステージ番号はここに出さない。走っている最中に変わらないうえ、
-  景色と曲で分かる。知りたくなったときはメニューの見出しに出る。
+  出すのは「あとどれだけか（GOAL）」と「残り時間（TIME）」だけ。
+  どちらも数字でしか分からない。勢いは画面を流れる風の線が、
+  ステージ番号は景色と曲が伝えるので、文字にする必要がない。
 -->
 <div id="panel" class="hidden" aria-live="off">
   <div class="stat">
@@ -165,14 +164,6 @@
     <span class="statValue" id="scoreTime">2:00</span>
   </div>
 
-  <!--
-    ゲージの棒は置かない。溜まり具合は画面の集中線が示す。
-    勢いは数字や棒で読むものではなく、速く見えることそのものなので。
-  -->
-  <div class="stat comboStat">
-    <span class="statLabel">COMBO</span>
-    <span class="statValue"><i class="pad" id="comboPad">00</i><span id="comboValue">0</span></span>
-  </div>
 </div>
 
 <!-- リザルト。持ち時間を使い切ると出る -->
@@ -349,14 +340,14 @@
   <p class="noscript">この作品は JavaScript で描画しています。有効にしてご覧ください。</p>
 </noscript>
 
-<script src="src/store.js?v=19"></script>
-<script src="src/mathx.js?v=19"></script>
-<script src="src/raster.js?v=19"></script>
-<script src="src/mesh3d.js?v=19"></script>
-<script src="src/sound.js?v=19"></script>
-<script src="src/game.js?v=19"></script>
-<script src="src/scenes.js?v=19"></script>
-<script src="src/main.js?v=19"></script>
+<script src="src/store.js?v=20"></script>
+<script src="src/mathx.js?v=20"></script>
+<script src="src/raster.js?v=20"></script>
+<script src="src/mesh3d.js?v=20"></script>
+<script src="src/sound.js?v=20"></script>
+<script src="src/game.js?v=20"></script>
+<script src="src/scenes.js?v=20"></script>
+<script src="src/main.js?v=20"></script>
 <script>
   // 読み込み順に依存するため、起動はここで1度だけ行う。
   PULSAR.app.boot();
@@ -945,7 +936,7 @@
       // 結果を眺めている最中に消えて出直すことになる。
       if (open && !testsFrame.getAttribute('src')) {
         // 版番号は作品側と揃える（古いまま読み込まれるのを避ける）
-        testsFrame.setAttribute('src', 'test.html?v=19');
+        testsFrame.setAttribute('src', 'test.html?v=20');
       }
 
       if (open) {
