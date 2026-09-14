@@ -692,10 +692,14 @@
       expect(app.CONFIG.windLinesBase > 0).toBeTrue();
     });
 
-    it('風の線は中心の手前から生まれる', function () {
-      // 中心はリングの切れ目を読み取る場所なので、覆ってはいけない。
-      expect(app.CONFIG.windStart > 0).toBeTrue();
-      expect(app.CONFIG.windStart < 0.5).toBeTrue();
+    it('風の線は目の前を通り抜けてから消える', function () {
+      /*
+       * 奥行きを 0 にすると、透視投影（焦点距離 ÷ 奥行き）が
+       * 無限に発散する。0 より大きく、かつ十分に手前で消すこと。
+       * 画面の中で消すと、抜けていく前に溶けたように見えてしまう。
+       */
+      expect(app.CONFIG.windNearZ > 0).toBeTrue();
+      expect(app.CONFIG.windNearZ < 0.5).toBeTrue();
     });
 
     it('進み具合は 0〜100 の割合で出せる', function () {

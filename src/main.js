@@ -120,14 +120,21 @@
      * はっきり見えていないと「増えた」ことが伝わらない。
      */
     windFirstLevel: 0.5,
-    /** @brief 風の線が流れる速さの基準。 */
-    windSpeed: 0.9,
+    /** @brief 風の線が奥から手前へ進む速さ（奥行き 1 を何回/秒くぐるか）。 */
+    windSpeed: 1.5,
     /**
-     * @brief 風の線が生まれる半径の割合（画面の隅までを 1 とする）。
+     * @brief 風の線が消える奥行き。0 に近いほど手前。
      *
-     * 中心はリングの切れ目を読み取る場所なので、そこでは薄く始める。
+     * 透視投影では 0 で無限に広がるので、0 にはできない。ここを小さく
+     * 取るほど、最後は画面の外へ大きく飛び抜けてから消える。
      */
-    windStart: 0.16,
+    windNearZ: 0.12,
+    /**
+     * @brief 風の線の投影の焦点距離（画面の隅までの距離を 1 とする）。
+     *
+     * 小さくすると広角になり、手前での横切り方が速く派手になる。
+     */
+    windFocal: 0.8,
     /** @brief この時間を超え続けたら描画を軽くする [ms]。 */
     slowMs: 22,
     /**
@@ -1067,17 +1074,16 @@
    * コンボが段階を上げるほど、本数と速さと明るさが増える。ゲージの棒を
    * 読ませる代わりに、勢いそのものを絵で見せる。
    *
-   * 線は奥（画面の中心あたり）で生まれ、外へ加速しながら伸びて消える。
-   * 位置を時間の2乗で進めているのは、近づくものほど速く横切って見える
-   * という遠近の効果をそのまま写すため。等速で動かすと、放射状に
-   * 並んだ棒が伸び縮みしているようにしか見えない。
+   * 描き方は星空のデモと同じにしてある。1本ずつに奥行きを持たせ、
+   * それを毎フレーム手前へ進め、前の位置から今の位置までを線で結ぶ。
+   * つまり線の長さは「この1枚のあいだに動いた距離」そのものになる。
    *
-   * 長さも外へ行くほど伸ばす。カメラの脇を速く過ぎるものは、目にも
-   * 写真にも長い筋として残る。太さは逆に細くしていく。近いものほど
-   * 薄く流れるほうが、風が吹き抜けた跡らしく見える。
+   * 半径と長さを式で決めていたときは、放射状の棒が伸び縮みしている
+   * ようにしか見えなかった。透視投影（焦点距離 ÷ 奥行き）に任せると、
+   * 手前ほど速く大きく開いていく加速が計算するまでもなく出てくる。
    *
-   * 中心の近くでは薄い。そこはリングの切れ目を読み取る場所なので、
-   * 線が重なると遊びの邪魔になる。
+   * 中心の近く、つまり奥にいるあいだは薄い。そこはリングの切れ目を
+   * 読み取る場所なので、線が重なると遊びの邪魔になる。
    *
    * 1本ごとの位置は番号から決めている（乱数ではない）。毎フレーム
    * 引き直しても同じ筋が流れ続けるので、ちらつかない。
@@ -1086,14 +1092,17 @@
    * @param {number} step コンボの段階（0 なら描かない）
    * @param {number} t 経過時間 [s]
    * @param {number} kick 拍の強さ [0..1]
+   * @param {number} dt 前の画面からの経過 [s]
    * @returns {void}
    */
-  function drawWindLines(step, t, kick) {
+  function drawWindLines(step, t, kick, dt) {
     if (step <= 0) return;
 
     var cx = W / 2;
     var cy = H / 2;
     var reach = Math.sqrt(cx * cx + cy * cy);   // 画面の隅までの距離
+    var focal = reach * CONFIG.windFocal;
+    var span = 1 - CONFIG.windNearZ;            // 奥行き 1 から手前までの幅
 
     /*
      * 段階の強さ。1段階目をいきなり読める濃さから始める。
@@ -1126,32 +1135,46 @@
 
       var a = (i / count + jitter * 0.9 / count) * TAU_LOCAL;
 
-      // 0 から 1 へ進み、端まで行ったら先頭へ戻る。速さは本ごとに変える
-      var p = (t * speed * (0.75 + jitter2 * 0.5) + jitter) % 1;
+      /*
+       * 奥行き 1 に置いたときの、中心からの隔たり。
+       * 本ごとに変えないと、全部が同じ輪の上を流れてしまう。
+       */
+      var r = 0.18 + jitter2 * 0.5;
+      var rate = speed * (0.75 + jitter2 * 0.5);   // この本が奥行きを進む速さ
 
-      // 奥から手前へ。2乗で進めると、近づくほど速く横切って見える
-      var near = CONFIG.windStart + (1.25 - CONFIG.windStart) * p * p;
-      var len = (0.05 + level * 0.10) * (0.35 + near * 1.3) * (0.6 + jitter2 * 0.8);
+      // 0 から 1 へ進み、端まで行ったら奥へ戻る
+      var p = (t * rate + jitter) % 1;
+
+      // 奥行きは 1（遠い）から windNearZ（目の前）へ。0 にはしない
+      var z = 1 - p * span;
+      var prevZ = Math.min(1, z + rate * span * dt);
 
       /*
-       * 濃さは2つの条件を掛ける。
-       * - 中心から離れるほど濃く（遊ぶ場所を覆わない）
-       * - 端に着くころには消える（画面の縁で途切れて見えない）
+       * 濃さは、奥にいるあいだだけ薄くする。
+       *
+       * そこは中心＝リングの切れ目を読み取る場所でもあり、まだ遠くに
+       * あるものでもある。手前へ出てからは濃いまま、画面の外へ抜ける。
+       * 外側で薄くすると、抜けたのではなく「溶けて消えた」ように見える。
        */
-      var inFade = M.clamp((near - CONFIG.windStart) * 3.2, 0, 1);
-      var outFade = M.clamp((1.15 - near) * 2.2, 0, 1);
-      var alpha = (0.10 + level * 0.62) * inFade * outFade * (0.8 + kick * 0.45);
+      var near = M.clamp(1 - z, 0, 1);
+      var alpha = (0.10 + level * 0.62) * M.clamp(near * 3, 0, 1) *
+                  (0.8 + kick * 0.45);
       if (alpha < 0.004) continue;
 
-      var dx = Math.cos(a);
-      var dy = Math.sin(a);
+      var nx = Math.cos(a) * r;
+      var ny = Math.sin(a) * r;
+      var px = cx + nx * focal / prevZ;
+      var py = cy + ny * focal / prevZ;
+
+      // 前の位置がもう画面の外なら、線はすべて外にある
+      if (px < -reach || px > W + reach || py < -reach || py > H + reach) continue;
 
       // 色は場面の色相に寄せる。白い線だけだと雪のように見えてしまう
       ctx.strokeStyle = M.hsl((clock * 18 + i * 7) % 360, 85, 82, alpha);
-      ctx.lineWidth = (1.1 + level * 2.0) * (1.25 - near * 0.5);
+      ctx.lineWidth = (1.1 + level * 2.0) * (0.5 + near * 1.0);
       ctx.beginPath();
-      ctx.moveTo(cx + dx * near * reach, cy + dy * near * reach);
-      ctx.lineTo(cx + dx * (near + len) * reach, cy + dy * (near + len) * reach);
+      ctx.moveTo(px, py);
+      ctx.lineTo(cx + nx * focal / z, cy + ny * focal / z);
       ctx.stroke();
     }
 
@@ -1659,7 +1682,7 @@
     scene.draw(f);
 
     // 風の線はグレアの前に描く。光として拾わせたいため。
-    if (playing) drawWindLines(comboStep(game.gauge()), clock, kick);
+    if (playing) drawWindLines(comboStep(game.gauge()), clock, kick, dt);
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
