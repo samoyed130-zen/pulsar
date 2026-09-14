@@ -700,9 +700,27 @@
        */
       expect(app.CONFIG.windTrailFrac > 1 / 3).toBeTrue();
       expect(app.CONFIG.windTrailFrac < 1).toBeTrue();
-      // 先端の濃い部分は、尾より短くなければ頭として読めない
-      expect(app.CONFIG.windHeadFrac < app.CONFIG.windTrailFrac).toBeTrue();
+      /*
+       * 濃さが強いのは先端側の一部だけ。線の全部だと（1 だと）
+       * 濃さが一様になり、飛んでいる向きが読めなくなる。
+       */
       expect(app.CONFIG.windHeadFrac > 0).toBeTrue();
+      expect(app.CONFIG.windHeadFrac < 1).toBeTrue();
+    });
+
+    it('風の線はタイトルのデモには出さない', function () {
+      /*
+       * 風の線はコンボ、つまり自分の腕前を映すもの。自動操縦の絵に
+       * 出すと、勢いが出ているのが自分の操作のせいだと誤解させる。
+       * 走行中の判断（isPlaying）がそのまま出す条件になっている。
+       */
+      var st = window.PULSAR.game.state;
+      var before = st.started;
+
+      st.started = true;   // デモも走ってはいる
+      expect(app.isPlaying()).toBeFalse();
+
+      st.started = before;
     });
 
     it('風の線の色は1つに決まっている', function () {

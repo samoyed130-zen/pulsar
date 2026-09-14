@@ -146,8 +146,13 @@
      * 出るほど実際の長さは伸びる。時間もフレームレートも関わらない。
      */
     windTrailFrac: 0.55,
-    /** @brief 先端の濃い部分の長さ（同じく割合）。進行方向の頭になる。 */
-    windHeadFrac: 0.18,
+    /**
+     * @brief 線のうち、濃さが強い先端側の割合。
+     *
+     * 先端を別の線として重ねると、色の違う短い棒が乗っているように
+     * 見えてしまう。1本のまま、根元から先端へ濃さだけを移らせる。
+     */
+    windHeadFrac: 0.35,
     /**
      * @brief 風の線が消える奥行き。0 に近いほど手前。
      *
@@ -1234,30 +1239,27 @@
       // 尾の根元がもう画面の外なら、線は丸ごと外にある
       if (tx < -reach || tx > W + reach || ty < -reach || ty > H + reach) continue;
 
-      var width = (1.1 + level * 2.0) * (0.5 + near * 1.0);
-
       /*
-       * 尾は薄く、先端は濃く。2本に分けて引いている。
+       * 根元から先端へ、薄いところから濃いところへ。
        *
        * 濃さが一様な棒は、長くしただけ余計にブレに見える。飛んでいる
-       * ものは頭が明るく、後ろへ流れるほど薄いので、その2段だけでも
-       * 進んでいる向きが読めるようになる。
+       * ものは頭が明るく、後ろへ流れるほど薄い。ただし別の線として
+       * 重ねると、先端だけ色の違う短い棒が乗っているように見えてしまう。
+       * 1本のまま濃さだけを移り変わらせる。
        *
-       * 色は1本ずつ変えず、全部そろえる。虹色にすると、風ではなく
-       * 色の付いた棒が並んでいるようにしか見えなかった。
+       * 色そのものは1本ずつ変えず、全部そろえる。虹色にすると、風では
+       * なく色の付いた棒が並んでいるようにしか見えなかった。
        */
-      ctx.strokeStyle = M.hsl(CONFIG.windHue, 55, 80, alpha * 0.4);
-      ctx.lineWidth = width * 0.7;
+      var grad = ctx.createLinearGradient(tx, ty, x, y);
+      grad.addColorStop(0, M.hsl(CONFIG.windHue, 55, 85, 0));
+      grad.addColorStop(1 - CONFIG.windHeadFrac,
+                        M.hsl(CONFIG.windHue, 55, 85, alpha * 0.55));
+      grad.addColorStop(1, M.hsl(CONFIG.windHue, 55, 85, alpha));
+
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = (1.1 + level * 2.0) * (0.5 + near * 1.0);
       ctx.beginPath();
       ctx.moveTo(tx, ty);
-      ctx.lineTo(x, y);
-      ctx.stroke();
-
-      ctx.strokeStyle = M.hsl(CONFIG.windHue, 40, 92, alpha);
-      ctx.lineWidth = width;
-      ctx.beginPath();
-      ctx.moveTo(cx + ex * (1 - CONFIG.windHeadFrac),
-                 cy + ey * (1 - CONFIG.windHeadFrac));
       ctx.lineTo(x, y);
       ctx.stroke();
     }
