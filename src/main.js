@@ -1067,6 +1067,18 @@
     global.addEventListener('pointerdown', wakeSound, true);
     global.addEventListener('keydown', wakeSound, true);
 
+    /*
+     * 指での操作は、念のため touchstart と click からも受ける。
+     *
+     * 端末や設定によっては pointerdown が来ない（あるいは音声を
+     * 起こす操作として数えてもらえない）ことがあり、タイトル画面の
+     * 1回目を取りこぼすと、遊び始めるまで無音のままになる。
+     * すでに鳴っているときの wake() は何もしないので、重ねても害はない。
+     */
+    global.addEventListener('touchstart', wakeSound, true);
+    global.addEventListener('touchend', wakeSound, true);
+    global.addEventListener('click', wakeSound, true);
+
     canvas.addEventListener('pointermove', function (e) {
       // 追いかけている指以外は見ない。2本目に持ち替えられると、
       // 離れた場所どうしの差が一度に足されて自機が飛ぶ。

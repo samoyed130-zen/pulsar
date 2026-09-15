@@ -619,6 +619,31 @@
 
     ac = new AC();
 
+    /*
+     * 作った直後に、その場で起こす。
+     *
+     * スマートフォンでは、操作の中で作った音声でも「止まったまま」で
+     * 生まれてくることがある。ここで起こしておかないと、タイトル画面で
+     * 触れた1回目が無駄になり、遊び始める（別の経路で起こし直す）まで
+     * 無音のままになる。起こせるのは操作の中だけなので、ここで行う。
+     */
+    if (ac.state !== 'running') ac.resume();
+
+    /*
+     * 無音を一度だけ鳴らして、音声の口を開ける。
+     *
+     * 一部のスマートフォンでは、操作の中で resume() を呼んだだけでは
+     * 足りず、その操作の中で実際に音を出して初めて動き出す。
+     * 長さ1つぶんの無音なので、耳には何も聞こえない。
+     */
+    try {
+      var unlock = ac.createBufferSource();
+      unlock.buffer = ac.createBuffer(1, 1, ac.sampleRate);
+      unlock.connect(ac.destination);
+      if (unlock.start) unlock.start(0);
+      else if (unlock.noteOn) unlock.noteOn(0);
+    } catch (e) { /* 非対応でも先へ進む */ }
+
     // 端末側の都合で中断されたら、その場で再開を試みる。
     //
     // ただし、こちらの都合で止めたものまで起こしてはいけない。
