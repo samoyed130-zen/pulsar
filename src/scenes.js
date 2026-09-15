@@ -415,6 +415,32 @@
    * @returns {void}
    */
   function addPart(x, y, z, sx, sy, sz, hue, metal, emissive, rx, ry) {
+    /*
+     * カメラの向きを、ここで部材の側に掛ける。
+     *
+     * 投影そのものは「真正面を向いたカメラ」しか知らない。通路が
+     * 曲がっても正面を向いたままでは、奥行きの消失点が画面中央から
+     * 動かず、曲がった通路が横へ平行移動するだけに見えてしまう。
+     * 世界の側をカメラの向きの逆に回してから投影すれば、同じ仕組みの
+     * まま「進む向きを見ている」透視になる。
+     *
+     * 箱はどれも軸に揃っているので、位置を回し、箱自身にも同じ回転を
+     * 持たせるだけで正しい形になる（投影側の transform が x→y の順に
+     * 回すので、その順に合わせて求めている）。
+     */
+    if (camRx || camRy) {
+      var cb = Math.cos(camRx), sb = Math.sin(camRx);
+      var ca = Math.cos(camRy), sa = Math.sin(camRy);
+      var y1 = y * cb - z * sb;
+      var z1 = y * sb + z * cb;
+      var x2 = x * ca + z1 * sa;
+      z = -x * sa + z1 * ca;
+      x = x2;
+      y = y1;
+      rx = (rx || 0) + camRx;
+      ry = (ry || 0) + camRy;
+    }
+
     var nearEdge = z - sz;
 
     if (nearEdge < HALL.clipZ) {
@@ -477,6 +503,18 @@
   /** @brief 通路のずれを受け取る配列。毎回の確保を避けるため使い回す。 @private */
   var bendOut = [0, 0];
 
+  /** @brief 通路の傾きを求めるための、少し奥のずれ。 @private */
+  var bendAhead = [0, 0];
+
+  /**
+   * @brief カメラの向き [rad]。進む方向（通路の接線）を向く。
+   *
+   * `addPart` が、部材の位置と姿勢にそのまま掛ける。0 なら真正面。
+   * @private
+   */
+  var camRx = 0;
+  var camRy = 0;
+
   /**
    * @brief 建造物を描く。
    *
@@ -523,6 +561,37 @@
     hallBend(0, f.t, look, bendOut);
     var camX = bendOut[0];
     var camY = bendOut[1];
+
+    /*
+     * カメラを、通路の接線の向きへ向ける。
+     *
+     * 少し奥のずれとの差が、そのまま進む向きになる。上下のずれは
+     * x 軸まわり、左右のずれは y 軸まわりの回転として掛ける。
+     * 回す順（先に x、次に y）は投影側に合わせてある。
+     */
+    var AHEAD = 1.0;
+    hallBend(AHEAD, f.t, look, bendAhead);
+    var slopeX = (bendAhead[0] - bendOut[0]) / AHEAD;
+    var slopeY = (bendAhead[1] - bendOut[1]) / AHEAD;
+    camRx = Math.atan(slopeY);
+    camRy = -Math.atan(slopeX / Math.sqrt(1 + slopeY * slopeY));
+
+    /*
+     * 向けたぶん、消失点は画面の中央から外れる。リングと自機は
+     * 平面で描いているので、同じだけずらして重ね合わせる。
+     * ずらし量は、正面の一点（0,0,1）を同じ向きで投影して求める。
+     *
+     * ただし丸ごと動かすと、遊ぶ的（リング）まで画面の端へ寄って
+     * しまう。背景は向きどおりに、手前は控えめに。ここは見え方と
+     * 遊びやすさの折り合いで、6割ほどに抑えている。
+     */
+    var fy = -Math.sin(camRx);
+    var fz = Math.cos(camRx);
+    var fx = fz * Math.sin(camRy);
+    fz = fz * Math.cos(camRy);
+    var screenFocal = Math.min(f.W, f.H) * global.PULSAR.game.CONFIG.focal;
+    f.camShiftX = (fx / fz) * screenFocal * 0.6;
+    f.camShiftY = (fy / fz) * screenFocal * 0.6;
 
     // 映り込む照明の本数もステージで変える。金属面に映る景色が変われば、
     // 同じ形の通路でも別の場所に見える。
@@ -691,8 +760,9 @@
     var game = global.PULSAR.game;
 
     var c = f.ctx;
-    var cx = f.W / 2;
-    var cy = f.H / 2;
+    // 立体はリングに連れられているので、リングと同じだけずらす。
+    var cx = f.W / 2 + (f.camShiftX || 0);
+    var cy = f.H / 2 + (f.camShiftY || 0);
     var focal = Math.min(f.W, f.H) * game.CONFIG.focal;
     var pos = [0, 0, 0];
 
@@ -760,6 +830,10 @@
       c.fillRect(0, 0, f.W, f.H);
       drawHall(f, game.state.dist);
     } else {
+      // 背景を描かないときは、向きも真正面に戻す。
+      f.camShiftX = 0;
+      f.camShiftY = 0;
+
       // 背景なしのときは毎フレーム塗りつぶす。
       //
       // 残像を残す（薄く重ねる）方式にすると、加算で描くグレアの光が

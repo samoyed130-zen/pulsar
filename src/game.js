@@ -874,8 +874,11 @@
    */
   function draw(f) {
     var c = f.ctx;
-    var cx = f.W / 2;
-    var cy = f.H / 2;
+
+    // 背景のカメラが進む向きを向いているぶん、消失点は画面の中央から
+    // ずれる。リングも自機も同じだけずらし、通路と重ねて見せる。
+    var cx = f.W / 2 + (f.camShiftX || 0);
+    var cy = f.H / 2 + (f.camShiftY || 0);
     var focal = Math.min(f.W, f.H) * CONFIG.focal;
 
     var thin = thinScale(Math.min(f.W, f.H));

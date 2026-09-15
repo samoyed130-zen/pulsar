@@ -2154,7 +2154,12 @@
       // 疑似グレアでは色も明るさも沈むので、塗る側で補う
       satBoost: useSoftGlare() ? CONFIG.softGlareSat : 1,
       lightLift: useSoftGlare() ? CONFIG.softGlareLift : 0,
-      impact: impact
+      impact: impact,
+      // 進む向きを向いたカメラのぶん、消失点が画面中央からずれる量 [px]。
+      // 通路を描く場面（scenes.drawHall）が書き込み、リング・自機・
+      // 拾った合図がそれに合わせる。書き込まれない場面では 0 のまま。
+      camShiftX: 0,
+      camShiftY: 0
     };
 
     // キックに合わせた微小なズームと、衝突時の揺れ。
@@ -2292,8 +2297,8 @@
       var cf = game.state.collectFlash;
       var g = game.CONFIG;
       var shipR = game.cursorRadius(Math.min(W, H) * g.focal);
-      var sxp = W / 2 + Math.cos(game.state.angle) * shipR;
-      var syp = H / 2 + Math.sin(game.state.angle) * shipR;
+      var sxp = W / 2 + (f.camShiftX || 0) + Math.cos(game.state.angle) * shipR;
+      var syp = H / 2 + (f.camShiftY || 0) + Math.sin(game.state.angle) * shipR;
 
       var reach = Math.min(W, H);
 
