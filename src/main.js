@@ -897,6 +897,28 @@
     swingX: 0, swingY: 0, id: null
   };
 
+  /**
+   * @brief 指で触れる端末か。案内の文言と絵を選ぶために使う。
+   *
+   * `pointer.touch` は「実際に指で触れられた」ことを表すので、
+   * 遊び始めた直後――まだ一度も触れていない間は false のまま。
+   * そのため指の端末でも、初めの案内だけがマウス向けの文言になり、
+   * 一度触れてから入れ替わって見えてしまっていた。
+   *
+   * 案内は触れる前に読むものなので、こちらは端末の性質で決める。
+   * 操作の意味そのもの（なぞった量で動かすか、位置で狙うか）は
+   * これまでどおり `pointer.touch` が決める。
+   *
+   * @private
+   * @returns {boolean} 指で触れる端末なら true
+   */
+  function isTouchDevice() {
+    if (pointer.touch) return true;
+    if (global.matchMedia && global.matchMedia('(pointer: coarse)').matches) return true;
+    return ('ontouchstart' in global) ||
+           (global.navigator && global.navigator.maxTouchPoints > 0);
+  }
+
   /** @brief 矢印キーの押下状態。 @private */
   var keys = { left: false, right: false, up: false, down: false };
 
@@ -1321,7 +1343,7 @@
      * 往復させる。マウスは円周上の位置がそのまま狙いなので、
      * これまでどおり輪の上を回す。
      */
-    var swipe = pointer.touch;
+    var swipe = isTouchDevice();
     var fx = swipe
       ? cx + Math.sin(a) * radius
       : cx + Math.cos(a) * radius;
@@ -1337,7 +1359,7 @@
     c.globalCompositeOperation = 'source-over';
     c.font = '700 ' + Math.min(f.W * 0.045, 22).toFixed(0) + 'px system-ui, sans-serif';
     c.fillStyle = 'rgba(236,243,255,' + alpha.toFixed(3) + ')';
-    c.fillText(swipe ? '一本指で動かす' : 'マウスを動かして操作',
+    c.fillText(swipe ? 'スワイプで操作します' : 'マウスを動かして操作',
                cx, cy + radius + 42);
 
     c.restore();
