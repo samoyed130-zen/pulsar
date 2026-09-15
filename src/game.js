@@ -996,7 +996,9 @@
     var hue = M.lerp(f.hue + 150, 0, hurt);
     // 自機も画面の大きさに合わせる。輪だけ細くすると、今度は自機が
     // 輪からはみ出して見える。
-    var size = (14 + f.kick * 6) * thin;
+    // 機体の大きさ。後ろ姿として形が読めるよう、大きめに取っている。
+    // 拍で少し膨らむ（f.kick）ぶんも込み。
+    var size = (28 + f.kick * 12) * thin;
 
     c.save();
     c.globalCompositeOperation = 'lighter';
@@ -1018,26 +1020,76 @@
     c.arc(x, y, size * 2.6, 0, TAU);
     c.fill();
 
+    /*
+     * 光の玉と、はためく羽。
+     *
+     * 機体の形を描き込むと、小さく映る画面では角ばった染みに見えて
+     * しまい、背景の直線と喧嘩する。丸い光そのものを自機にすると、
+     * どの大きさでも「これが自分だ」と一目で分かる。
+     *
+     * 羽は上下2対。時間で開き具合を変えて、止まっていても生きている
+     * ように見せる。玉より薄く描き、芯の位置を隠さない。
+     *
+     * 向きは、羽の上側がトンネルの中心を向くように置く。壁に沿って
+     * 回り込む動きと姿勢が揃う。
+     */
     c.translate(x, y);
-    c.rotate(state.angle + Math.PI / 2);
+    c.rotate(state.angle - Math.PI / 2);
 
-    c.fillStyle = M.hsl(hue, 100, 78, 0.95);
+    // 羽ばたき。拍に合わせて少し速くなる。
+    var flap = Math.sin(f.t * 12 + state.angle) * 0.5 + 0.5;
+
+    for (var w = -1; w <= 1; w += 2) {
+      for (var pair = 0; pair < 2; pair++) {
+        // 前の羽は大きく上向き、後ろの羽は小さく下向きに広げる。
+        var spread = pair === 0 ? -0.55 : 0.35;
+        var wr = size * (pair === 0 ? 0.95 : 0.7);
+        var tilt = w * (0.5 + flap * 0.45) + spread * 0.25;
+
+        c.save();
+        c.rotate(tilt * (pair === 0 ? 1 : 1.25));
+        c.translate(w * size * 0.3, spread * size * 0.3);
+        // 円を潰して羽の形にする。ellipse が無い環境でも動く書き方。
+        c.scale(1, 0.42);
+
+        var wing = c.createRadialGradient(w * wr * 0.5, 0, 0,
+                                          w * wr * 0.5, 0, wr);
+        wing.addColorStop(0, M.hsl(hue + 10, 100, 85, 0.34));
+        wing.addColorStop(1, M.hsl(hue + 10, 100, 80, 0));
+        c.fillStyle = wing;
+        c.beginPath();
+        c.arc(w * wr * 0.5, 0, wr, 0, TAU);
+        c.fill();
+        c.restore();
+      }
+    }
+
+    // 光の玉。中心を白で飛ばし、外へ向かって色を付ける。
+    var core = c.createRadialGradient(0, 0, 0, 0, 0, size * 0.85);
+    core.addColorStop(0, 'rgba(255,255,255,0.98)');
+    core.addColorStop(0.35, M.hsl(hue, 100, 88, 0.9));
+    core.addColorStop(1, M.hsl(hue, 100, 70, 0));
+    c.fillStyle = core;
     c.beginPath();
-    c.moveTo(0, -size);
-    c.lineTo(size * 0.72, size * 0.72);
-    c.lineTo(0, size * 0.28);
-    c.lineTo(-size * 0.72, size * 0.72);
-    c.closePath();
+    c.arc(0, 0, size * 0.85, 0, TAU);
     c.fill();
 
-    // 白い芯を入れて、色が変わっても常に視認できるようにする。
-    c.fillStyle = 'rgba(255,255,255,0.9)';
-    c.beginPath();
-    c.moveTo(0, -size * 0.45);
-    c.lineTo(size * 0.26, size * 0.3);
-    c.lineTo(-size * 0.26, size * 0.3);
-    c.closePath();
-    c.fill();
+    /*
+     * 後ろへ散る光の粉。
+     *
+     * 手前（こちら側）へ流れて消えることで、奥へ進んでいることが
+     * 伝わる。位置は時間から決めるので、状態を持たずに済む。
+     */
+    for (var d = 0; d < 5; d++) {
+      var life = (f.t * 1.6 + d * 0.37) % 1;
+      var dy = size * (0.5 + life * 2.2);
+      var dx = Math.sin(f.t * 3 + d * 2.1) * size * 0.5 * life;
+      var dr = size * 0.16 * (1 - life);
+      c.fillStyle = M.hsl(hue + 15, 100, 88, 0.5 * (1 - life));
+      c.beginPath();
+      c.arc(dx, dy, Math.max(dr, 0.5), 0, TAU);
+      c.fill();
+    }
 
     c.restore();
     c.globalCompositeOperation = 'source-over';
