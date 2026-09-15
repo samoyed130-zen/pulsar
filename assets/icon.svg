@@ -3,12 +3,22 @@
 
   作品と同じく、素材を持ち込まずに図形だけで描く。中心から広がる輪は
   トンネルのリングで、切れ目のある輪は「そこを抜ける」という遊びそのもの。
+  中央の光の玉と羽は自機。作品の中で見えるものと同じ姿にしてある。
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
     <radialGradient id="bg" cx="50%" cy="50%" r="70%">
       <stop offset="0%" stop-color="#131a33"/>
       <stop offset="100%" stop-color="#04050a"/>
+    </radialGradient>
+    <radialGradient id="core" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/>
+      <stop offset="38%" stop-color="#dff1ff" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#7ad7ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="wing" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#cfe9ff" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#9fd8ff" stop-opacity="0"/>
     </radialGradient>
     <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#4aa8ff"/>
@@ -30,6 +40,25 @@
           stroke-linecap="round" stroke-dasharray="830 276"
           transform="rotate(-8 256 256)"/>
 
-  <!-- 自機。リングの切れ目を抜けていく三角 -->
-  <path d="M256 150 l30 52 -30 -16 -30 16 z" fill="#dfe5f7"/>
+  <!-- 自機。光の玉と、上下2対の羽（作品中の描画と同じ組み立て） -->
+  <g transform="translate(256 150)">
+    <!-- 羽。玉より薄く、芯を隠さない -->
+    <ellipse cx="-34" cy="-10" rx="40" ry="17" fill="url(#wing)"
+             transform="rotate(-28 -34 -10)"/>
+    <ellipse cx="34" cy="-10" rx="40" ry="17" fill="url(#wing)"
+             transform="rotate(28 34 -10)"/>
+    <ellipse cx="-26" cy="14" rx="30" ry="13" fill="url(#wing)"
+             transform="rotate(-52 -26 14)"/>
+    <ellipse cx="26" cy="14" rx="30" ry="13" fill="url(#wing)"
+             transform="rotate(52 26 14)"/>
+
+    <!-- 光の玉。中心を白で飛ばす -->
+    <circle cx="0" cy="0" r="40" fill="url(#core)"/>
+    <circle cx="0" cy="0" r="13" fill="#ffffff"/>
+
+    <!-- 後ろへ散る光の粉 -->
+    <circle cx="6" cy="46" r="5" fill="#dff1ff" opacity="0.5"/>
+    <circle cx="-9" cy="62" r="3.5" fill="#dff1ff" opacity="0.32"/>
+    <circle cx="4" cy="76" r="2.5" fill="#dff1ff" opacity="0.18"/>
+  </g>
 </svg>
