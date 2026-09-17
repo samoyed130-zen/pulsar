@@ -20,8 +20,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PULSAR">
-<link rel="apple-touch-icon" href="assets/icon.svg?v=58">
-<link rel="icon" href="assets/icon.svg?v=58" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icon.svg?v=59">
+<link rel="icon" href="assets/icon.svg?v=59" type="image/svg+xml">
 <!--
   末尾の ?v= は、直したものを確実に届けるための版番号。
 
@@ -31,7 +31,7 @@
 
   見た目や動きを直したら、この番号を1つ進めること。
 -->
-<link rel="stylesheet" href="style.css?v=58">
+<link rel="stylesheet" href="style.css?v=59">
 </head>
 <body>
 
@@ -350,14 +350,14 @@
   <p class="noscript">この作品は JavaScript で描画しています。有効にしてご覧ください。</p>
 </noscript>
 
-<script src="src/store.js?v=58"></script>
-<script src="src/mathx.js?v=58"></script>
-<script src="src/raster.js?v=58"></script>
-<script src="src/mesh3d.js?v=58"></script>
-<script src="src/sound.js?v=58"></script>
-<script src="src/game.js?v=58"></script>
-<script src="src/scenes.js?v=58"></script>
-<script src="src/main.js?v=58"></script>
+<script src="src/store.js?v=59"></script>
+<script src="src/mathx.js?v=59"></script>
+<script src="src/raster.js?v=59"></script>
+<script src="src/mesh3d.js?v=59"></script>
+<script src="src/sound.js?v=59"></script>
+<script src="src/game.js?v=59"></script>
+<script src="src/scenes.js?v=59"></script>
+<script src="src/main.js?v=59"></script>
 <script>
   // 読み込み順に依存するため、起動はここで1度だけ行う。
   PULSAR.app.boot();
@@ -413,6 +413,32 @@
       titleHint.textContent = PULSAR.sound.isPlaying()
         ? '♪ 音を出して遊んでください'
         : '♪ 画面をタップすると音が鳴ります';
+    }
+
+    /*
+     * 音の内部状態を画面に出す（`?debug=sound` を付けたときだけ）。
+     *
+     * 手元に無い端末で鳴らないとき、どこで止まっているのかを
+     * 見るための窓。付けなければ何も起きない。
+     */
+    if (/[?&]debug=sound/.test(location.search)) {
+      var dbg = document.createElement('pre');
+      dbg.style.cssText = 'position:fixed;left:6px;bottom:6px;z-index:99;margin:0;' +
+        'padding:6px 8px;background:rgba(0,0,0,.72);color:#8fe;font:11px/1.45 monospace;' +
+        'white-space:pre;pointer-events:none;border-radius:6px';
+      document.body.appendChild(dbg);
+      window.setInterval(function () {
+        var d = PULSAR.sound.debugState();
+        dbg.textContent =
+          'v59  allowed=' + d.allowed + ' wanted=' + d.wanted + ' muted=' + d.muted +
+          '
+suspended=' + d.suspended + ' hidden=' + d.hidden + ' saved=' + d.saved +
+          '
+ctx=' + d.has + ' state=' + d.state + ' timer=' + d.timer +
+          '
+wake=' + d.wake + ' start=' + d.start +
+          ' playing=' + PULSAR.sound.isPlaying();
+      }, 250);
     }
 
     var title = document.getElementById('title');
@@ -978,7 +1004,7 @@
       // 結果を眺めている最中に消えて出直すことになる。
       if (open && !testsFrame.getAttribute('src')) {
         // 版番号は作品側と揃える（古いまま読み込まれるのを避ける）
-        testsFrame.setAttribute('src', 'test.html?v=58');
+        testsFrame.setAttribute('src', 'test.html?v=59');
       }
 
       if (open) {
