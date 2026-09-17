@@ -20,8 +20,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PULSAR">
-<link rel="apple-touch-icon" href="assets/icon.svg?v=56">
-<link rel="icon" href="assets/icon.svg?v=56" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icon.svg?v=58">
+<link rel="icon" href="assets/icon.svg?v=58" type="image/svg+xml">
 <!--
   末尾の ?v= は、直したものを確実に届けるための版番号。
 
@@ -31,7 +31,7 @@
 
   見た目や動きを直したら、この番号を1つ進めること。
 -->
-<link rel="stylesheet" href="style.css?v=56">
+<link rel="stylesheet" href="style.css?v=58">
 </head>
 <body>
 
@@ -350,14 +350,14 @@
   <p class="noscript">この作品は JavaScript で描画しています。有効にしてご覧ください。</p>
 </noscript>
 
-<script src="src/store.js?v=56"></script>
-<script src="src/mathx.js?v=56"></script>
-<script src="src/raster.js?v=56"></script>
-<script src="src/mesh3d.js?v=56"></script>
-<script src="src/sound.js?v=56"></script>
-<script src="src/game.js?v=56"></script>
-<script src="src/scenes.js?v=56"></script>
-<script src="src/main.js?v=56"></script>
+<script src="src/store.js?v=58"></script>
+<script src="src/mathx.js?v=58"></script>
+<script src="src/raster.js?v=58"></script>
+<script src="src/mesh3d.js?v=58"></script>
+<script src="src/sound.js?v=58"></script>
+<script src="src/game.js?v=58"></script>
+<script src="src/scenes.js?v=58"></script>
+<script src="src/main.js?v=58"></script>
 <script>
   // 読み込み順に依存するため、起動はここで1度だけ行う。
   PULSAR.app.boot();
@@ -395,9 +395,25 @@
     // ボタン側から起きた変化ではないため、定期的に実状態へ合わせる。
     window.setInterval(function () {
       syncSoundButton();
+      syncTitleHint();
       // 合図や知らせの最中は開けない。押せないことを見た目でも示す。
       menuBtn.disabled = PULSAR.app.isBusy();
     }, 700);
+
+    /**
+     * タイトルの一言を、いま音が鳴っているかで書き分ける。
+     *
+     * ブラウザは、利用者が一度も触れていないページから音を出させない。
+     * iPhone には例外が無いため、開いただけのタイトルは必ず無音になる。
+     * それを黙っていると「壊れている」と読まれるので、鳴っていない間は
+     * 何をすれば鳴るのかを書く。鳴り始めたら誘い文句へ戻す。
+     */
+    function syncTitleHint() {
+      if (!titleHint || title.hidden) return;
+      titleHint.textContent = PULSAR.sound.isPlaying()
+        ? '♪ 音を出して遊んでください'
+        : '♪ 画面をタップすると音が鳴ります';
+    }
 
     var title = document.getElementById('title');
     var stageSelect = document.getElementById('stageSelect');
@@ -442,7 +458,8 @@
       }
 
       // 音はこの作品の半分を占めるので、遊ぶ前に必ず伝える。
-      titleHint.textContent = '♪ 音を出して遊んでください';
+      // 実際に鳴っているかで文言が変わる（syncTitleHint）。
+      titleHint.textContent = '♪ 画面をタップすると音が鳴ります';
     }
 
     stageSelect.addEventListener('click', function (e) {
@@ -455,6 +472,21 @@
     // 幾何学的な場面を眺めている途中でも、作品の中身をすぐ見せられる。
     title.addEventListener('pointerdown', function (e) {
       if (e.target && e.target.closest && e.target.closest('button')) return;
+
+      /*
+       * ここは音を出す機会でもある。
+       *
+       * 触れたときに起こすだけ（sound.wake）だと、以前に「音 なし」を
+       * 選んだ端末では何も起きない。その状態はタイトルからは見えず、
+       * 遊び始めた瞬間に鳴り出す（開始は turnOn で保存内容を問わない）
+       * ため、「タイトルだけ鳴らない」という形で表に出ていた。
+       *
+       * タイトルは「♪ 音を出して遊んでください」と誘っている場所なので、
+       * ここを押すのは開始ボタンと同じく「音を出す」意思として扱う。
+       * 止めたい人はメニューからいつでも切れる。
+       */
+      PULSAR.sound.turnOn();
+
       PULSAR.app.showAutoplay();
     });
 
@@ -946,7 +978,7 @@
       // 結果を眺めている最中に消えて出直すことになる。
       if (open && !testsFrame.getAttribute('src')) {
         // 版番号は作品側と揃える（古いまま読み込まれるのを避ける）
-        testsFrame.setAttribute('src', 'test.html?v=56');
+        testsFrame.setAttribute('src', 'test.html?v=58');
       }
 
       if (open) {

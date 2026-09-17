@@ -611,6 +611,9 @@
 
     if (ac) {
       if (ac.state !== 'running') ac.resume();
+      // 音声はあるのに並べ始めていない（前回は始められる場面では
+      // なかった）ことがある。そのときはここで始める。
+      if (!timer) beginSequencer();
       return;
     }
 
@@ -657,10 +660,55 @@
     master.gain.value = muted ? 0 : CONFIG.masterGain;
     master.connect(ac.destination);
 
-    step = 0;
-    nextTime = ac.currentTime + 0.08;
-    timer = global.setInterval(schedule, CONFIG.tickMs);
-    schedule();
+    /*
+     * 並べ始めるのは、音声が実際に動き出してから。
+     *
+     * resume() は頼んだ時点では終わっていない。止まっている音声の
+     * 時計は進まないので、その最中に先の時刻へ音を並べると、動き
+     * 出した拍子にまとめて過ぎた時刻になり、最初の何小節かが鳴らずに
+     * 飛ぶ。スマートフォンでは起き上がるまでに間が空くため、これが
+     * 「触ったのに鳴らない」として表に出る。
+     *
+     * 作るところまでは操作の中で済ませ、並べ始めだけを後ろへ回す。
+     */
+    beginSequencer();
+  }
+
+  /**
+   * @brief 音声が動き出すのを待ってから、曲を並べ始める。
+   *
+   * 待つといっても、起き上がらない端末で延々と粘っても仕方がない。
+   * 数回だけ見に行き、それでも駄目なら並べ始める（そのまま止まって
+   * いれば時計も進まないので、起きた時点から鳴り始める）。
+   *
+   * @private
+   * @returns {void}
+   */
+  function beginSequencer() {
+    var tries = 0;
+
+    function go() {
+      if (!ac) return;
+
+      // こちらの都合で止めた（タブが隠れた・テスト中）なら、始めない。
+      if (!canPlay()) return;
+
+      if (ac.state !== 'running' && tries < 20) {
+        tries++;
+        ac.resume();
+        global.setTimeout(go, 50);
+        return;
+      }
+
+      if (timer) return;   // 二重に走らせない
+
+      step = 0;
+      nextTime = ac.currentTime + 0.08;
+      timer = global.setInterval(schedule, CONFIG.tickMs);
+      schedule();
+    }
+
+    global.setTimeout(go, 0);
   }
 
   /**
@@ -767,6 +815,7 @@
       return;
     }
     if (ac.state === 'suspended') ac.resume();
+    if (!timer) beginSequencer();
   }
 
   /**
