@@ -431,12 +431,9 @@
         var d = PULSAR.sound.debugState();
         dbg.textContent =
           'v59  allowed=' + d.allowed + ' wanted=' + d.wanted + ' muted=' + d.muted +
-          '
-suspended=' + d.suspended + ' hidden=' + d.hidden + ' saved=' + d.saved +
-          '
-ctx=' + d.has + ' state=' + d.state + ' timer=' + d.timer +
-          '
-wake=' + d.wake + ' start=' + d.start +
+          '\nsuspended=' + d.suspended + ' hidden=' + d.hidden + ' saved=' + d.saved +
+          '\nctx=' + d.has + ' state=' + d.state + ' timer=' + d.timer +
+          '\nwake=' + d.wake + ' start=' + d.start +
           ' playing=' + PULSAR.sound.isPlaying();
       }, 250);
     }
