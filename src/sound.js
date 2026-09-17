@@ -601,7 +601,6 @@
    * @returns {void}
    */
   function start() {
-    startCalls++;
     wanted = true;
 
     // 禁じられている場面（テストなど）では、音声そのものを作らない。
@@ -810,7 +809,6 @@
    * @returns {void}
    */
   function wake() {
-    wakeCalls++;
     if (!canPlay()) return;
     if (!ac) {
       start();
@@ -888,37 +886,8 @@
     });
   }
 
-  /** @brief wake() と start() が呼ばれた回数。診断表示だけに使う。 @private */
-  var wakeCalls = 0;
-  var startCalls = 0;
-
-  /**
-   * @brief 音まわりの内部状態を返す（`?debug=sound` のときだけ使う）。
-   *
-   * 手元に無い端末で鳴らない理由は、どこで止まっているかを見ないと
-   * 絞り込めない。ふだんの遊びには関わらない。
-   *
-   * @returns {Object} 状態の写し
-   */
-  function debugState() {
-    return {
-      allowed: allowed,
-      wanted: wanted,
-      muted: muted,
-      suspended: suspended,
-      has: !!ac,
-      state: ac ? ac.state : '-',
-      timer: !!timer,
-      hidden: !!(global.document && global.document.hidden),
-      saved: global.PULSAR.store.get('pulsar.sound'),
-      wake: wakeCalls,
-      start: startCalls
-    };
-  }
-
   global.PULSAR = global.PULSAR || {};
   global.PULSAR.sound = {
-    debugState: debugState,
     CONFIG: CONFIG,
     LAYER: LAYER,
     start: start,
