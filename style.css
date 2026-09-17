@@ -330,6 +330,28 @@ body.on-title #panel { display: none; }
   50% { box-shadow: 0 0 0 18px rgba(122, 215, 255, 0); }
 }
 
+/*
+ * 作者と版。画面のいちばん下、中央に小さく置く。
+ *
+ * タイトルの文字組み（.titleInner）の外に出している。中に入れると
+ * ロゴとボタンの塊に引きずられて中央へ寄り、署名ではなく案内の
+ * 一部に見えてしまう。背後で流れているデモを邪魔しないよう、
+ * 濃さは控えめにしてある。
+ */
+.titleFoot {
+  position: absolute;
+  left: var(--pad);
+  right: var(--pad);
+  bottom: max(12px, env(safe-area-inset-bottom));
+  margin: 0;
+  text-align: center;
+  font-size: clamp(10px, calc(0.45vw + 0.45vh), 13px);
+  letter-spacing: 0.14em;
+  color: rgba(214, 226, 255, 0.5);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+
 .titleHint {
   margin: 20px 0 0;
   font-size: var(--fs-ui);

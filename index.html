@@ -20,8 +20,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PULSAR">
-<link rel="apple-touch-icon" href="assets/icon.svg?v=55">
-<link rel="icon" href="assets/icon.svg?v=55" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icon.svg?v=56">
+<link rel="icon" href="assets/icon.svg?v=56" type="image/svg+xml">
 <!--
   末尾の ?v= は、直したものを確実に届けるための版番号。
 
@@ -31,7 +31,7 @@
 
   見た目や動きを直したら、この番号を1つ進めること。
 -->
-<link rel="stylesheet" href="style.css?v=55">
+<link rel="stylesheet" href="style.css?v=56">
 </head>
 <body>
 
@@ -52,6 +52,12 @@
     <div class="stageSelect" id="stageSelect"></div>
     <p class="titleHint" id="titleHint">♪ 音を出して遊んでください</p>
   </div>
+
+  <!--
+    作者と版。タイトルにだけ出す。
+    走り出したら画面から消し、遊びの邪魔をしない。
+  -->
+  <p class="titleFoot">(C) samoyed130 &nbsp;/&nbsp; v1.1.0</p>
 </div>
 
 <!--
@@ -344,14 +350,14 @@
   <p class="noscript">この作品は JavaScript で描画しています。有効にしてご覧ください。</p>
 </noscript>
 
-<script src="src/store.js?v=55"></script>
-<script src="src/mathx.js?v=55"></script>
-<script src="src/raster.js?v=55"></script>
-<script src="src/mesh3d.js?v=55"></script>
-<script src="src/sound.js?v=55"></script>
-<script src="src/game.js?v=55"></script>
-<script src="src/scenes.js?v=55"></script>
-<script src="src/main.js?v=55"></script>
+<script src="src/store.js?v=56"></script>
+<script src="src/mathx.js?v=56"></script>
+<script src="src/raster.js?v=56"></script>
+<script src="src/mesh3d.js?v=56"></script>
+<script src="src/sound.js?v=56"></script>
+<script src="src/game.js?v=56"></script>
+<script src="src/scenes.js?v=56"></script>
+<script src="src/main.js?v=56"></script>
 <script>
   // 読み込み順に依存するため、起動はここで1度だけ行う。
   PULSAR.app.boot();
@@ -940,7 +946,7 @@
       // 結果を眺めている最中に消えて出直すことになる。
       if (open && !testsFrame.getAttribute('src')) {
         // 版番号は作品側と揃える（古いまま読み込まれるのを避ける）
-        testsFrame.setAttribute('src', 'test.html?v=55');
+        testsFrame.setAttribute('src', 'test.html?v=56');
       }
 
       if (open) {
